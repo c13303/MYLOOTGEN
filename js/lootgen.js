@@ -6,6 +6,7 @@ function compute() {
     const lootTime = state.median_time_per_loot || 1;
     const timeMult = state.level_time_multiplier || 0;
     const rarityGrowth = state.rarity_growth_factor || 0;
+    const rarityWeightGrowth = state.rarity_weight_growth || 0;
     const xpBase = state.xp_base || 0;
     const xpGrowth = state.xp_growth || 1;
     const xpMult = state.xp_multiplier || 1;
@@ -121,7 +122,8 @@ function compute() {
         applyStatGain(lvl);
         const growth = Math.pow(1 + 0.05 * timeMult, lvl - 1);
         const levelTime = baseLevelTime * growth;
-        const lootCount = Math.max(1, Math.floor(levelTime / lootTime));
+        const lootCountRaw = Math.max(1, Math.floor(levelTime / lootTime));
+        const lootCount = Math.max(1, Math.round(lootCountRaw * (state.additional_loot_factor || 1)));
         const xpForLevel = xpBase * Math.pow(lvl, xpGrowth) * xpMult;
         totalXp += xpForLevel;
         totalSeconds += levelTime;
@@ -131,9 +133,9 @@ function compute() {
             const unlock = cat.unlock_level || 1;
             if (lvl < unlock) return 0;
             const progress = Math.min(1, (lvl - unlock) / Math.max(1, levels - unlock));
-            const growthPower = state.rarity_growth_power || 1;
-            const factor = 0.2 + Math.pow(progress, growthPower) * (1 + rarityGrowth);
-            return baseWeight * factor;
+            const factor = 0.2 + progress * (1 + rarityGrowth);
+            const growthWeight = 1 + rarityWeightGrowth * (lvl - unlock);
+            return baseWeight * factor * growthWeight;
         });
 
         let percents = [];
@@ -165,7 +167,9 @@ function compute() {
 
         const damageTotalsBase = {};
         const resistTotalsBase = {};
-        if (baseUnarmed > 0) damageTotalsBase.Physical = baseUnarmed;
+        const unarmedGrowth = state.unarmed_growth || 0;
+        const scaledUnarmed = baseUnarmed * (1 + unarmedGrowth * lvl);
+        if (scaledUnarmed > 0) damageTotalsBase.Physical = scaledUnarmed;
         if (basePhysRes > 0) resistTotalsBase.Physical = basePhysRes;
 
         const pickCategory = (seed) => {
@@ -181,11 +185,14 @@ function compute() {
         // paliers d'affixes configurables
         const affixPower = state.affix_power || 1;
         const lvlPow = Math.pow(lvl, affixPower);
-        const minAttrVal = Math.max(1, Math.round(lootRandRange + lvlPow * (state.affix_min_slope || 0.9)));
-        const maxAttrVal = Math.max(
-            minAttrVal + 1,
+        const affixCap = state.affix_cap || Infinity;
+        const minAttrValRaw = Math.max(1, Math.round(lootRandRange + lvlPow * (state.affix_min_slope || 0.9)));
+        const maxAttrValRaw = Math.max(
+            minAttrValRaw + 1,
             Math.round(lootRandRange * (state.affix_max_multiplier || 2.2) + lvlPow * (state.affix_max_slope || 1.3))
         );
+        const minAttrVal = Math.min(minAttrValRaw, affixCap);
+        const maxAttrVal = Math.min(maxAttrValRaw, affixCap);
 
         // simulate loot batch
         const totalDrops = Math.max(1, Math.floor((lootCount * generatePercent) / 100));
@@ -199,6 +206,7 @@ function compute() {
             const attrs = cat.attributes && cat.attributes > 0
                 ? Math.max(1, cat.attributes + Math.floor(lvl * attrGrowth))
                 : 1;
+            const affixLimit = chosenItem.affix_max || attrs;
             const typePool = (cat.attribute_types && cat.attribute_types.length) ? cat.attribute_types : damageTypes.map((d) => d.name);
             const bonuses = [];
             const dmgAdds = {};
@@ -206,9 +214,18 @@ function compute() {
             let localAtkBonus = 0;
             let hasAtkSpeed = false;
             const allowAtkSpeedThisItem = cat.allow_attack_speed_mod && pseudoRand((lvl + d + 31) * 0.37) < 0.25;
-            for (let k = 0; k < attrs; k += 1) {
-                const pickIdx = Math.floor(pseudoRand((lvl + 11) * (d + 1) * (k + 1)) * typePool.length) % typePool.length;
-                const typeName = typePool[pickIdx] || "Physical";
+            const usedTypes = new Set();
+            for (let k = 0; k < Math.min(attrs, affixLimit); k += 1) {
+                let typeName = null;
+                for (let tries = 0; tries < 5; tries += 1) {
+                    const pickIdx = Math.floor(pseudoRand((lvl + 11 + tries) * (d + 1) * (k + 1)) * typePool.length) % typePool.length;
+                    const candidate = typePool[pickIdx] || "Physical";
+                    if (!usedTypes.has(candidate)) {
+                        typeName = candidate;
+                        break;
+                    }
+                }
+                if (!typeName) continue;
                 const useAttackSpeed = allowAtkSpeedThisItem && !hasAtkSpeed && pseudoRand(k + lvl + d) < 0.1;
                 const isDamage = useAttackSpeed ? false : k % 2 === 0;
                 const bonus = Math.max(minAttrVal, Math.round(minAttrVal + pseudoRand(k + d + lvl) * (maxAttrVal - minAttrVal)));
@@ -219,9 +236,11 @@ function compute() {
                 } else if (isDamage) {
                     dmgAdds[typeName] = (dmgAdds[typeName] || 0) + bonus;
                     bonuses.push(`+${bonus}% ${typeName} dmg`);
+                    usedTypes.add(typeName);
                 } else {
                     resAdds[typeName] = (resAdds[typeName] || 0) + bonus;
                     bonuses.push(`+${bonus}% ${typeName} res`);
+                    usedTypes.add(typeName);
                 }
             }
             lootList.push({ slot, category: cat.name, name: chosenItem.name, bonuses, dmgAdds, resAdds, atkBonus: localAtkBonus || extractAtkBonus(bonuses) });
@@ -248,10 +267,26 @@ function compute() {
         });
 
         const equippedLoot = Object.values(gearBySlot).map((v) => v.loot);
+        const orderBonuses = (bonuses) => {
+            const dmg = [];
+            const atk = [];
+            const res = [];
+            const other = [];
+            bonuses.forEach((b) => {
+                const lower = b.toLowerCase();
+                if (lower.includes("dmg")) dmg.push(b);
+                else if (lower.includes("attack speed")) atk.push(b);
+                else if (lower.includes("res")) res.push(b);
+                else other.push(b);
+            });
+            return [...dmg, ...atk, ...res, ...other];
+        };
+
         const gearLines = equippedLoot.map((loot) => {
-            const bonusesColored = loot.bonuses.map((b) => colorizeBonus(b));
+            const ordered = orderBonuses(loot.bonuses);
+            const bonusesColored = ordered.map((b) => colorizeBonus(b));
             const catColor = categoryColorMap[loot.category] || "#e2e8f0";
-            return `    ${loot.slot}: ${loot.name} <span style="color:${catColor}">[${loot.category}]</span> ${bonusesColored.join(", ")}`;
+            return `    <span style="color:#facc15">${loot.slot}</span>: <span style="color:${catColor}">${loot.name}</span> <span style="color:${catColor}">[${loot.category}]</span> ${bonusesColored.join(", ")}`;
         });
 
         const colorize = (k, text) => `<span style="color:${colorMap[k] || "#e2e8f0"}">${text}</span>`;
@@ -265,15 +300,17 @@ function compute() {
         const gearListHtml = gearLines.map((g) => `<li>${g}</li>`).join("");
         const allLootHtml = lootList.length
             ? `<ul>${lootList.map((l) => {
-                const bonusesColored = l.bonuses.map((b) => colorizeBonus(b)).join(", ");
+                const ordered = orderBonuses(l.bonuses);
+                const bonusesColored = ordered.map((b) => colorizeBonus(b)).join(", ");
                 const catColor = categoryColorMap[l.category] || "#e2e8f0";
-                return `<li>${l.slot} | <span style="color:${catColor}">${l.category}</span> | ${l.name} | ${bonusesColored}</li>`;
+                return `<li><span style="color:#facc15">${l.slot}</span> | <span style="color:${catColor}">${l.category}</span> | <span style="color:${catColor}">${l.name}</span> | ${bonusesColored}</li>`;
             }).join("")}</ul>`
             : "No loot";
         const pickedHtml = equippedLoot.map((l) => {
-            const bonusesColored = l.bonuses.map((b) => colorizeBonus(b)).join(", ");
+            const ordered = orderBonuses(l.bonuses);
+            const bonusesColored = ordered.map((b) => colorizeBonus(b)).join(", ");
             const catColor = categoryColorMap[l.category] || "#e2e8f0";
-            return `<li>${l.slot} | <span style="color:${catColor}">${l.category}</span> | ${l.name} | ${bonusesColored}</li>`;
+            return `<li><span style="color:#facc15">${l.slot}</span> | <span style="color:${catColor}">${l.category}</span> | <span style="color:${catColor}">${l.name}</span> | ${bonusesColored}</li>`;
         }).join("") || "No equip";
         const statsLine = attrNames.map((a) => `${a}=${stats[a]}`).join(", ");
         const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}`;
@@ -342,7 +379,11 @@ function compute() {
         const btn = document.getElementById("copy-json");
         if (btn) {
             btn.onclick = () => {
-                navigator.clipboard.writeText(JSON.stringify(jsonData, null, 2));
+                const headers = jsonData.map((entry) => {
+                    const line = `Lvl ${entry.level} | ${Math.round(entry.totals.dps && entry.totals.dps.length ? parseFloat((entry.totals.dps[0].match(/([0-9.]+)/) || [0, 0])[1]) : 0)} DPS | ${entry.time_readable} | ${entry.loot_count} loot`;
+                    return line;
+                }).join("\n");
+                navigator.clipboard.writeText(headers);
             };
         }
         const chartEl = document.getElementById(chartId);
