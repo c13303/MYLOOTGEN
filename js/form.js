@@ -6,6 +6,7 @@ $(function () {
     const $skillSlots = $("#skill-slots");
     const $attrRanges = $(".attr-number");
     const $gainPerLevel = $("#gain-per-level");
+    const $statsProgressionModel = $("#stats-progression-model");
     const $medianTimePerLoot = $("#median-time-per-loot");
     const $medianTimePerLevel = $("#median-time-per-level");
     const $levelTimeMultiplier = $("#level-time-multiplier");
@@ -19,6 +20,9 @@ $(function () {
     const $affixMinSlope = $("#affix-min-slope");
     const $affixMaxSlope = $("#affix-max-slope");
     const $affixMaxMultiplier = $("#affix-max-multiplier");
+    const $affixPower = $("#affix-power");
+    const $rarityGrowthPower = $("#rarity-growth-power");
+    const $attrPerLevelFactor = $("#attr-per-level-factor");
     const $xpBase = $("#xp-base");
     const $xpGrowth = $("#xp-growth");
     const $xpMultiplier = $("#xp-multiplier");
@@ -77,6 +81,15 @@ $(function () {
         const $overTime = $('<input type="checkbox">');
         const $overTimeText = $("<span>Over time</span>");
         $overTimeWrapper.append($overTime, $overTimeText).css({ cursor: "pointer", userSelect: "none" });
+
+        const $color = $('<input type="color" value="#ffffff">').css({
+            padding: "4px",
+            borderRadius: "6px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0",
+            width: "100%"
+        });
 
         const $rangeList = $('<div class="range-list"></div>').css({
             display: "flex",
@@ -208,7 +221,8 @@ $(function () {
                 name: damageName,
                 base_damage: baseDamage,
                 is_over_time: isOverTime,
-                ranges
+                ranges,
+                color: $color.val() || "#ffffff"
             });
 
             renderTags("damage_types");
@@ -217,7 +231,17 @@ $(function () {
         });
 
         $actions.append($cancel, $submit);
-        $form.append($name, $baseDamage, $overTimeWrapper, $("<label>Level ranges</label>").css({ fontWeight: "600" }), $rangeList, $addRange, $actions);
+        $form.append(
+            $name,
+            $baseDamage,
+            $("<label>Color</label>").css({ fontWeight: "600" }),
+            $color,
+            $overTimeWrapper,
+            $("<label>Level ranges</label>").css({ fontWeight: "600" }),
+            $rangeList,
+            $addRange,
+            $actions
+        );
         $modal.append($title, $form);
         $overlay.append($modal);
         $("body").append($overlay);
@@ -255,6 +279,9 @@ $(function () {
         const $overTime = $(`<p><strong>Over time:</strong> ${damage.is_over_time ? "Yes" : "No"}</p>`).css({
             margin: "0 0 10px"
         });
+        const $color = $(`<p><strong>Color:</strong> <span style="color:${damage.color || "#fff"}">${damage.color || "default"}</span></p>`).css({
+            margin: "0 0 10px"
+        });
 
         const $rangesTitle = $("<p><strong>Level ranges</strong></p>").css({
             margin: "0 0 6px"
@@ -285,7 +312,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $base, $overTime, $rangesTitle, $list, $close);
+        $modal.append($title, $base, $overTime, $color, $rangesTitle, $list, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
@@ -339,6 +366,14 @@ $(function () {
         const $allowAtkSpeed = $('<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="allow-atk-speed"> Allow attack speed mod</label>');
         const $attrTypeSelect = $('<select></select>').css(fieldStyle);
         const $attrTypesWrap = $('<div></div>').css({ display: "grid", gap: "6px" });
+        const $color = $('<input type="color" value="#ffffff">').css({
+            padding: "4px",
+            borderRadius: "6px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0",
+            width: "100%"
+        });
         const attrTypes = [];
 
         function renderAttrTypeSelect() {
@@ -424,6 +459,7 @@ $(function () {
             const skillValRaw = $skillMod.val().trim();
             const unlockLevelVal = parseInt($unlockLevel.val(), 10);
             const skillVal = skillValRaw === "" ? null : parseInt(skillValRaw, 10);
+            const colorVal = $color.val() || "#ffffff";
 
             if (!name || Number.isNaN(rarityVal) || rarityVal < 0 || rarityVal > 1 || Number.isNaN(attrVal)) {
                 alert("Please fill every field correctly (rarity between 0 and 1).");
@@ -451,7 +487,8 @@ $(function () {
                 attributes: attrVal,
                 attribute_types: [...attrTypes],
                 allow_attack_speed_mod: $allowAtkSpeed.find("input").is(":checked"),
-                unlock_level: unlockLevelVal
+                unlock_level: unlockLevelVal,
+                color: colorVal
             };
             if (skillVal !== null) {
                 newCat.skill_mod = skillVal;
@@ -471,6 +508,8 @@ $(function () {
             $unlockLevel,
             $allowAtkSpeed,
             $skillMod,
+            $("<label>Color</label>").css({ fontWeight: "600" }),
+            $color,
             $("<label>Attribute types</label>").css({ fontWeight: "600" }),
             $attrTypesWrap,
             $actions
@@ -513,6 +552,7 @@ $(function () {
         const $atk = $(`<p><strong>Allow attack speed:</strong> ${cat.allow_attack_speed_mod ? "Yes" : "No"}</p>`).css({ margin: "0 0 14px" });
         const $skill = $(`<p><strong>Skill mod:</strong> ${cat.skill_mod ?? "-"}</p>`).css({ margin: "0 0 14px" });
         const $unlock = $(`<p><strong>Unlock level:</strong> ${cat.unlock_level ?? 1}</p>`).css({ margin: "0 0 14px" });
+        const $colorRow = $(`<p><strong>Color:</strong> <span style="color:${cat.color || "#fff"}">${cat.color || "default"}</span></p>`).css({ margin: "0 0 14px" });
 
         const $close = $('<button type="button">Close</button>').css({
             padding: "8px 12px",
@@ -526,7 +566,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $rarity, $attrs, $types, $atk, $skill, $unlock, $close);
+        $modal.append($title, $rarity, $attrs, $types, $atk, $skill, $unlock, $colorRow, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
@@ -907,6 +947,12 @@ $(function () {
                             ? value.name
                     : value;
             const $tag = $('<span class="tag"></span>').attr("data-index", index);
+            if (key === "damage_types" && value.color) {
+                $tag.css({ borderColor: value.color, color: value.color });
+            }
+            if (key === "categories" && value.color) {
+                $tag.css({ borderColor: value.color, color: value.color });
+            }
             const $text = $('<span class="tag-label"></span>').text(label);
             const $remove = $('<button type="button" class="remove-tag" aria-label="Remove">x</button>');
 
@@ -1027,6 +1073,7 @@ $(function () {
     $skillSlots.val(state.skill_slots);
     initAttributes();
     $gainPerLevel.val(state.gain_per_level);
+    $statsProgressionModel.val(state.stats_progression_model || "balanced");
     $medianTimePerLoot.val(state.median_time_per_loot);
     $medianTimePerLevel.val(state.median_time_per_level);
     $levelTimeMultiplier.val(state.level_time_multiplier);
@@ -1040,6 +1087,9 @@ $(function () {
     $affixMinSlope.val(state.affix_min_slope);
     $affixMaxSlope.val(state.affix_max_slope);
     $affixMaxMultiplier.val(state.affix_max_multiplier);
+    $affixPower.val(state.affix_power);
+    $rarityGrowthPower.val(state.rarity_growth_power);
+    $attrPerLevelFactor.val(state.attr_per_level_factor);
     $xpBase.val(state.xp_base);
     $xpGrowth.val(state.xp_growth);
     $xpMultiplier.val(state.xp_multiplier);
@@ -1080,6 +1130,12 @@ $(function () {
             state.gain_per_level = value;
             renderPreview();
         }
+    });
+
+    $statsProgressionModel.on("change", function () {
+        const value = $(this).val();
+        state.stats_progression_model = value;
+        renderPreview();
     });
 
     $medianTimePerLoot.on("input", function () {
@@ -1182,6 +1238,30 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.affix_max_multiplier = value;
+            renderPreview();
+        }
+    });
+
+    $affixPower.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.affix_power = value;
+            renderPreview();
+        }
+    });
+
+    $rarityGrowthPower.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.rarity_growth_power = value;
+            renderPreview();
+        }
+    });
+
+    $attrPerLevelFactor.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.attr_per_level_factor = value;
             renderPreview();
         }
     });

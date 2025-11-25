@@ -15,6 +15,36 @@ function compute() {
     const slots = Object.keys(state.equipment_slots || {});
     const items = state.items || [];
     const damageTypes = state.damage_types || [];
+    const damageTypesSorted = [...damageTypes].sort((a, b) => (b.name || "").length - (a.name || "").length);
+    const colorMap = damageTypesSorted.reduce((map, dt) => {
+        map[dt.name] = dt.color || "#ffffff";
+        return map;
+    }, {});
+    const categoryColorMap = (state.categories || []).reduce((map, cat) => {
+        map[cat.name] = cat.color || "#ffffff";
+        return map;
+    }, {});
+    const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const colorizeTypeText = (text) => {
+        let result = text;
+        damageTypesSorted.forEach((dt) => {
+            const name = dt.name;
+            const color = dt.color || "#ffffff";
+            const regex = new RegExp(`\\b${escapeRegExp(name)}\\b`, "g");
+            result = result.replace(regex, `<span style="color:${color}">${name}</span>`);
+        });
+        return result;
+    };
+    const colorizeBonus = (bonus) => {
+        for (const dt of damageTypesSorted) {
+            const name = dt.name;
+            if (bonus.includes(name)) {
+                const isRes = bonus.toLowerCase().includes("res");
+                return `<span style="color:${dt.color || "#ffffff"}" ${isRes ? 'class="resisttext"' : ""}>${bonus}</span>`;
+            }
+        }
+        return bonus;
+    };
     const baseUnarmed = state.unarmed_physical_damage || 0;
     const basePhysRes = state.base_physical_resistance || 0;
     const generatePercent = state.generate_percent || 0;
@@ -24,6 +54,7 @@ function compute() {
     let totalSeconds = 0;
     const results = [];
     const jsonData = [];
+    const dpsSeries = [];
 
     // persist best gear across levels to avoid DPS drops
     const gearBySlot = {}; // slot -> { loot, atkBonus, dmgAdds, resAdds }
@@ -64,7 +95,30 @@ function compute() {
         return values.reduce((sum, v) => sum + v * attackSpeed, 0);
     };
 
+    const currentStats = {};
+    attrNames.forEach((attr) => {
+        const bounds = attributes[attr] || { min: 0 };
+        currentStats[attr] = Math.round(bounds.min || 0);
+    });
+
+    const applyStatGain = (lvl) => {
+        if (lvl === 1) return;
+        const model = (state.stats_progression_model || "balanced").toLowerCase();
+        let target = "physical";
+        if (model === "favorite_energy") target = "energy";
+        else if (model === "favorite_dexterity") target = "dexterity";
+        else if (model === "balanced") {
+            if (attrNames.length > 0) {
+                const idx = Math.floor(pseudoRand(lvl * 3.1415) * attrNames.length) % attrNames.length;
+                target = attrNames[idx];
+            }
+        }
+        const bounds = attributes[target] || { max: currentStats[target] + gainPerLevel };
+        currentStats[target] = Math.min(bounds.max ?? (currentStats[target] + gainPerLevel), currentStats[target] + gainPerLevel);
+    };
+
     for (let lvl = 1; lvl <= levels; lvl += 1) {
+        applyStatGain(lvl);
         const growth = Math.pow(1 + 0.05 * timeMult, lvl - 1);
         const levelTime = baseLevelTime * growth;
         const lootCount = Math.max(1, Math.floor(levelTime / lootTime));
@@ -77,7 +131,8 @@ function compute() {
             const unlock = cat.unlock_level || 1;
             if (lvl < unlock) return 0;
             const progress = Math.min(1, (lvl - unlock) / Math.max(1, levels - unlock));
-            const factor = 0.2 + progress * (1 + rarityGrowth);
+            const growthPower = state.rarity_growth_power || 1;
+            const factor = 0.2 + Math.pow(progress, growthPower) * (1 + rarityGrowth);
             return baseWeight * factor;
         });
 
@@ -104,9 +159,7 @@ function compute() {
 
         const stats = {};
         attrNames.forEach((attr) => {
-            const bounds = attributes[attr] || { min: 0, max: 0 };
-            const val = Math.min(bounds.max, bounds.min + (lvl - 1) * gainPerLevel);
-            stats[attr] = Math.round(val);
+            stats[attr] = Math.round(currentStats[attr] || 0);
         });
         const attackSpeedBase = (state.attack_speed_base || 0) + lvl * (state.attack_speed_per_level || 0);
 
@@ -126,10 +179,12 @@ function compute() {
         };
 
         // paliers d'affixes configurables
-        const minAttrVal = Math.max(1, Math.round(lootRandRange + lvl * (state.affix_min_slope || 0.9)));
+        const affixPower = state.affix_power || 1;
+        const lvlPow = Math.pow(lvl, affixPower);
+        const minAttrVal = Math.max(1, Math.round(lootRandRange + lvlPow * (state.affix_min_slope || 0.9)));
         const maxAttrVal = Math.max(
             minAttrVal + 1,
-            Math.round(lootRandRange * (state.affix_max_multiplier || 2.2) + lvl * (state.affix_max_slope || 1.3))
+            Math.round(lootRandRange * (state.affix_max_multiplier || 2.2) + lvlPow * (state.affix_max_slope || 1.3))
         );
 
         // simulate loot batch
@@ -140,19 +195,25 @@ function compute() {
             const slot = slots.length ? slots[Math.floor(pseudoRand((lvl + 7) * (d + 1)) * slots.length) % slots.length] : "slot";
             const available = items.filter((it) => it.equipment_slot === slot);
             const chosenItem = available.length ? available[Math.floor(pseudoRand((lvl + 13) * (d + 1)) * available.length) % available.length] : { name: "None" };
-            const attrs = cat.attributes && cat.attributes > 0 ? cat.attributes : 1;
+            const attrGrowth = state.attr_per_level_factor || 0;
+            const attrs = cat.attributes && cat.attributes > 0
+                ? Math.max(1, cat.attributes + Math.floor(lvl * attrGrowth))
+                : 1;
             const typePool = (cat.attribute_types && cat.attribute_types.length) ? cat.attribute_types : damageTypes.map((d) => d.name);
             const bonuses = [];
             const dmgAdds = {};
             const resAdds = {};
             let localAtkBonus = 0;
+            let hasAtkSpeed = false;
+            const allowAtkSpeedThisItem = cat.allow_attack_speed_mod && pseudoRand((lvl + d + 31) * 0.37) < 0.25;
             for (let k = 0; k < attrs; k += 1) {
                 const pickIdx = Math.floor(pseudoRand((lvl + 11) * (d + 1) * (k + 1)) * typePool.length) % typePool.length;
                 const typeName = typePool[pickIdx] || "Physical";
-                const useAttackSpeed = cat.allow_attack_speed_mod && pseudoRand(k + lvl + d) < 0.2;
+                const useAttackSpeed = allowAtkSpeedThisItem && !hasAtkSpeed && pseudoRand(k + lvl + d) < 0.1;
                 const isDamage = useAttackSpeed ? false : k % 2 === 0;
                 const bonus = Math.max(minAttrVal, Math.round(minAttrVal + pseudoRand(k + d + lvl) * (maxAttrVal - minAttrVal)));
                 if (useAttackSpeed) {
+                    hasAtkSpeed = true;
                     localAtkBonus += bonus;
                     bonuses.push(`+${bonus}% Attack Speed`);
                 } else if (isDamage) {
@@ -187,25 +248,42 @@ function compute() {
         });
 
         const equippedLoot = Object.values(gearBySlot).map((v) => v.loot);
-        const gearLines = equippedLoot.map((loot) => `    ${loot.slot}: ${loot.name} [${loot.category}] ${loot.bonuses.join(", ")}`);
+        const gearLines = equippedLoot.map((loot) => {
+            const bonusesColored = loot.bonuses.map((b) => colorizeBonus(b));
+            const catColor = categoryColorMap[loot.category] || "#e2e8f0";
+            return `    ${loot.slot}: ${loot.name} <span style="color:${catColor}">[${loot.category}]</span> ${bonusesColored.join(", ")}`;
+        });
 
-        const dmgSummary = Object.entries(currentDamage).map(([k, v]) => `${k}: +${v}% dmg`).join(", ") || "None";
-        const resSummary = Object.entries(currentResists).map(([k, v]) => `${k}: +${v}% res`).join(", ") || "None";
+        const colorize = (k, text) => `<span style="color:${colorMap[k] || "#e2e8f0"}">${text}</span>`;
+        const dmgSummary = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: +${v}% dmg`)).join(", ") || "None";
+        const resSummary = Object.entries(currentResists).map(([k, v]) => colorize(k, `${k}: +${v}% res`)).join(", ") || "None";
         const attrBounds = attrNames.map((a) => {
             const bounds = attributes[a] || { min: 0, max: 0 };
             return `${a}: ${bounds.min}-${bounds.max}`;
         }).join(" | ");
 
         const gearListHtml = gearLines.map((g) => `<li>${g}</li>`).join("");
-        const allLootHtml = lootList.length ? `<ul>${lootList.map((l) => `<li>${l.slot} | ${l.category} | ${l.name} | ${l.bonuses.join(", ")}</li>`).join("")}</ul>` : "No loot";
-        const pickedHtml = equippedLoot.map((l) => `<li>${l.slot} | ${l.category} | ${l.name} | ${l.bonuses.join(", ")}</li>`).join("") || "No equip";
+        const allLootHtml = lootList.length
+            ? `<ul>${lootList.map((l) => {
+                const bonusesColored = l.bonuses.map((b) => colorizeBonus(b)).join(", ");
+                const catColor = categoryColorMap[l.category] || "#e2e8f0";
+                return `<li>${l.slot} | <span style="color:${catColor}">${l.category}</span> | ${l.name} | ${bonusesColored}</li>`;
+            }).join("")}</ul>`
+            : "No loot";
+        const pickedHtml = equippedLoot.map((l) => {
+            const bonusesColored = l.bonuses.map((b) => colorizeBonus(b)).join(", ");
+            const catColor = categoryColorMap[l.category] || "#e2e8f0";
+            return `<li>${l.slot} | <span style="color:${catColor}">${l.category}</span> | ${l.name} | ${bonusesColored}</li>`;
+        }).join("") || "No equip";
         const statsLine = attrNames.map((a) => `${a}=${stats[a]}`).join(", ");
         const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}`;
         const attrRangeText = `Attrib range for loot: ${minAttrVal}-${maxAttrVal}%`;
         const attackSpeed = attackSpeedBase * (1 + currentAtkBonus / 100);
 
-        const dpsParts = Object.entries(currentDamage).map(([k, v]) => `${k}: ${(v * attackSpeed).toFixed(1)} DPS @ ${attackSpeed.toFixed(2)} AS`);
-        const dpsLine = dpsParts.length ? dpsParts.join(" | ") : `None @ ${attackSpeed.toFixed(2)} AS`;
+        const dpsParts = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: ${(v * attackSpeed).toFixed(1)} DPS`));
+        const dpsLine = dpsParts.length ? dpsParts.join(" | ") : "None";
+
+        dpsSeries.push({ level: lvl, dps: currentTotalDps });
 
         jsonData.push({
             level: lvl,
@@ -244,7 +322,7 @@ function compute() {
       <ul>${pickedHtml}</ul>
     </details>
     <div>Totals → Damage: ${dmgSummary} | Resists: ${resSummary}</div>
-    <div>DPS (@ attack speed): ${dpsLine}</div>
+    <div>DPS : ${dpsLine}</div>
   </div>
 </details>
         `);
@@ -258,11 +336,37 @@ function compute() {
     const container = document.getElementById("compute-result");
     if (container) {
         container.innerHTML = results.join("") + `<button type="button" class="compute-json-btn" id="copy-json">Copy result JSON</button>`;
+        // append chart placeholder
+        const chartId = "dps-chart";
+        container.innerHTML += `<div id="${chartId}" class="dps-chart"></div>`;
         const btn = document.getElementById("copy-json");
         if (btn) {
             btn.onclick = () => {
                 navigator.clipboard.writeText(JSON.stringify(jsonData, null, 2));
             };
+        }
+        const chartEl = document.getElementById(chartId);
+        if (chartEl && dpsSeries.length) {
+            const width = 700;
+            const height = 220;
+            const pad = 20;
+            const maxDps = Math.max(...dpsSeries.map((p) => p.dps), 1);
+            const points = dpsSeries.map((p) => {
+                const x = pad + ((p.level - 1) / Math.max(1, levels - 1)) * (width - pad * 2);
+                const y = pad + (1 - p.dps / maxDps) * (height - pad * 2);
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+            }).join(" ");
+            chartEl.innerHTML = `
+<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <polyline points="${points}" fill="none" stroke="#38bdf8" stroke-width="2.5" />
+  ${dpsSeries.map((p) => {
+        const x = pad + ((p.level - 1) / Math.max(1, levels - 1)) * (width - pad * 2);
+        const y = pad + (1 - p.dps / maxDps) * (height - pad * 2);
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="#38bdf8" />`;
+    }).join("")}
+  <text x="${width / 2}" y="${height - 4}" fill="#94a3b8" font-size="12" text-anchor="middle">Level</text>
+  <text x="6" y="${height / 2}" fill="#94a3b8" font-size="12" transform="rotate(-90 6 ${height / 2})" text-anchor="middle">DPS</text>
+</svg>`;
         }
     }
 }

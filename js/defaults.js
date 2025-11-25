@@ -18,6 +18,7 @@ const state = {
         energy: { min: 80, max: 130 },
         dexterity: { min: 90, max: 140 }
     },
+    stats_progression_model: "balanced",
     gain_per_level: 2,
     median_time_per_loot: 10,
     median_time_per_level: 600,
@@ -30,9 +31,13 @@ const state = {
     attack_speed_base: 1,
     attack_speed_per_level: 0.02,
     // scaling knobs (exposed in UI)
+    // Loot scaling knobs
     affix_min_slope: 0.9,
     affix_max_slope: 1.3,
     affix_max_multiplier: 2.2,
+    affix_power: 1.2,
+    rarity_growth_power: 1.1,
+    attr_per_level_factor: 0.02,
     xp_base: 500,
     xp_growth: 1.15,
     xp_multiplier: 1,
@@ -52,43 +57,50 @@ const state = {
             "name": "Physical",
             "is_over_time": false,
             "ranges": [[0, 100, 1]],
-            "base_damage": 100
+            "base_damage": 100,
+            "color": "#d4d4d4"
         },
         {
             "name": "Fire",
             "is_over_time": false,
             "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
-            "base_damage": 100
+            "base_damage": 100,
+            "color": "#f97316"
         },
         {
             "name": "Ice",
             "is_over_time": false,
             "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
-            "base_damage": 100
+            "base_damage": 100,
+            "color": "#38bdf8"
         },
         {
             "name": "Shock",
             "is_over_time": false,
             "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
-            "base_damage": 100
+            "base_damage": 100,
+            "color": "#a855f7"
         },
         {
             "name": "Poison",
             "is_over_time": true,
             "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
-            "base_damage": 10
+            "base_damage": 10,
+            "color": "#22c55e"
         },
         {
             "name": "Chaos",
             "is_over_time": false,
             "ranges": [[0, 50, 0.1], [50, 100, 0.6]],
-            "base_damage": 120
+            "base_damage": 120,
+            "color": "#eab308"
         },
         {
             "name": "Fire Burn",
             "is_over_time": true,
             "ranges": [[10, 100, 0.5]],
-            "base_damage": 40
+            "base_damage": 40,
+            "color": "#fb7185"
         }
     ],
     categories: [
@@ -98,7 +110,8 @@ const state = {
             "attributes": 1,
             "attribute_types": ["Physical"],
             "allow_attack_speed_mod": false,
-            "unlock_level": 1
+            "unlock_level": 1,
+            "color": "#cbd5e1"
         },
         {
             "name": "rare",
@@ -106,7 +119,8 @@ const state = {
             "attributes": 2,
             "attribute_types": ["Physical", "Fire", "Ice", "Shock"],
             "allow_attack_speed_mod": true,
-            "unlock_level": 5
+            "unlock_level": 5,
+            "color": "#38bdf8"
         },
         {
             "name": "magic",
@@ -114,7 +128,8 @@ const state = {
             "attributes": 3,
             "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn"],
             "allow_attack_speed_mod": true,
-            "unlock_level": 8
+            "unlock_level": 8,
+            "color": "#a855f7"
         },
         {
             "name": "legendary",
@@ -123,7 +138,8 @@ const state = {
             "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "allow_attack_speed_mod": true,
             "skill_mod": 1,
-            "unlock_level": 15
+            "unlock_level": 15,
+            "color": "#f59e0b"
         },
         {
             "name": "unique",
@@ -132,7 +148,8 @@ const state = {
             "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "allow_attack_speed_mod": true,
             "skill_mod": 2,
-            "unlock_level": 30
+            "unlock_level": 30,
+            "color": "#f43f5e"
         }
     ],
     items: [
