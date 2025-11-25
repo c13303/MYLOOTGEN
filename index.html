@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LootGen</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+    integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+  <script src="js/defaults.js"></script>
+  <script src="js/form.js"></script>
+  <script src="js/lootgen.js"></script>
+</head>
+
+<body>
+  <main class="page">
+    <h1>Fromage LootGen PerBuild</h1>
+    <p>This will generate a loot progression for one build only. </p>
+
+    <form id="config-form" class="config-form" autocomplete="off">
+      <div class="field-grid">
+        <div class="field">
+          <label for="levels">Level Max</label>
+          <input type="number" id="levels" name="levels" min="1" max="200" step="1">
+        </div>
+
+        <div class="field">
+          <label for="skill-slots">Optimal number of skills</label>
+          <input type="number" id="skill-slots" name="skill_slots" min="1" max="12" step="1">
+        </div>
+
+        <div class="field full-span">
+          <label>Base attributes</label>
+          <div class="attr-table">
+            <div class="attr-row header">
+              <span>Type</span>
+              <span>Min</span>
+              <span>Max</span>
+            </div>
+            <div class="attr-row" data-attr="physical">
+              <span>Physical</span>
+              <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="physical" data-kind="min" placeholder="Min">
+              <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="physical" data-kind="max" placeholder="Max">
+            </div>
+            <div class="attr-row" data-attr="energy">
+              <span>Energy</span>
+              <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="energy" data-kind="min" placeholder="Min">
+              <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="energy" data-kind="max" placeholder="Max">
+            </div>
+            <div class="attr-row" data-attr="dexterity">
+              <span>Dexterity</span>
+              <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="dexterity" data-kind="min" placeholder="Min">
+              <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="dexterity" data-kind="max" placeholder="Max">
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="gain-per-level">Gain per level</label>
+          <input type="number" id="gain-per-level" name="gain_per_level" min="0" step="0.1">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Equipment slots</label>
+        <div class="tag-list" data-tags="equipment_slots"></div>
+        <div class="tag-input">
+          <input type="text" placeholder="Add slot" data-target="equipment_slots">
+          <button type="button" data-target="equipment_slots">Add</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Damage/resistances types</label>
+        <div class="tag-list" data-tags="damage_types"></div>
+        <div class="tag-input">
+          <button type="button" data-target="damage_types">Add</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Categories</label>
+        <div class="tag-list" data-tags="categories"></div>
+        <div class="tag-input">
+          <button type="button" data-target="categories">Add</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Items</label>
+        <div class="tag-list" data-tags="items"></div>
+        <div class="tag-input">
+          <button type="button" data-target="items">Add</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Skills</label>
+        <div class="tag-list" data-tags="skills"></div>
+        <div class="tag-input">
+          <button type="button" data-target="skills">Add</button>
+        </div>
+      </div>
+    </form>
+    <pre id="config-preview" class="config-preview"></pre>
+  </main>
+
+
+</body>
+
+</html>

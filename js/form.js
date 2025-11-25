@@ -1,0 +1,985 @@
+$(function () {
+
+    /// check structures in defaults.js
+
+    const $levels = $("#levels");
+    const $skillSlots = $("#skill-slots");
+    const $attrRanges = $(".attr-number");
+    const $gainPerLevel = $("#gain-per-level");
+    const $preview = $("#config-preview");
+    const attrNames = ["physical", "energy", "dexterity"];
+
+    function openDamageForm() {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "520px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $("<h3>Add damage type</h3>").css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+
+        const $form = $('<form class="damage-form"></form>').css({
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+        });
+
+        const $name = $('<input type="text" placeholder="Name">').css({
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0"
+        });
+
+        const $baseDamage = $('<input type="number" placeholder="Base damage" step="1" min="0">').css({
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0"
+        });
+
+        const $overTimeWrapper = $('<label style="display:flex; align-items:center; gap:8px;"></label>');
+        const $overTime = $('<input type="checkbox">');
+        const $overTimeText = $("<span>Over time</span>");
+        $overTimeWrapper.append($overTime, $overTimeText).css({ cursor: "pointer", userSelect: "none" });
+
+        const $rangeList = $('<div class="range-list"></div>').css({
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px"
+        });
+
+        function addRangeRow(defaults = { min: 0, max: 10, rarity: 0.5 }) {
+            const $row = $('<div class="range-row"></div>').css({
+                display: "grid",
+                gridTemplateColumns: "90px 90px 1fr auto",
+                gap: "6px",
+                alignItems: "center"
+            });
+
+            const $min = $(`<input type="number" placeholder="Min level" value="${defaults.min}" step="1" min="0">`).css({
+                padding: "6px 8px",
+                borderRadius: "6px",
+                border: "1px solid rgba(226,232,240,0.2)",
+                background: "rgba(15,23,42,0.7)",
+                color: "#e2e8f0",
+                width: "100%"
+            });
+            const $max = $(`<input type="number" placeholder="Max level" value="${defaults.max}" step="1" min="0">`).css({
+                padding: "6px 8px",
+                borderRadius: "6px",
+                border: "1px solid rgba(226,232,240,0.2)",
+                background: "rgba(15,23,42,0.7)",
+                color: "#e2e8f0",
+                width: "100%"
+            });
+            const $rarity = $(`<input type="number" placeholder="Rarity (0-1)" value="${defaults.rarity}" step="0.01" min="0" max="1">`).css({
+                padding: "6px 8px",
+                borderRadius: "6px",
+                border: "1px solid rgba(226,232,240,0.2)",
+                background: "rgba(15,23,42,0.7)",
+                color: "#e2e8f0"
+            });
+            const $remove = $('<button type="button">x</button>').css({
+                padding: "6px 10px",
+                borderRadius: "6px",
+                border: "none",
+                background: "rgba(226,232,240,0.15)",
+                color: "#e2e8f0",
+                cursor: "pointer"
+            });
+
+            $remove.on("click", () => {
+                $row.remove();
+            });
+
+            $row.append($min, $max, $rarity, $remove);
+            $rangeList.append($row);
+        }
+
+        addRangeRow();
+
+        const $addRange = $('<button type="button">Add range</button>').css({
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $addRange.on("click", () => {
+            addRangeRow();
+        });
+
+        const $actions = $('<div class="actions"></div>').css({
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "8px",
+            marginTop: "6px"
+        });
+
+        const $cancel = $('<button type="button">Cancel</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "rgba(226,232,240,0.15)",
+            color: "#e2e8f0",
+            cursor: "pointer"
+        });
+
+        const $submit = $('<button type="submit">Add</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $cancel.on("click", () => {
+            $overlay.remove();
+        });
+
+        $form.on("submit", (event) => {
+            event.preventDefault();
+            const damageName = $name.val().trim();
+            const baseDamage = parseFloat($baseDamage.val());
+            const isOverTime = $overTime.is(":checked");
+            const ranges = [];
+            let invalid = false;
+
+            $rangeList.find(".range-row").each(function () {
+                const $row = $(this);
+                const min = parseInt($row.find('input[placeholder="Min level"]').val(), 10);
+                const max = parseInt($row.find('input[placeholder="Max level"]').val(), 10);
+                const rarity = parseFloat($row.find('input[placeholder="Rarity (0-1)"]').val());
+
+                if (Number.isNaN(min) || Number.isNaN(max) || Number.isNaN(rarity) || rarity < 0 || rarity > 1 || max < min) {
+                    invalid = true;
+                    return false;
+                }
+                ranges.push([min, max, rarity]);
+            });
+
+            if (!damageName || Number.isNaN(baseDamage) || ranges.length === 0 || invalid) {
+                alert("Please fill every field correctly (rarity between 0 and 1, max level >= min level).");
+                return;
+            }
+
+            state.damage_types.push({
+                name: damageName,
+                base_damage: baseDamage,
+                is_over_time: isOverTime,
+                ranges
+            });
+
+            renderTags("damage_types");
+            renderPreview();
+            $overlay.remove();
+        });
+
+        $actions.append($cancel, $submit);
+        $form.append($name, $baseDamage, $overTimeWrapper, $("<label>Level ranges</label>").css({ fontWeight: "600" }), $rangeList, $addRange, $actions);
+        $modal.append($title, $form);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
+
+    function openDamageSummary(damage) {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "420px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $(`<h3>${damage.name}</h3>`).css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+
+        const $base = $(`<p><strong>Base damage:</strong> ${damage.base_damage}</p>`).css({
+            margin: "0 0 10px"
+        });
+        const $overTime = $(`<p><strong>Over time:</strong> ${damage.is_over_time ? "Yes" : "No"}</p>`).css({
+            margin: "0 0 10px"
+        });
+
+        const $rangesTitle = $("<p><strong>Level ranges</strong></p>").css({
+            margin: "0 0 6px"
+        });
+
+        const $list = $("<ul></ul>").css({
+            paddingLeft: "18px",
+            margin: "0 0 14px"
+        });
+
+        (damage.ranges || []).forEach((range) => {
+            const [min, max, rarity] = range;
+            $list.append($(`<li>Min ${min} - Max ${max} : Rarity ${rarity}</li>`).css({ marginBottom: "4px" }));
+        });
+
+        const $close = $('<button type="button">Close</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center"
+        });
+
+        $close.on("click", () => $overlay.remove());
+
+        $modal.append($title, $base, $overTime, $rangesTitle, $list, $close);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
+
+    function openCategoryForm() {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "420px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $("<h3>Add category</h3>").css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+
+        const fieldStyle = {
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0",
+            width: "100%"
+        };
+
+        const $form = $('<form class="category-form"></form>').css({
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+        });
+
+        const $name = $('<input type="text" placeholder="Name">').css(fieldStyle);
+        const $rarity = $('<input type="number" placeholder="Rarity (0-1)" step="0.01" min="0" max="1">').css(fieldStyle);
+        const $attributes = $('<input type="number" placeholder="Attributes count" step="1" min="0">').css(fieldStyle);
+        const $skillMod = $('<input type="number" placeholder="Skill mod (optional)" step="1" min="0">').css(fieldStyle);
+
+        const $actions = $('<div class="actions"></div>').css({
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "8px",
+            marginTop: "6px"
+        });
+
+        const $cancel = $('<button type="button">Cancel</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "rgba(226,232,240,0.15)",
+            color: "#e2e8f0",
+            cursor: "pointer"
+        });
+
+        const $submit = $('<button type="submit">Add</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $cancel.on("click", () => $overlay.remove());
+
+        $form.on("submit", (event) => {
+            event.preventDefault();
+            const name = $name.val().trim();
+            const rarityVal = parseFloat($rarity.val());
+            const attrVal = parseInt($attributes.val(), 10);
+            const skillValRaw = $skillMod.val().trim();
+            const skillVal = skillValRaw === "" ? null : parseInt(skillValRaw, 10);
+
+            if (!name || Number.isNaN(rarityVal) || rarityVal < 0 || rarityVal > 1 || Number.isNaN(attrVal)) {
+                alert("Please fill every field correctly (rarity between 0 and 1).");
+                return;
+            }
+
+            if (skillValRaw !== "" && Number.isNaN(skillVal)) {
+                alert("Skill mod must be a number or left empty.");
+                return;
+            }
+
+            const exists = state.categories.some((cat) => cat.name.toLowerCase() === name.toLowerCase());
+            if (exists) {
+                alert("Category name already exists.");
+                return;
+            }
+
+            const newCat = {
+                name,
+                rarity: rarityVal,
+                attributes: attrVal
+            };
+            if (skillVal !== null) {
+                newCat.skill_mod = skillVal;
+            }
+
+            state.categories.push(newCat);
+            renderTags("categories");
+            renderPreview();
+            $overlay.remove();
+        });
+
+        $actions.append($cancel, $submit);
+        $form.append($name, $rarity, $attributes, $skillMod, $actions);
+        $modal.append($title, $form);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
+
+    function openCategorySummary(cat) {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "420px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $(`<h3>${cat.name}</h3>`).css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+
+        const $rarity = $(`<p><strong>Rarity:</strong> ${cat.rarity}</p>`).css({ margin: "0 0 8px" });
+        const $attrs = $(`<p><strong>Attributes:</strong> ${cat.attributes}</p>`).css({ margin: "0 0 8px" });
+        const $skill = $(`<p><strong>Skill mod:</strong> ${cat.skill_mod ?? "-"}</p>`).css({ margin: "0 0 14px" });
+
+        const $close = $('<button type="button">Close</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $close.on("click", () => $overlay.remove());
+
+        $modal.append($title, $rarity, $attrs, $skill, $close);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
+
+    function openItemForm() {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "420px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $("<h3>Add item</h3>").css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+
+        const fieldStyle = {
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0",
+            width: "100%"
+        };
+
+        const $form = $('<form class="item-form"></form>').css({
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+        });
+
+        const $name = $('<input type="text" placeholder="Name">').css(fieldStyle);
+
+        const slotOptions = Object.keys(state.equipment_slots || {});
+        const $slot = $('<select></select>').css(fieldStyle);
+        slotOptions.forEach((slot) => {
+            $slot.append($(`<option value="${slot}">${slot}</option>`));
+        });
+        if (slotOptions.length === 0) {
+            $slot.append($('<option value="">No slots available</option>'));
+        }
+
+        const $size = $('<input type="number" placeholder="Size (grid cells)" step="1" min="1">').css(fieldStyle);
+
+        const $actions = $('<div class="actions"></div>').css({
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "8px",
+            marginTop: "6px"
+        });
+
+        const $cancel = $('<button type="button">Cancel</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "rgba(226,232,240,0.15)",
+            color: "#e2e8f0",
+            cursor: "pointer"
+        });
+
+        const $submit = $('<button type="submit">Add</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $cancel.on("click", () => $overlay.remove());
+
+        $form.on("submit", (event) => {
+            event.preventDefault();
+            const name = $name.val().trim();
+            const slot = $slot.val();
+            const size = parseInt($size.val(), 10);
+
+            if (!name || !slot || Number.isNaN(size) || size < 1) {
+                alert("Please fill every field correctly (size >= 1 and select a slot).");
+                return;
+            }
+
+            const exists = state.items.some((item) => item.name.toLowerCase() === name.toLowerCase());
+            if (exists) {
+                alert("Item name already exists.");
+                return;
+            }
+
+            state.items.push({
+                name,
+                equipment_slot: slot,
+                size
+            });
+
+            renderTags("items");
+            renderPreview();
+            $overlay.remove();
+        });
+
+        $actions.append($cancel, $submit);
+        $form.append($name, $slot, $size, $actions);
+        $modal.append($title, $form);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
+
+    function openItemSummary(item) {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "420px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $(`<h3>${item.name}</h3>`).css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+
+        const $slot = $(`<p><strong>Slot:</strong> ${item.equipment_slot}</p>`).css({ margin: "0 0 8px" });
+        const $size = $(`<p><strong>Size:</strong> ${item.size}</p>`).css({ margin: "0 0 14px" });
+
+        const $close = $('<button type="button">Close</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $close.on("click", () => $overlay.remove());
+
+        $modal.append($title, $slot, $size, $close);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
+
+    function openSkillForm() {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "420px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $("<h3>Add skill</h3>").css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+
+        const fieldStyle = {
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0",
+            width: "100%"
+        };
+
+        const $form = $('<form class="skill-form"></form>').css({
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+        });
+
+        const $name = $('<input type="text" placeholder="Name">').css(fieldStyle);
+        const $cooldown = $('<input type="number" placeholder="Cooldown" step="0.1" min="0">').css(fieldStyle);
+        const $energy = $('<input type="number" placeholder="Energy cost" step="1" min="0">').css(fieldStyle);
+
+        const $type = $('<select></select>').css(fieldStyle);
+        $type.append('<option value="damage">Damage</option>');
+        $type.append('<option value="buff">Buff</option>');
+
+        const damageOptions = (state.damage_types || []).map((d) => d.name);
+        const $damageType = $('<select></select>').css(fieldStyle);
+        $damageType.append('<option value="">Select damage type</option>');
+        damageOptions.forEach((name) => {
+            $damageType.append($(`<option value="${name}">${name}</option>`));
+        });
+
+        const $levelMin = $('<input type="number" placeholder="Min level" step="1" min="0">').css(fieldStyle);
+
+        function toggleDamageType() {
+            const isDamage = $type.val() === "damage";
+            $damageType.prop("disabled", !isDamage);
+        }
+        $type.on("change", toggleDamageType);
+        toggleDamageType();
+
+        const $actions = $('<div class="actions"></div>').css({
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "8px",
+            marginTop: "6px"
+        });
+
+        const $cancel = $('<button type="button">Cancel</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "rgba(226,232,240,0.15)",
+            color: "#e2e8f0",
+            cursor: "pointer"
+        });
+
+        const $submit = $('<button type="submit">Add</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $cancel.on("click", () => $overlay.remove());
+
+        $form.on("submit", (event) => {
+            event.preventDefault();
+            const name = $name.val().trim();
+            const cooldown = parseFloat($cooldown.val());
+            const energy = parseFloat($energy.val());
+            const type = $type.val();
+            const damageType = $damageType.val();
+            const levelMin = parseInt($levelMin.val(), 10);
+
+            const isDamage = type === "damage";
+
+            if (!name || Number.isNaN(cooldown) || Number.isNaN(energy) || Number.isNaN(levelMin)) {
+                alert("Please fill every field correctly.");
+                return;
+            }
+            if (isDamage && !damageType) {
+                alert("Please choose a damage type for damage skills.");
+                return;
+            }
+
+            const exists = state.skills.some((skill) => skill.name.toLowerCase() === name.toLowerCase());
+            if (exists) {
+                alert("Skill name already exists.");
+                return;
+            }
+
+            const newSkill = {
+                name,
+                cooldown,
+                energy_cost: energy,
+                type,
+                level_min: levelMin
+            };
+            if (isDamage) {
+                newSkill.damage_type = damageType;
+            }
+
+            state.skills.push(newSkill);
+            renderTags("skills");
+            renderPreview();
+            $overlay.remove();
+        });
+
+        $actions.append($cancel, $submit);
+        $form.append($name, $cooldown, $energy, $type, $damageType, $levelMin, $actions);
+        $modal.append($title, $form);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
+
+    function openSkillSummary(skill) {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "420px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $(`<h3>${skill.name}</h3>`).css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+
+        const $type = $(`<p><strong>Type:</strong> ${skill.type}</p>`).css({ margin: "0 0 8px" });
+        const $cooldown = $(`<p><strong>Cooldown:</strong> ${skill.cooldown}</p>`).css({ margin: "0 0 8px" });
+        const $energy = $(`<p><strong>Energy cost:</strong> ${skill.energy_cost}</p>`).css({ margin: "0 0 8px" });
+        const $level = $(`<p><strong>Min level:</strong> ${skill.level_min}</p>`).css({ margin: "0 0 8px" });
+        const $damage = skill.damage_type ? $(`<p><strong>Damage type:</strong> ${skill.damage_type}</p>`).css({ margin: "0 0 14px" }) : null;
+
+        const $close = $('<button type="button">Close</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $close.on("click", () => $overlay.remove());
+
+        $modal.append($title, $type, $cooldown, $energy, $level);
+        if ($damage) $modal.append($damage);
+        $modal.append($close);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
+
+    function renderTags(key) {
+        const $container = $(`.tag-list[data-tags="${key}"]`);
+        $container.empty();
+
+        const items = key === "equipment_slots"
+            ? Object.keys(state[key])
+            : state[key];
+
+        items.forEach((value, index) => {
+            const label = key === "damage_types"
+                ? `${value.name}${value.is_over_time ? " (over time)" : ""}`
+                : key === "categories"
+                    ? value.name
+                    : key === "items"
+                        ? value.name
+                        : key === "skills"
+                            ? value.name
+                    : value;
+            const $tag = $('<span class="tag"></span>').attr("data-index", index);
+            const $text = $('<span class="tag-label"></span>').text(label);
+            const $remove = $('<button type="button" class="remove-tag" aria-label="Remove">x</button>');
+
+            $remove.on("click", (event) => {
+                event.stopPropagation();
+                if (key === "equipment_slots") {
+                    delete state[key][label];
+                } else if (key === "items" || key === "skills") {
+                    state[key].splice(index, 1);
+                } else {
+                    state[key].splice(index, 1);
+                }
+                renderTags(key);
+                renderPreview();
+            });
+
+            if (key === "damage_types") {
+                $tag.on("click", () => openDamageSummary(value));
+            }
+            if (key === "categories") {
+                $tag.on("click", () => openCategorySummary(value));
+            }
+            if (key === "items") {
+                $tag.on("click", () => openItemSummary(value));
+            }
+            if (key === "skills") {
+                $tag.on("click", () => openSkillSummary(value));
+            }
+
+            $tag.append($text, $remove);
+            $container.append($tag);
+        });
+    }
+
+    function renderPreview() {
+        $preview.text(JSON.stringify(state, null, 2));
+    }
+
+    function syncAttribute(attr, changedKind) {
+        const minInput = $(`.attr-number[data-attr="${attr}"][data-kind="min"]`);
+        const maxInput = $(`.attr-number[data-attr="${attr}"][data-kind="max"]`);
+        let minVal = parseInt(minInput.val(), 10);
+        let maxVal = parseInt(maxInput.val(), 10);
+
+        if (Number.isNaN(minVal)) minVal = state.attributes?.[attr]?.min ?? 10;
+        if (Number.isNaN(maxVal)) maxVal = state.attributes?.[attr]?.max ?? 10;
+
+        minVal = Math.max(10, Math.min(200, minVal));
+        maxVal = Math.max(10, Math.min(200, maxVal));
+
+        if (minVal > maxVal) {
+            if (changedKind === "min") {
+                maxVal = minVal;
+            } else {
+                minVal = maxVal;
+            }
+        }
+
+        minInput.val(minVal);
+        maxInput.val(maxVal);
+
+        state.attributes[attr] = { min: minVal, max: maxVal };
+        renderPreview();
+    }
+
+    function initAttributes() {
+        attrNames.forEach((attr) => {
+            const defaults = state.attributes?.[attr] || { min: 10, max: 10 };
+            const minInput = $(`.attr-number[data-attr="${attr}"][data-kind="min"]`);
+            const maxInput = $(`.attr-number[data-attr="${attr}"][data-kind="max"]`);
+            minInput.val(defaults.min);
+            maxInput.val(defaults.max);
+        });
+    }
+
+    function addTag(key, $input) {
+        if (key === "damage_types") {
+            openDamageForm();
+            if ($input && $input.length) {
+                $input.val("");
+            }
+            return;
+        }
+        if (key === "categories") {
+            openCategoryForm();
+            if ($input && $input.length) {
+                $input.val("");
+            }
+            return;
+        }
+        if (key === "equipment_slots") {
+            if (!$input || !$input.length) return;
+            const value = $input.val().trim();
+            if (!value) return;
+            if (!state.equipment_slots[value]) {
+                state.equipment_slots[value] = true;
+                renderTags("equipment_slots");
+                renderPreview();
+            }
+            $input.val("");
+            return;
+        }
+        if (key === "items") {
+            openItemForm();
+            if ($input && $input.length) {
+                $input.val("");
+            }
+        }
+        if (key === "skills") {
+            openSkillForm();
+            if ($input && $input.length) {
+                $input.val("");
+            }
+        }
+    }
+
+    $levels.val(state.levels);
+    $skillSlots.val(state.skill_slots);
+    initAttributes();
+    $gainPerLevel.val(state.gain_per_level);
+    renderTags("equipment_slots");
+    renderTags("damage_types");
+    renderTags("categories");
+    renderTags("items");
+    renderTags("skills");
+    renderPreview();
+
+    $levels.on("input", function () {
+        const value = parseInt($(this).val(), 10);
+        if (!Number.isNaN(value)) {
+            state.levels = value;
+            renderPreview();
+        }
+    });
+
+    $skillSlots.on("input", function () {
+        const value = parseInt($(this).val(), 10);
+        if (!Number.isNaN(value)) {
+            state.skill_slots = value;
+            renderPreview();
+        }
+    });
+
+    $attrRanges.on("input", function () {
+        const attr = $(this).data("attr");
+        const kind = $(this).data("kind");
+        if (attr && kind) {
+            syncAttribute(attr, kind);
+        }
+    });
+
+    $gainPerLevel.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.gain_per_level = value;
+            renderPreview();
+        }
+    });
+
+    $(".tag-input button").on("click", function () {
+        const target = $(this).data("target");
+        const $input = $(`.tag-input input[data-target="${target}"]`);
+        addTag(target, $input);
+    });
+
+});
