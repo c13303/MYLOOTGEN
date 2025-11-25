@@ -14,11 +14,28 @@ const damage_structure_example = {
 
 const state = {
     attributes: {
-        physical: { min: 100, max: 300 },
-        energy: { min: 100, max: 150 },
-        dexterity: { min: 100, max: 150 }
+        physical: { min: 140, max: 200 },
+        energy: { min: 80, max: 130 },
+        dexterity: { min: 90, max: 140 }
     },
-    gain_per_level: 3,
+    gain_per_level: 2,
+    median_time_per_loot: 10,
+    median_time_per_level: 600,
+    level_time_multiplier: 1,
+    rarity_growth_factor: 1,
+    generate_percent: 3,
+    loot_rand_range: 3,
+    unarmed_physical_damage: 10,
+    base_physical_resistance: 5,
+    attack_speed_base: 1,
+    attack_speed_per_level: 0.02,
+    // scaling knobs (exposed in UI)
+    affix_min_slope: 0.9,
+    affix_max_slope: 1.3,
+    affix_max_multiplier: 2.2,
+    xp_base: 500,
+    xp_growth: 1.15,
+    xp_multiplier: 1,
     levels: 60,
     skill_slots: 4,
     equipment_slots: {
@@ -34,69 +51,88 @@ const state = {
         {
             "name": "Physical",
             "is_over_time": false,
-            "ranges": [[0, 100, 1]], /// means from 0 to 50 = 50% rarity, from 50 to 100 = 60%
-            "base_damage": 100,
+            "ranges": [[0, 100, 1]],
+            "base_damage": 100
         },
         {
             "name": "Fire",
             "is_over_time": false,
-            "ranges": [[0, 50, 0.5], [50, 100, 0.6]], /// means from 0 to 50 = 50% rarity, from 50 to 100 = 60%
-            "base_damage": 100 // some damage types hit harder by default but will likely be rarer
+            "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
+            "base_damage": 100
         },
         {
             "name": "Ice",
             "is_over_time": false,
-            "ranges": [[0, 50, 0.5], [50, 100, 0.6]], /// means from 0 to 50 = 50% rarity, from 50 to 100 = 60%
-            "base_damage": 100 // some damage types hit harder by default but will likely be rarer
+            "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
+            "base_damage": 100
         },
         {
             "name": "Shock",
             "is_over_time": false,
-            "ranges": [[0, 50, 0.5], [50, 100, 0.6]], /// means from 0 to 50 = 50% rarity, from 50 to 100 = 60%
-            "base_damage": 100 // some damage types hit harder by default but will likely be rarer
+            "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
+            "base_damage": 100
         },
         {
             "name": "Poison",
-            "ranges": [[0, 50, 0.5], [50, 100, 0.6]], /// means from 0 to 50 = 50% rarity, from 50 to 100 = 60%
-            "base_damage": 10,
-            "is_over_time": true
+            "is_over_time": true,
+            "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
+            "base_damage": 10
         },
         {
             "name": "Chaos",
             "is_over_time": false,
-            "ranges": [[0, 50, 0.1], [50, 100, 0.6]], /// means from 0 to 50 = 50% rarity, from 50 to 100 = 60%
-            "base_damage": 120 // some damage types hit harder by default but will likely be rarer
+            "ranges": [[0, 50, 0.1], [50, 100, 0.6]],
+            "base_damage": 120
+        },
+        {
+            "name": "Fire Burn",
+            "is_over_time": true,
+            "ranges": [[10, 100, 0.5]],
+            "base_damage": 40
         }
-
-
     ],
     categories: [
         {
             "name": "common",
             "rarity": 1,
-            "attributes": 0
+            "attributes": 1,
+            "attribute_types": ["Physical"],
+            "allow_attack_speed_mod": false,
+            "unlock_level": 1
         },
         {
             "name": "rare",
             "rarity": 0.5,
-            "attributes": 1
+            "attributes": 2,
+            "attribute_types": ["Physical", "Fire", "Ice", "Shock"],
+            "allow_attack_speed_mod": true,
+            "unlock_level": 5
         },
         {
             "name": "magic",
             "rarity": 0.5,
-            "attributes": 2
+            "attributes": 3,
+            "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn"],
+            "allow_attack_speed_mod": true,
+            "unlock_level": 8
         },
         {
             "name": "legendary",
             "rarity": 0.2,
-            "attributes": 3,
-            "skill_mod": 1
+            "attributes": 4,
+            "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "allow_attack_speed_mod": true,
+            "skill_mod": 1,
+            "unlock_level": 15
         },
         {
             "name": "unique",
             "rarity": 0.1,
-            "attributes": 4,
-            "skill_mod": 2
+            "attributes": 5,
+            "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "allow_attack_speed_mod": true,
+            "skill_mod": 2,
+            "unlock_level": 30
         }
     ],
     items: [
@@ -179,50 +215,60 @@ const state = {
     ],
     skills: [
         {
-            "name": "Fireball",
+            "name": "Cleave",
+            "cooldown": 4,
+            "energy_cost": 8,
+            "type": "damage",
+            "damage_type": "Physical",
+            "level_min": 1
+        },
+        {
+            "name": "Shield Bash",
             "cooldown": 6,
-            "energy_cost": 20,
+            "energy_cost": 10,
+            "type": "damage",
+            "damage_type": "Physical",
+            "level_min": 1
+        },
+        {
+            "name": "Flame Slash",
+            "cooldown": 8,
+            "energy_cost": 12,
             "type": "damage",
             "damage_type": "Fire",
             "level_min": 5
         },
         {
-            "name": "Frost Shield",
+            "name": "Scorching Brand",
             "cooldown": 12,
-            "energy_cost": 15,
-            "type": "buff",
-            "level_min": 3
-        },
-        {
-            "name": "Lightning Strike",
-            "cooldown": 8,
-            "energy_cost": 18,
+            "energy_cost": 14,
             "type": "damage",
-            "damage_type": "Shock",
+            "damage_type": "Fire Burn",
             "level_min": 10
         },
         {
-            "name": "Poison Cloud",
-            "cooldown": 10,
+            "name": "Blazing Arc",
+            "cooldown": 9,
+            "energy_cost": 16,
+            "type": "damage",
+            "damage_type": "Fire",
+            "level_min": 20
+        },
+        {
+            "name": "Inferno Surge",
+            "cooldown": 14,
+            "energy_cost": 18,
+            "type": "damage",
+            "damage_type": "Fire",
+            "level_min": 30
+        },
+        {
+            "name": "Phoenix Crash",
+            "cooldown": 18,
             "energy_cost": 22,
             "type": "damage",
-            "damage_type": "Poison",
-            "level_min": 8
-        },
-        {
-            "name": "Rally",
-            "cooldown": 15,
-            "energy_cost": 10,
-            "type": "buff",
-            "level_min": 4
-        },
-        {
-            "name": "Chaos Blast",
-            "cooldown": 20,
-            "energy_cost": 30,
-            "type": "damage",
-            "damage_type": "Chaos",
-            "level_min": 15
+            "damage_type": "Fire",
+            "level_min": 40
         }
     ]
 };

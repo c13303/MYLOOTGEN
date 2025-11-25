@@ -6,6 +6,22 @@ $(function () {
     const $skillSlots = $("#skill-slots");
     const $attrRanges = $(".attr-number");
     const $gainPerLevel = $("#gain-per-level");
+    const $medianTimePerLoot = $("#median-time-per-loot");
+    const $medianTimePerLevel = $("#median-time-per-level");
+    const $levelTimeMultiplier = $("#level-time-multiplier");
+    const $rarityGrowthFactor = $("#rarity-growth-factor");
+    const $unarmedPhysicalDamage = $("#unarmed-physical-damage");
+    const $basePhysicalResistance = $("#base-physical-resistance");
+    const $generatePercent = $("#generate-percent");
+    const $lootRandRange = $("#loot-rand-range");
+    const $attackSpeedBase = $("#attack-speed-base");
+    const $attackSpeedPerLevel = $("#attack-speed-per-level");
+    const $affixMinSlope = $("#affix-min-slope");
+    const $affixMaxSlope = $("#affix-max-slope");
+    const $affixMaxMultiplier = $("#affix-max-multiplier");
+    const $xpBase = $("#xp-base");
+    const $xpGrowth = $("#xp-growth");
+    const $xpMultiplier = $("#xp-multiplier");
     const $preview = $("#config-preview");
     const attrNames = ["physical", "energy", "dexterity"];
 
@@ -318,7 +334,59 @@ $(function () {
         const $name = $('<input type="text" placeholder="Name">').css(fieldStyle);
         const $rarity = $('<input type="number" placeholder="Rarity (0-1)" step="0.01" min="0" max="1">').css(fieldStyle);
         const $attributes = $('<input type="number" placeholder="Attributes count" step="1" min="0">').css(fieldStyle);
+        const $unlockLevel = $('<input type="number" placeholder="Unlock level" step="1" min="1">').css(fieldStyle);
         const $skillMod = $('<input type="number" placeholder="Skill mod (optional)" step="1" min="0">').css(fieldStyle);
+        const $allowAtkSpeed = $('<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="allow-atk-speed"> Allow attack speed mod</label>');
+        const $attrTypeSelect = $('<select></select>').css(fieldStyle);
+        const $attrTypesWrap = $('<div></div>').css({ display: "grid", gap: "6px" });
+        const attrTypes = [];
+
+        function renderAttrTypeSelect() {
+            $attrTypeSelect.empty();
+            $attrTypeSelect.append('<option value="">Select damage/resistance type</option>');
+            (state.damage_types || []).forEach((dt) => {
+                $attrTypeSelect.append($(`<option value="${dt.name}">${dt.name}</option>`));
+            });
+        }
+
+        const $attrTypeTags = $('<div class="tag-list"></div>').css({ gap: "6px" });
+
+        function renderAttrTypeTags() {
+            $attrTypeTags.empty();
+            attrTypes.forEach((t) => {
+                const $tag = $('<span class="tag"></span>').text(t);
+                const $x = $('<button type="button" class="remove-tag">x</button>');
+                $x.on("click", () => {
+                    const idx = attrTypes.indexOf(t);
+                    if (idx >= 0) attrTypes.splice(idx, 1);
+                    renderAttrTypeTags();
+                });
+                $tag.append($x);
+                $attrTypeTags.append($tag);
+            });
+        }
+
+        const $addAttrType = $('<button type="button">Add attr type</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $addAttrType.on("click", () => {
+            const val = $attrTypeSelect.val();
+            if (val && !attrTypes.includes(val)) {
+                attrTypes.push(val);
+                renderAttrTypeTags();
+            }
+        });
+
+        $attrTypesWrap.append($attrTypeSelect, $addAttrType, $attrTypeTags);
+        renderAttrTypeSelect();
+        renderAttrTypeTags();
 
         const $actions = $('<div class="actions"></div>').css({
             display: "flex",
@@ -354,10 +422,15 @@ $(function () {
             const rarityVal = parseFloat($rarity.val());
             const attrVal = parseInt($attributes.val(), 10);
             const skillValRaw = $skillMod.val().trim();
+            const unlockLevelVal = parseInt($unlockLevel.val(), 10);
             const skillVal = skillValRaw === "" ? null : parseInt(skillValRaw, 10);
 
             if (!name || Number.isNaN(rarityVal) || rarityVal < 0 || rarityVal > 1 || Number.isNaN(attrVal)) {
                 alert("Please fill every field correctly (rarity between 0 and 1).");
+                return;
+            }
+            if (Number.isNaN(unlockLevelVal) || unlockLevelVal < 1) {
+                alert("Unlock level must be >= 1.");
                 return;
             }
 
@@ -375,7 +448,10 @@ $(function () {
             const newCat = {
                 name,
                 rarity: rarityVal,
-                attributes: attrVal
+                attributes: attrVal,
+                attribute_types: [...attrTypes],
+                allow_attack_speed_mod: $allowAtkSpeed.find("input").is(":checked"),
+                unlock_level: unlockLevelVal
             };
             if (skillVal !== null) {
                 newCat.skill_mod = skillVal;
@@ -388,7 +464,17 @@ $(function () {
         });
 
         $actions.append($cancel, $submit);
-        $form.append($name, $rarity, $attributes, $skillMod, $actions);
+        $form.append(
+            $name,
+            $rarity,
+            $attributes,
+            $unlockLevel,
+            $allowAtkSpeed,
+            $skillMod,
+            $("<label>Attribute types</label>").css({ fontWeight: "600" }),
+            $attrTypesWrap,
+            $actions
+        );
         $modal.append($title, $form);
         $overlay.append($modal);
         $("body").append($overlay);
@@ -422,7 +508,11 @@ $(function () {
 
         const $rarity = $(`<p><strong>Rarity:</strong> ${cat.rarity}</p>`).css({ margin: "0 0 8px" });
         const $attrs = $(`<p><strong>Attributes:</strong> ${cat.attributes}</p>`).css({ margin: "0 0 8px" });
+        const attrTypes = (cat.attribute_types && cat.attribute_types.length) ? cat.attribute_types.join(", ") : "-";
+        const $types = $(`<p><strong>Attribute types:</strong> ${attrTypes}</p>`).css({ margin: "0 0 8px" });
+        const $atk = $(`<p><strong>Allow attack speed:</strong> ${cat.allow_attack_speed_mod ? "Yes" : "No"}</p>`).css({ margin: "0 0 14px" });
         const $skill = $(`<p><strong>Skill mod:</strong> ${cat.skill_mod ?? "-"}</p>`).css({ margin: "0 0 14px" });
+        const $unlock = $(`<p><strong>Unlock level:</strong> ${cat.unlock_level ?? 1}</p>`).css({ margin: "0 0 14px" });
 
         const $close = $('<button type="button">Close</button>').css({
             padding: "8px 12px",
@@ -436,7 +526,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $rarity, $attrs, $skill, $close);
+        $modal.append($title, $rarity, $attrs, $types, $atk, $skill, $unlock, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
@@ -937,6 +1027,22 @@ $(function () {
     $skillSlots.val(state.skill_slots);
     initAttributes();
     $gainPerLevel.val(state.gain_per_level);
+    $medianTimePerLoot.val(state.median_time_per_loot);
+    $medianTimePerLevel.val(state.median_time_per_level);
+    $levelTimeMultiplier.val(state.level_time_multiplier);
+    $rarityGrowthFactor.val(state.rarity_growth_factor);
+    $unarmedPhysicalDamage.val(state.unarmed_physical_damage);
+    $basePhysicalResistance.val(state.base_physical_resistance);
+    $generatePercent.val(state.generate_percent);
+    $lootRandRange.val(state.loot_rand_range);
+    $attackSpeedBase.val(state.attack_speed_base);
+    $attackSpeedPerLevel.val(state.attack_speed_per_level);
+    $affixMinSlope.val(state.affix_min_slope);
+    $affixMaxSlope.val(state.affix_max_slope);
+    $affixMaxMultiplier.val(state.affix_max_multiplier);
+    $xpBase.val(state.xp_base);
+    $xpGrowth.val(state.xp_growth);
+    $xpMultiplier.val(state.xp_multiplier);
     renderTags("equipment_slots");
     renderTags("damage_types");
     renderTags("categories");
@@ -976,10 +1082,145 @@ $(function () {
         }
     });
 
+    $medianTimePerLoot.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.median_time_per_loot = value;
+            renderPreview();
+        }
+    });
+
+    $medianTimePerLevel.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.median_time_per_level = value;
+            renderPreview();
+        }
+    });
+
+    $levelTimeMultiplier.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.level_time_multiplier = value;
+            renderPreview();
+        }
+    });
+
+    $rarityGrowthFactor.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.rarity_growth_factor = value;
+            renderPreview();
+        }
+    });
+
+    $unarmedPhysicalDamage.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.unarmed_physical_damage = value;
+            renderPreview();
+        }
+    });
+
+    $basePhysicalResistance.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.base_physical_resistance = value;
+            renderPreview();
+        }
+    });
+
+    $generatePercent.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.generate_percent = value;
+            renderPreview();
+        }
+    });
+
+    $lootRandRange.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.loot_rand_range = value;
+            renderPreview();
+        }
+    });
+
+    $attackSpeedBase.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.attack_speed_base = value;
+            renderPreview();
+        }
+    });
+
+    $attackSpeedPerLevel.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.attack_speed_per_level = value;
+            renderPreview();
+        }
+    });
+
+    $affixMinSlope.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.affix_min_slope = value;
+            renderPreview();
+        }
+    });
+
+    $affixMaxSlope.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.affix_max_slope = value;
+            renderPreview();
+        }
+    });
+
+    $affixMaxMultiplier.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.affix_max_multiplier = value;
+            renderPreview();
+        }
+    });
+
+
+    $xpBase.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.xp_base = value;
+            renderPreview();
+        }
+    });
+
+    $xpGrowth.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.xp_growth = value;
+            renderPreview();
+        }
+    });
+
+    $xpMultiplier.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.xp_multiplier = value;
+            renderPreview();
+        }
+    });
+
     $(".tag-input button").on("click", function () {
         const target = $(this).data("target");
         const $input = $(`.tag-input input[data-target="${target}"]`);
         addTag(target, $input);
+    });
+
+    $("#compute-btn").on("click", function () {
+        if (typeof compute === "function") {
+            compute();
+        }
     });
 
 });

@@ -54,12 +54,92 @@
               <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="dexterity" data-kind="max" placeholder="Max">
             </div>
           </div>
-        </div>
+      </div>
 
-        <div class="field">
-          <label for="gain-per-level">Gain per level</label>
-          <input type="number" id="gain-per-level" name="gain_per_level" min="0" step="0.1">
-        </div>
+      <div class="field">
+        <label for="gain-per-level">Gain per level</label>
+        <input type="number" id="gain-per-level" name="gain_per_level" min="0" step="0.1">
+      </div>
+
+      <div class="field">
+        <label for="median-time-per-loot">Median time per loot (s)</label>
+        <input type="number" id="median-time-per-loot" name="median_time_per_loot" min="1" step="1">
+      </div>
+
+      <div class="field">
+        <label for="median-time-per-level">Median time per level (s)</label>
+        <input type="number" id="median-time-per-level" name="median_time_per_level" min="1" step="1">
+      </div>
+
+      <div class="field">
+        <label for="level-time-multiplier">Level time multiplier</label>
+        <input type="number" id="level-time-multiplier" name="level_time_multiplier" min="0" step="0.1">
+      </div>
+
+      <div class="field">
+        <label for="rarity-growth-factor">Rarity growth factor</label>
+        <input type="number" id="rarity-growth-factor" name="rarity_growth_factor" min="0" step="0.1">
+      </div>
+
+      <div class="field">
+        <label for="generate-percent">Generate % in simulation</label>
+        <input type="number" id="generate-percent" name="generate_percent" min="1" max="100" step="1">
+      </div>
+
+      <div class="field">
+        <label for="loot-rand-range">Range of rand for loot attrib</label>
+        <input type="number" id="loot-rand-range" name="loot_rand_range" min="1" step="1">
+      </div>
+
+      <div class="field">
+        <label for="unarmed-physical-damage">Unarmed physical damage</label>
+        <input type="number" id="unarmed-physical-damage" name="unarmed_physical_damage" min="0" step="1">
+      </div>
+
+      <div class="field">
+        <label for="base-physical-resistance">Base physical resistance</label>
+        <input type="number" id="base-physical-resistance" name="base_physical_resistance" min="0" step="1">
+      </div>
+
+      <div class="field">
+        <label for="attack-speed-base">Base attack speed</label>
+        <input type="number" id="attack-speed-base" name="attack_speed_base" min="0" step="0.01">
+      </div>
+
+      <div class="field">
+        <label for="attack-speed-per-level">Attack speed per level</label>
+        <input type="number" id="attack-speed-per-level" name="attack_speed_per_level" min="0" step="0.001">
+      </div>
+
+      <div class="field">
+        <label for="affix-min-slope">Affix min slope</label>
+        <input type="number" id="affix-min-slope" name="affix_min_slope" min="0" step="0.01">
+      </div>
+
+      <div class="field">
+        <label for="affix-max-slope">Affix max slope</label>
+        <input type="number" id="affix-max-slope" name="affix_max_slope" min="0" step="0.01">
+      </div>
+
+      <div class="field">
+        <label for="affix-max-multiplier">Affix max multiplier</label>
+        <input type="number" id="affix-max-multiplier" name="affix_max_multiplier" min="0" step="0.01">
+      </div>
+
+      <div class="field">
+        <label for="xp-base">XP base per level</label>
+        <input type="number" id="xp-base" name="xp_base" min="1" step="1">
+      </div>
+
+      <div class="field">
+        <label for="xp-growth">XP growth</label>
+        <input type="number" id="xp-growth" name="xp_growth" min="0" step="0.01">
+      </div>
+
+      <div class="field">
+        <label for="xp-multiplier">XP multiplier</label>
+        <input type="number" id="xp-multiplier" name="xp_multiplier" min="0" step="0.1">
+      </div>
       </div>
 
       <div class="field">
@@ -103,7 +183,9 @@
         </div>
       </div>
     </form>
+    <button id="compute-btn" type="button" class="compute-btn">Compute</button>
     <pre id="config-preview" class="config-preview"></pre>
+    <div id="compute-result" class="compute-result"></div>
   </main>
 
 
