@@ -20,8 +20,8 @@
     <button id="compute-btn-top" type="button" class="compute-btn">Compute</button>
 
     <form id="config-form" class="config-form" autocomplete="off">
-      <div class="form-section">
-        <div class="section-title">Bases</div>
+      <details class="form-section">
+        <summary class="section-title">Bases</summary>
         <div class="field-grid">
           <div class="field">
             <label for="levels" title="Maximum character level simulated. Increases loops/loot generations.">Level Max</label>
@@ -34,7 +34,7 @@
           </div>
 
           <div class="field full-span">
-            <label title="Starting min/max bounds for each attribute; impact starting stats and growth caps.">Base attributes</label>
+            <label title="Starting min/max bounds for each attribute; impact starting stats and growth caps.">Base stats</label>
             <div class="attr-table">
               <div class="attr-row header">
                 <span>Type</span>
@@ -74,26 +74,11 @@
             <input type="number" id="attack-speed-base" name="attack_speed_base" min="0" step="0.01">
           </div>
         </div>
-      </div>
+      </details>
 
-      <div class="form-section">
-        <div class="section-title">Progression & Scaling</div>
+      <details class="form-section">
+        <summary class="section-title">Time Progression</summary>
         <div class="field-grid">
-          <div class="field">
-            <label for="stats-progression-model" title="How stat gains are distributed per level (balanced or favoring one stat).">Stats progression model</label>
-            <select id="stats-progression-model" name="stats_progression_model">
-              <option value="balanced">Balanced (random spread)</option>
-              <option value="favorite_force">Favorite Force</option>
-              <option value="favorite_intelligence">Favorite Intelligence</option>
-              <option value="favorite_dexterity">Favorite Dexterity</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="gain-per-level" title="Flat stat gain per level applied to the selected stat progression model.">Gain per level</label>
-            <input type="number" id="gain-per-level" name="gain_per_level" min="0" step="0.1">
-          </div>
-
           <div class="field">
             <label for="median-time-per-loot" title="Average seconds to obtain one loot; lower = more drops per level.">Median time per loot (s)</label>
             <input type="number" id="median-time-per-loot" name="median_time_per_loot" min="1" step="1">
@@ -108,66 +93,15 @@
             <label for="level-time-multiplier" title="Exponential growth factor of time per level. Higher = slower higher levels.">Level time multiplier</label>
             <input type="number" id="level-time-multiplier" name="level_time_multiplier" min="0" step="0.1">
           </div>
+        </div>
+      </details>
 
-          <div class="field">
-            <label for="rarity-growth-factor" title="Boosts weights of higher-rarity categories as levels increase.">Rarity growth factor</label>
-            <input type="number" id="rarity-growth-factor" name="rarity_growth_factor" min="0" step="0.1">
-          </div>
-
-          <div class="field">
-            <label for="loot-rand-range" title="Random offset added to affix min/max computation; higher = wider spread.">Range of rand for loot attrib</label>
-            <input type="number" id="loot-rand-range" name="loot_rand_range" min="1" step="1">
-          </div>
-
-          <div class="field">
-            <label for="attack-speed-bonus-min" title="Minimum roll for an Attack Speed affix on gear (percent).">Attack speed bonus min (%)</label>
-            <input type="number" id="attack-speed-bonus-min" name="attack_speed_bonus_min" min="0" step="1">
-          </div>
-
-          <div class="field">
-            <label for="attack-speed-bonus-max" title="Maximum roll for an Attack Speed affix on gear (percent).">Attack speed bonus max (%)</label>
-            <input type="number" id="attack-speed-bonus-max" name="attack_speed_bonus_max" min="0" step="1">
-          </div>
-          <div class="field">
-            <label for="attack-speed-affix-level-scale" title="Scales AS affix range with level (0 = none, 0.5 = moderate).">AS affix level scale</label>
-            <input type="number" id="attack-speed-affix-level-scale" name="attack_speed_affix_level_scale" min="0" step="0.01">
-          </div>
-          <div class="field">
-            <label for="attack-speed-affix-rarity-scale" title="Scales AS affix range with rarity (0 = none, 0.1 = mild).">AS affix rarity scale</label>
-            <input type="number" id="attack-speed-affix-rarity-scale" name="attack_speed_affix_rarity_scale" min="0" step="0.01">
-          </div>
-          <div class="field">
-            <label for="attack-speed-cap" title="Clamp final attack speed after bonuses (0 to disable).">Attack speed cap</label>
-            <input type="number" id="attack-speed-cap" name="attack_speed_cap" min="0" step="0.01">
-          </div>
-
-          <div class="field">
-            <label for="base-damage-power" title="Exponent applied to level for base dmg progression (lvl^power).">Base dmg power</label>
-            <input type="number" id="base-damage-power" name="base_damage_power_progression" min="0" step="0.1">
-          </div>
-
-          <div class="field">
-            <label for="affix-min-ratio" title="Forces the minimum affix to be at least this ratio of the max roll.">Affix min ratio (of max)</label>
-            <input type="number" id="affix-min-ratio" name="affix_min_ratio" min="0" max="1" step="0.01">
-          </div>
+      <details class="form-section">
+        <summary class="section-title">Global Affix Progression</summary>
+        <div class="field-grid">
           <div class="field">
             <label for="affix-rarity-scale" title="Scales affix min/max with rarity (0 = none).">Affix rarity scale</label>
             <input type="number" id="affix-rarity-scale" name="affix_rarity_scale" min="0" step="0.01">
-          </div>
-
-          <div class="field">
-            <label for="base-damage-min" title="Minimum base damage floor at level 1 (keeps early levels granular).">Base dmg min (lvl 1 floor)</label>
-            <input type="number" id="base-damage-min" name="base_damage_min" min="0" step="1">
-          </div>
-
-          <div class="field">
-            <label for="affix-max-multiplier" title="Multiplier applied to loot_rand_range for the upper bound; widens the spread.">Affix max multiplier</label>
-            <input type="number" id="affix-max-multiplier" name="affix_max_multiplier" min="0" step="0.01">
-          </div>
-
-          <div class="field">
-            <label for="affix-min-multiplier" title="Multiplier on base dmg progression for the lower bound of affix rolls.">Affix min multiplier</label>
-            <input type="number" id="affix-min-multiplier" name="affix_min_multiplier" min="0" step="0.01">
           </div>
 
           <div class="field">
@@ -189,23 +123,95 @@
             <label for="additional-loot-factor" title="Multiplier on the number of loots rolled per level.">Additional loot factor</label>
             <input type="number" id="additional-loot-factor" name="additional_loot_factor" min="0" step="0.01">
           </div>
+        </div>
+      </details>
+
+      <details class="form-section">
+        <summary class="section-title">Base Stat Progression</summary>
+        <div class="field-grid">
+          <div class="field">
+            <label for="stats-progression-model" title="How stat gains are distributed per level (balanced or favoring one stat).">Stats progression model</label>
+            <select id="stats-progression-model" name="stats_progression_model">
+              <option value="balanced">Balanced (random spread)</option>
+              <option value="favorite_force">Favorite Force</option>
+              <option value="favorite_intelligence">Favorite Intelligence</option>
+              <option value="favorite_dexterity">Favorite Dexterity</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="gain-per-level" title="Flat stat gain per level applied to the selected stat progression model.">Base attributes gain per level</label>
+            <input type="number" id="gain-per-level" name="gain_per_level" min="0" step="0.1">
+          </div>
 
           <div class="field">
             <label for="unarmed-growth" title="Percent growth of unarmed damage per level.">Unarmed growth per level</label>
             <input type="number" id="unarmed-growth" name="unarmed_growth" min="0" step="0.001">
           </div>
         </div>
-      </div>
+      </details>
 
-      <div class="form-section">
-        <div class="section-title">Simulation Parameters</div>
+      <details class="form-section">
+        <summary class="section-title">Attack Speed Progression</summary>
+        <div class="field-grid">
+          <div class="field">
+            <label for="attack-speed-bonus-min" title="Minimum roll for an Attack Speed affix on gear (percent).">Minimum AS affix %</label>
+            <input type="number" id="attack-speed-bonus-min" name="attack_speed_bonus_min" min="0" step="1">
+          </div>
+
+          <div class="field">
+            <label for="attack-speed-bonus-max" title="Maximum roll for an Attack Speed affix on gear (percent).">Maximum AS affix %</label>
+            <input type="number" id="attack-speed-bonus-max" name="attack_speed_bonus_max" min="0" step="1">
+          </div>
+          <div class="field">
+            <label for="attack-speed-affix-level-scale" title="Scales AS affix range with level (0 = none, 0.5 = moderate).">AS affix level scale</label>
+            <input type="number" id="attack-speed-affix-level-scale" name="attack_speed_affix_level_scale" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label for="attack-speed-affix-rarity-scale" title="Scales AS affix range with rarity (0 = none, 0.1 = mild).">AS affix rarity scale</label>
+            <input type="number" id="attack-speed-affix-rarity-scale" name="attack_speed_affix_rarity_scale" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label for="attack-speed-cap" title="Clamp final attack speed after bonuses (0 to disable).">Attack speed cap</label>
+            <input type="number" id="attack-speed-cap" name="attack_speed_cap" min="0" step="0.01">
+          </div>
+        </div>
+      </details>
+
+      <details class="form-section">
+        <summary class="section-title">DMG Progression</summary>
+        <div class="field-grid">
+          <div class="field">
+            <label for="base-damage-min" title="Minimum base damage floor at level 1 (keeps early levels granular).">Base dmg min (lvl 1 floor)</label>
+            <input type="number" id="base-damage-min" name="base_damage_min" min="0" step="1">
+          </div>
+
+          <div class="field">
+            <label for="base-damage-power" title="Exponent applied to level for base dmg progression (lvl^power).">Base damage power</label>
+            <input type="number" id="base-damage-power" name="base_damage_power_progression" min="0" step="0.1">
+          </div>
+
+          <div class="field">
+            <label for="affix-min-ratio" title="Forces the minimum affix to be at least this ratio of the max roll.">Minimum dmg affix ratio</label>
+            <input type="number" id="affix-min-ratio" name="affix_min_ratio" min="0" max="1" step="0.01">
+          </div>
+
+          <div class="field">
+            <label for="loot-rand-range" title="Random offset added to affix min/max computation; higher = wider spread.">Range of rand for loot attrib</label>
+            <input type="number" id="loot-rand-range" name="loot_rand_range" min="1" step="1">
+          </div>
+        </div>
+      </details>
+
+      <details class="form-section">
+        <summary class="section-title">Simulation Parameters</summary>
         <div class="field-grid">
           <div class="field">
             <label for="generate-percent" title="Percent of theoretical loot actually rolled each level (sampling rate).">Loot Gen % in Sim</label>
             <input type="number" id="generate-percent" name="generate_percent" min="1" max="100" step="1">
           </div>
         </div>
-      </div>
+      </details>
 
       <details class="form-section">
         <summary class="section-title">XP & Damage System Configuration</summary>

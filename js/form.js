@@ -24,9 +24,7 @@ $(function () {
     const $affixRarityScale = $("#affix-rarity-scale");
     const $baseDamagePower = $("#base-damage-power");
     const $baseDamageMin = $("#base-damage-min");
-    const $affixMinMultiplier = $("#affix-min-multiplier");
     const $affixMinRatio = $("#affix-min-ratio");
-    const $affixMaxMultiplier = $("#affix-max-multiplier");
     const $affixCap = $("#affix-cap");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
     const $attrPerLevelFactor = $("#attr-per-level-factor"); 
@@ -1346,9 +1344,7 @@ $(function () {
     $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
     $baseDamagePower.val(state.base_damage_power_progression ?? 2);
     $baseDamageMin.val(state.base_damage_min ?? 2);
-    $affixMinMultiplier.val(state.affix_min_multiplier ?? 0.65);
     $affixMinRatio.val(state.affix_min_ratio ?? 0.6);
-    $affixMaxMultiplier.val(state.affix_max_multiplier);
     $affixCap.val(state.affix_cap);
     $attrPerLevelFactor.val(state.attr_per_level_factor);
     $rarityWeightGrowth.val(state.rarity_weight_growth);
@@ -1534,26 +1530,10 @@ $(function () {
         }
     });
 
-    $affixMinMultiplier.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.affix_min_multiplier = value;
-            renderPreview();
-        }
-    });
-
     $affixMinRatio.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.affix_min_ratio = value;
-            renderPreview();
-        }
-    });
-
-    $affixMaxMultiplier.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.affix_max_multiplier = value;
             renderPreview();
         }
     });

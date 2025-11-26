@@ -47,9 +47,7 @@ const state = {
     base_damage_min: 2, // floor to guarantee lvl 1 >= 2
     base_damage_scale: 1, // global scalar for base dmg progression
     base_damage_jitter_pct: 0.1, // +/- jitter applied around median (0.1 = ±10%)
-    affix_min_multiplier: 0.65,
     affix_min_ratio: 0.55,
-    affix_max_multiplier: 1.35,
     affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on base dmg
     rarity_weight_growth: 0.05,
     attr_per_level_factor: 0.04,
