@@ -250,6 +250,68 @@ p {
   color: #94a3b8;
 }
 
+.build-block {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(226, 232, 240, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  display: grid;
+  gap: 6px;
+}
+
+.build-heading {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.build-line {
+  font-size: 14px;
+}
+
+.build-subtitle {
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.build-table {
+  overflow-x: auto;
+}
+
+.build-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(15, 23, 42, 0.25);
+  border: 1px solid rgba(226, 232, 240, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.build-table th,
+.build-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.08);
+  font-size: 14px;
+}
+
+.build-table th {
+  background: rgba(56, 189, 248, 0.12);
+  font-weight: 700;
+}
+
+.build-table tbody tr:nth-child(even) {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.build-table.empty {
+  padding: 8px 10px;
+  border: 1px dashed rgba(226, 232, 240, 0.15);
+  border-radius: 10px;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
 .equip-flag {
   display: flex;
   flex-direction: column;

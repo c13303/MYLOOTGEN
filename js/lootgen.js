@@ -76,18 +76,27 @@ function compute() {
         .reduce((sum, b) => sum + (parseInt(b.replace(/\D/g, ""), 10) || 0), 0);
 
     const aggregateWithGear = (baseDamage, baseResists, slotOverride, lootOverride) => {
-        const damage = { ...baseDamage };
+        const damageAdds = { ...baseDamage };
         const resists = { ...baseResists };
+        const damageMods = {};
         let atkBonus = 0;
         const slotsToApply = new Set([...Object.keys(gearBySlot), ...(slotOverride ? [slotOverride] : [])]);
         slotsToApply.forEach((slot) => {
             const source = slot === slotOverride ? lootOverride : gearBySlot[slot]?.loot;
             if (!source) return;
-            Object.entries(source.dmgAdds || {}).forEach(([k, v]) => { damage[k] = (damage[k] || 0) + v; });
+            Object.entries(source.dmgAdds || {}).forEach(([k, v]) => { damageAdds[k] = (damageAdds[k] || 0) + v; });
+            Object.entries(source.dmgMods || {}).forEach(([k, v]) => { damageMods[k] = (damageMods[k] || 0) + v; });
             Object.entries(source.resAdds || {}).forEach(([k, v]) => { resists[k] = (resists[k] || 0) + v; });
             atkBonus += source.atkBonus || 0;
         });
-        return { damage, resists, atkBonus };
+        const damage = {};
+        const allTypes = new Set([...Object.keys(damageAdds), ...Object.keys(damageMods)]);
+        allTypes.forEach((k) => {
+            const base = damageAdds[k] || 0;
+            const mod = damageMods[k] || 0;
+            damage[k] = base * (1 + mod / 100);
+        });
+        return { damage, resists, atkBonus, adds: damageAdds, mods: damageMods };
     };
 
     const computeTotalDps = (damageTotals, attackSpeed) => {
@@ -210,6 +219,7 @@ function compute() {
             const typePool = (cat.attribute_types && cat.attribute_types.length) ? cat.attribute_types : damageTypes.map((d) => d.name);
             const bonuses = [];
             const dmgAdds = {};
+            const dmgMods = {};
             const resAdds = {};
             let localAtkBonus = 0;
             let hasAtkSpeed = false;
@@ -227,28 +237,42 @@ function compute() {
                 }
                 if (!typeName) continue;
                 const useAttackSpeed = allowAtkSpeedThisItem && !hasAtkSpeed && pseudoRand(k + lvl + d) < 0.1;
-                const isDamage = useAttackSpeed ? false : k % 2 === 0;
+                const roll = pseudoRand(k + d + lvl);
+                let kind = "damage";
+                if (useAttackSpeed) kind = "attack";
+                else if (roll < 0.45) kind = "damage";
+                else if (roll < 0.75) kind = "modifier";
+                else kind = "resist";
                 const bonus = Math.max(minAttrVal, Math.round(minAttrVal + pseudoRand(k + d + lvl) * (maxAttrVal - minAttrVal)));
-                if (useAttackSpeed) {
+                if (kind === "attack") {
                     hasAtkSpeed = true;
                     localAtkBonus += bonus;
                     bonuses.push(`+${bonus}% Attack Speed`);
-                } else if (isDamage) {
+                } else if (kind === "damage") {
                     dmgAdds[typeName] = (dmgAdds[typeName] || 0) + bonus;
                     bonuses.push(`+${bonus}% ${typeName} dmg`);
                     usedTypes.add(typeName);
+                } else if (kind === "modifier") {
+                    dmgMods[typeName] = (dmgMods[typeName] || 0) + bonus;
+                    bonuses.push(`+${bonus}% ${typeName} modifier`);
                 } else {
                     resAdds[typeName] = (resAdds[typeName] || 0) + bonus;
                     bonuses.push(`+${bonus}% ${typeName} res`);
                     usedTypes.add(typeName);
                 }
             }
-            lootList.push({ slot, category: cat.name, name: chosenItem.name, bonuses, dmgAdds, resAdds, atkBonus: localAtkBonus || extractAtkBonus(bonuses) });
+            lootList.push({ slot, category: cat.name, name: chosenItem.name, bonuses, dmgAdds, dmgMods, resAdds, atkBonus: localAtkBonus || extractAtkBonus(bonuses) });
         }
 
         // try equipping each new loot if it improves total DPS compared to current gear
         const equippedThisLevel = new Map();
-        let { damage: currentDamage, resists: currentResists, atkBonus: currentAtkBonus } = aggregateWithGear(damageTotalsBase, resistTotalsBase);
+        let {
+            damage: currentDamage,
+            resists: currentResists,
+            atkBonus: currentAtkBonus,
+            adds: currentAdds,
+            mods: currentMods
+        } = aggregateWithGear(damageTotalsBase, resistTotalsBase);
         const attackSpeedBaseCurrent = (state.attack_speed_base || 0) + lvl * (state.attack_speed_per_level || 0);
         let currentAttackSpeed = attackSpeedBaseCurrent * (1 + currentAtkBonus / 100);
         let currentTotalDps = computeTotalDps(currentDamage, currentAttackSpeed);
@@ -262,7 +286,7 @@ function compute() {
             const reasonText = !prev
                 ? `Slot was empty -> ${candidateTotalDps.toFixed(1)} DPS`
                 : candidateTotalDps > prevTotal
-                    ? `Higher DPS ${prevTotal.toFixed(1)} → ${candidateTotalDps.toFixed(1)}`
+                    ? `Higher DPS ${prevTotal.toFixed(1)} ??? ${candidateTotalDps.toFixed(1)}`
                     : `Tie on DPS (${candidateTotalDps.toFixed(1)})`;
             if (candidateTotalDps >= currentTotalDps) {
                 gearBySlot[loot.slot] = { loot: { ...loot, atkBonus: loot.atkBonus || 0 } };
@@ -271,6 +295,8 @@ function compute() {
                 currentAtkBonus = agg.atkBonus;
                 currentAttackSpeed = candidateAttackSpeed;
                 currentTotalDps = candidateTotalDps;
+                currentAdds = agg.adds;
+                currentMods = agg.mods;
                 equippedThisLevel.set(lootIdx, reasonText);
             }
         });
@@ -278,17 +304,19 @@ function compute() {
         const equippedLoot = Object.values(gearBySlot).map((v) => v.loot);
         const orderBonuses = (bonuses) => {
             const dmg = [];
+            const mod = [];
             const atk = [];
             const res = [];
             const other = [];
             bonuses.forEach((b) => {
                 const lower = b.toLowerCase();
-                if (lower.includes("dmg")) dmg.push(b);
+                if (lower.includes("modifier")) mod.push(b);
+                else if (lower.includes("dmg")) dmg.push(b);
                 else if (lower.includes("attack speed")) atk.push(b);
                 else if (lower.includes("res")) res.push(b);
                 else other.push(b);
             });
-            return [...dmg, ...atk, ...res, ...other];
+            return [...dmg, ...mod, ...atk, ...res, ...other];
         };
 
         const gearLines = equippedLoot.map((loot) => {
@@ -369,13 +397,47 @@ function compute() {
       </tbody>
     </table></div>`
             : '<div class="loot-table empty">No loot</div>';
-        const statsLine = attrNames.map((a) => `${a}=${stats[a]}`).join(", ");
         const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}`;
         const attrRangeText = `Attrib range for loot: ${minAttrVal}-${maxAttrVal}%`;
         const attackSpeed = attackSpeedBase * (1 + currentAtkBonus / 100);
 
         const dpsParts = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: ${(v * attackSpeed).toFixed(1)} DPS`));
         const dpsLine = dpsParts.length ? dpsParts.join(" | ") : "None";
+        const dmgBreakdownRows = (() => {
+            const allTypes = new Set([...Object.keys(currentAdds || {}), ...Object.keys(currentMods || {}), ...Object.keys(currentDamage || {})]);
+            return Array.from(allTypes).map((k) => {
+                const base = currentAdds?.[k] || 0;
+                const mod = currentMods?.[k] || 0;
+                const total = currentDamage?.[k] || 0;
+                const dpsVal = total * attackSpeed;
+                const label = colorize(k, k);
+                return `
+          <tr>
+            <td>${label}</td>
+            <td>${base.toFixed(1)}%</td>
+            <td>${mod.toFixed(1)}%</td>
+            <td>${total.toFixed(1)}%</td>
+            <td>${dpsVal.toFixed(1)}</td>
+          </tr>`;
+            }).join("");
+        })();
+        const dmgBreakdownTable = dmgBreakdownRows
+            ? `<div class="build-table"><table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Base</th>
+          <th>Modifier</th>
+          <th>Total</th>
+          <th>DPS</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${dmgBreakdownRows}
+      </tbody>
+    </table></div>`
+            : '<div class="build-table empty">No damage</div>';
+        const statsLinePretty = attrNames.map((a) => `${a}: ${stats[a]}`).join(" | ");
 
         dpsSeries.push({ level: lvl, dps: currentTotalDps });
 
@@ -404,7 +466,6 @@ function compute() {
   <summary>${summaryText}</summary>
   <div class="body">
     <div>Distribution: ${distribution}</div>
-    <div>Stats: ${statsLine}</div>
     <div>Attr bounds: ${attrBounds}</div>
     <div>${attrRangeText}</div>
     <div>Gear:</div>
@@ -413,8 +474,16 @@ function compute() {
       <summary>See all loot of this level (${lootList.length})</summary>
       ${allLootHtml}
     </details>
-    <div>Totals → Damage: ${dmgSummary} | Resists: ${resSummary}</div>
-    <div>DPS : ${dpsLine}</div>
+    <div class="build-block">
+      <div class="build-heading">Build snapshot</div>
+      <div class="build-line">Stats: ${statsLinePretty}</div>
+      <div class="build-line">Attack Speed: ${attackSpeed.toFixed(2)}</div>
+      <div class="build-line">Totals -> Damage: ${dmgSummary} | Resists: ${resSummary}</div>
+      <div class="build-subtitle">Damage breakdown</div>
+      ${dmgBreakdownTable}
+      <div class="build-line">DPS total: ${Math.round(currentTotalDps)}</div>
+      <div class="build-line">DPS detail: ${dpsLine}</div>
+    </div>
   </div>
 </details>
         `);
