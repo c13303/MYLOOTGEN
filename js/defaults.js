@@ -29,10 +29,17 @@ const state = {
     unarmed_physical_damage: 10,
     base_physical_resistance: 5,
     attack_speed_base: 1,
-    attack_speed_per_level: 0.02,
+    attack_speed_bonus_min: 10,
+    attack_speed_bonus_max: 30,
+    attack_speed_affix_level_scale: 0.5, // scales affix range with level/levels_max
+    attack_speed_affix_rarity_scale: 0.1, // scales affix range with rarity weight (1 common -> 1+scale*rarityFactor)
+    base_damage_types_per_item_min: 1,
+    base_damage_types_per_item_max: 2,
+    damage_affix_types_limit: 1,
     // scaling knobs (exposed in UI)
     // Loot scaling knobs
     affix_min_slope: 0.6,
+    affix_min_ratio: 0.6,
     affix_max_slope: 0.9,
     affix_max_multiplier: 1.5,
     affix_power: 1.1,
@@ -46,15 +53,15 @@ const state = {
     xp_multiplier: 1,
     levels: 60,
     skill_slots: 4,
-    equipment_slots: {
-        "head": true,
-        "torso": true,
-        "weapon_right": true,
-        "weapon_left": true,
-        "hands": true,
-        "belt": true,
-        "boots": true
-    },
+    equipment_slots: [
+        { name: "head", position: 1 },
+        { name: "torso", position: 2 },
+        { name: "weapon_right", position: 3 },
+        { name: "weapon_left", position: 4 },
+        { name: "hands", position: 5 },
+        { name: "belt", position: 6 },
+        { name: "boots", position: 7 }
+    ],
     damage_types: [
         {
             "name": "Physical",
@@ -160,91 +167,151 @@ const state = {
             "name": "sword",
             "equipment_slot": "weapon_right",
             "size": 3, // nb of grid boxes
-            "affix_max": 5
+            "affix_max": 5,
+            "source_damage_slots": 1,
+            "base_damage": 110,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "iron helm",
             "equipment_slot": "head",
             "size": 2,
-            "affix_max": 3
+            "affix_max": 3,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "mage hood",
             "equipment_slot": "head",
             "size": 1,
-            "affix_max": 3
+            "affix_max": 3,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "chainmail",
             "equipment_slot": "torso",
             "size": 4,
-            "affix_max": 4
+            "affix_max": 4,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "leather armor",
             "equipment_slot": "torso",
             "size": 3,
-            "affix_max": 3
+            "affix_max": 3,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "longsword",
             "equipment_slot": "weapon_right",
             "size": 3,
-            "affix_max": 5
+            "affix_max": 5,
+            "source_damage_slots": 1,
+            "base_damage": 130,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "dagger",
             "equipment_slot": "weapon_right",
             "size": 1,
-            "affix_max": 3
+            "affix_max": 3,
+            "source_damage_slots": 1,
+            "base_damage": 80,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "wooden shield",
             "equipment_slot": "weapon_left",
             "size": 2,
-            "affix_max": 3
+            "affix_max": 3,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "spell tome",
             "equipment_slot": "weapon_left",
             "size": 2,
-            "affix_max": 3
+            "affix_max": 3,
+            "source_damage_slots": 1,
+            "base_damage": 120,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "steel gauntlets",
             "equipment_slot": "hands",
             "size": 2,
-            "affix_max": 3
+            "affix_max": 3,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "leather gloves",
             "equipment_slot": "hands",
             "size": 1,
-            "affix_max": 2
+            "affix_max": 2,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "utility belt",
             "equipment_slot": "belt",
             "size": 2,
-            "affix_max": 2
+            "affix_max": 2,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "potion bandolier",
             "equipment_slot": "belt",
             "size": 2,
-            "affix_max": 2
+            "affix_max": 2,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "leather boots",
             "equipment_slot": "boots",
             "size": 2,
-            "affix_max": 2
+            "affix_max": 2,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "steel greaves",
             "equipment_slot": "boots",
             "size": 3,
-            "affix_max": 3
+            "affix_max": 3,
+            "source_damage_slots": 0,
+            "base_damage": 0,
+            "modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         }
 
     ],

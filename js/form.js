@@ -16,8 +16,12 @@ $(function () {
     const $generatePercent = $("#generate-percent");
     const $lootRandRange = $("#loot-rand-range");
     const $attackSpeedBase = $("#attack-speed-base");
-    const $attackSpeedPerLevel = $("#attack-speed-per-level");
+    const $attackSpeedBonusMin = $("#attack-speed-bonus-min");
+    const $attackSpeedBonusMax = $("#attack-speed-bonus-max");
+    const $attackSpeedAffixLevelScale = $("#attack-speed-affix-level-scale");
+    const $attackSpeedAffixRarityScale = $("#attack-speed-affix-rarity-scale");
     const $affixMinSlope = $("#affix-min-slope");
+    const $affixMinRatio = $("#affix-min-ratio");
     const $affixMaxSlope = $("#affix-max-slope");
     const $affixMaxMultiplier = $("#affix-max-multiplier");
     const $affixPower = $("#affix-power");
@@ -320,6 +324,148 @@ $(function () {
         $("body").append($overlay);
     }
 
+    function openSlotForm() {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "380px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $("<h3>Add equipment slot</h3>").css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+
+        const fieldStyle = {
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0",
+            width: "100%"
+        };
+
+        const $form = $('<form class="slot-form"></form>').css({
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+        });
+
+        const $name = $('<input type="text" placeholder="Name">').css(fieldStyle);
+        const $pos = $('<input type="number" placeholder="Position (order)" step="1" min="1">').css(fieldStyle);
+
+        const $actions = $('<div class="actions"></div>').css({
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "8px",
+            marginTop: "6px"
+        });
+
+        const $cancel = $('<button type="button">Cancel</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "rgba(226,232,240,0.15)",
+            color: "#e2e8f0",
+            cursor: "pointer"
+        });
+
+        const $submit = $('<button type="submit">Add</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $cancel.on("click", () => $overlay.remove());
+
+        $form.on("submit", (event) => {
+            event.preventDefault();
+            const name = $name.val().trim();
+            const posVal = parseInt($pos.val(), 10);
+            if (!name || Number.isNaN(posVal) || posVal < 1) {
+                alert("Please fill name and position >= 1.");
+                return;
+            }
+            const exists = (state.equipment_slots || []).some((s) => s.name.toLowerCase() === name.toLowerCase());
+            if (exists) {
+                alert("Slot name already exists.");
+                return;
+            }
+            state.equipment_slots = state.equipment_slots || [];
+            state.equipment_slots.push({ name, position: posVal });
+            renderTags("equipment_slots");
+            renderPreview();
+            $overlay.remove();
+        });
+
+        $actions.append($cancel, $submit);
+        $form.append($name, $pos, $actions);
+        $modal.append($title, $form);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
+
+    function openSlotSummary(slot) {
+        const $overlay = $('<div class="modal-overlay"></div>').css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+        });
+
+        const $modal = $('<div class="modal"></div>').css({
+            background: "#0f172a",
+            color: "#e2e8f0",
+            padding: "20px",
+            borderRadius: "12px",
+            width: "320px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
+            border: "1px solid rgba(226,232,240,0.1)"
+        });
+
+        const $title = $(`<h3>${slot.name}</h3>`).css({
+            margin: "0 0 12px",
+            fontSize: "18px"
+        });
+        const $pos = $(`<p><strong>Position:</strong> ${slot.position ?? "-"}</p>`).css({ margin: "0 0 12px" });
+
+        const $close = $('<button type="button">Close</button>').css({
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "none",
+            background: "#38bdf8",
+            color: "#0f172a",
+            fontWeight: "700",
+            cursor: "pointer"
+        });
+
+        $close.on("click", () => $overlay.remove());
+
+        $modal.append($title, $pos, $close);
+        $overlay.append($modal);
+        $("body").append($overlay);
+    }
     function openCategoryForm() {
         const $overlay = $('<div class="modal-overlay"></div>').css({
             position: "fixed",
@@ -617,7 +763,7 @@ $(function () {
 
         const $name = $('<input type="text" placeholder="Name">').css(fieldStyle);
 
-        const slotOptions = Object.keys(state.equipment_slots || {});
+        const slotOptions = (state.equipment_slots || []).slice().sort((a, b) => (a.position || 0) - (b.position || 0)).map((s) => s.name);
         const $slot = $('<select></select>').css(fieldStyle);
         slotOptions.forEach((slot) => {
             $slot.append($(`<option value="${slot}">${slot}</option>`));
@@ -628,6 +774,32 @@ $(function () {
 
         const $size = $('<input type="number" placeholder="Size (grid cells)" step="1" min="1">').css(fieldStyle);
         const $affixMax = $('<input type="number" placeholder="Affix max" step="1" min="1">').css(fieldStyle);
+        const $sourceDamageSlots = $('<input type="number" placeholder="Damage sources (count)" step="1" min="0">').css(fieldStyle);
+        const $baseDamage = $('<input type="number" placeholder="Base damage (points)" step="1" min="0">').css(fieldStyle);
+        const $modifierWrap = $('<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="modifier-flag" checked> Modifier (%)</label>');
+
+        const dmgTypes = (state.damage_types || []).map((d) => d.name);
+        const $typesContainer = $('<div class="tag-list"></div>').css({ gap: "6px", flexWrap: "wrap" });
+        const selectedTypes = new Set(dmgTypes);
+        dmgTypes.forEach((t) => {
+            const $lbl = $('<label class="tag"></label>').css({ cursor: "pointer" });
+            const $cb = $(`<input type="checkbox" checked value="${t}">`);
+            const $txt = $(`<span>${t}</span>`);
+            $cb.on("change", function () {
+                if ($(this).is(":checked")) selectedTypes.add(t);
+                else selectedTypes.delete(t);
+            });
+            $lbl.append($cb, $txt);
+            $typesContainer.append($lbl);
+        });
+
+        function toggleBaseDamage() {
+            const count = parseInt($sourceDamageSlots.val(), 10);
+            const on = !Number.isNaN(count) && count > 0;
+            $baseDamage.prop("disabled", !on);
+        }
+        toggleBaseDamage();
+        $sourceDamageSlots.on("input", toggleBaseDamage);
 
         const $actions = $('<div class="actions"></div>').css({
             display: "flex",
@@ -663,9 +835,21 @@ $(function () {
             const slot = $slot.val();
             const size = parseInt($size.val(), 10);
             const affixMax = parseInt($affixMax.val(), 10);
+            const sourceDamageSlots = parseInt($sourceDamageSlots.val(), 10);
+            const baseDamageVal = parseInt($baseDamage.val(), 10);
+            const modifierFlag = $modifierWrap.find("input").is(":checked");
+            const typeList = Array.from(selectedTypes);
 
             if (!name || !slot || Number.isNaN(size) || size < 1 || Number.isNaN(affixMax) || affixMax < 1) {
                 alert("Please fill every field correctly (size/affix max >= 1 and select a slot).");
+                return;
+            }
+            if (!Number.isNaN(sourceDamageSlots) && sourceDamageSlots > 0 && (Number.isNaN(baseDamageVal) || baseDamageVal < 0)) {
+                alert("Base damage must be >= 0 when damage sources > 0.");
+                return;
+            }
+            if (typeList.length === 0) {
+                alert("Select at least one damage type.");
                 return;
             }
 
@@ -679,7 +863,11 @@ $(function () {
                 name,
                 equipment_slot: slot,
                 size,
-                affix_max: affixMax
+                affix_max: affixMax,
+                source_damage_slots: Number.isNaN(sourceDamageSlots) ? 0 : sourceDamageSlots,
+                base_damage: (!Number.isNaN(sourceDamageSlots) && sourceDamageSlots > 0) ? baseDamageVal : 0,
+                modifier: modifierFlag,
+                damage_types: typeList
             });
 
             renderTags("items");
@@ -688,7 +876,7 @@ $(function () {
         });
 
         $actions.append($cancel, $submit);
-        $form.append($name, $slot, $size, $affixMax, $actions);
+        $form.append($name, $slot, $size, $affixMax, $sourceDamageSlots, $baseDamage, $modifierWrap, $typesContainer, $actions);
         $modal.append($title, $form);
         $overlay.append($modal);
         $("body").append($overlay);
@@ -722,6 +910,11 @@ $(function () {
 
         const $slot = $(`<p><strong>Slot:</strong> ${item.equipment_slot}</p>`).css({ margin: "0 0 8px" });
         const $size = $(`<p><strong>Size:</strong> ${item.size}</p>`).css({ margin: "0 0 14px" });
+        const $source = $(`<p><strong>Damage sources:</strong> ${item.source_damage_slots ?? 0}</p>`).css({ margin: "0 0 8px" });
+        const $base = $(`<p><strong>Base damage:</strong> ${item.base_damage ?? 0}</p>`).css({ margin: "0 0 8px" });
+        const $mod = $(`<p><strong>Modifier:</strong> ${item.modifier ? "Yes" : "No"}</p>`).css({ margin: "0 0 8px" });
+        const typeList = (item.damage_types && item.damage_types.length) ? item.damage_types.join(", ") : "-";
+        const $types = $(`<p><strong>Damage types:</strong> ${typeList}</p>`).css({ margin: "0 0 14px" });
 
         const $close = $('<button type="button">Close</button>').css({
             padding: "8px 12px",
@@ -735,7 +928,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $slot, $size, $close);
+        $modal.append($title, $slot, $size, $source, $base, $mod, $types, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
@@ -939,7 +1132,7 @@ $(function () {
         $container.empty();
 
         const items = key === "equipment_slots"
-            ? Object.keys(state[key])
+            ? (state[key] || [])
             : state[key];
 
         items.forEach((value, index) => {
@@ -951,7 +1144,9 @@ $(function () {
                         ? value.name
                         : key === "skills"
                             ? value.name
-                    : value;
+                            : key === "equipment_slots"
+                                ? `${value.name} (pos ${value.position ?? "-"})`
+                                : value;
             const $tag = $('<span class="tag"></span>').attr("data-index", index);
             if (key === "damage_types" && value.color) {
                 $tag.css({ borderColor: value.color, color: value.color });
@@ -965,7 +1160,7 @@ $(function () {
             $remove.on("click", (event) => {
                 event.stopPropagation();
                 if (key === "equipment_slots") {
-                    delete state[key][label];
+                    state[key].splice(index, 1);
                 } else if (key === "items" || key === "skills") {
                     state[key].splice(index, 1);
                 } else {
@@ -986,6 +1181,9 @@ $(function () {
             }
             if (key === "skills") {
                 $tag.on("click", () => openSkillSummary(value));
+            }
+            if (key === "equipment_slots") {
+                $tag.on("click", () => openSlotSummary(value));
             }
 
             $tag.append($text, $remove);
@@ -1050,15 +1248,10 @@ $(function () {
             return;
         }
         if (key === "equipment_slots") {
-            if (!$input || !$input.length) return;
-            const value = $input.val().trim();
-            if (!value) return;
-            if (!state.equipment_slots[value]) {
-                state.equipment_slots[value] = true;
-                renderTags("equipment_slots");
-                renderPreview();
+            openSlotForm();
+            if ($input && $input.length) {
+                $input.val("");
             }
-            $input.val("");
             return;
         }
         if (key === "items") {
@@ -1089,8 +1282,12 @@ $(function () {
     $generatePercent.val(state.generate_percent);
     $lootRandRange.val(state.loot_rand_range);
     $attackSpeedBase.val(state.attack_speed_base);
-    $attackSpeedPerLevel.val(state.attack_speed_per_level);
+    $attackSpeedBonusMin.val(state.attack_speed_bonus_min ?? 10);
+    $attackSpeedBonusMax.val(state.attack_speed_bonus_max ?? 20);
+    $attackSpeedAffixLevelScale.val(state.attack_speed_affix_level_scale ?? 0.5);
+    $attackSpeedAffixRarityScale.val(state.attack_speed_affix_rarity_scale ?? 0.1);
     $affixMinSlope.val(state.affix_min_slope);
+    $affixMinRatio.val(state.affix_min_ratio ?? 0.6);
     $affixMaxSlope.val(state.affix_max_slope);
     $affixMaxMultiplier.val(state.affix_max_multiplier);
     $affixPower.val(state.affix_power);
@@ -1219,10 +1416,32 @@ $(function () {
         }
     });
 
-    $attackSpeedPerLevel.on("input", function () {
+    $attackSpeedBonusMin.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.attack_speed_per_level = value;
+            state.attack_speed_bonus_min = value;
+            renderPreview();
+        }
+    });
+
+    $attackSpeedBonusMax.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.attack_speed_bonus_max = value;
+            renderPreview();
+        }
+    });
+    $attackSpeedAffixLevelScale.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.attack_speed_affix_level_scale = value;
+            renderPreview();
+        }
+    });
+    $attackSpeedAffixRarityScale.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.attack_speed_affix_rarity_scale = value;
             renderPreview();
         }
     });
@@ -1231,6 +1450,14 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.affix_min_slope = value;
+            renderPreview();
+        }
+    });
+
+    $affixMinRatio.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.affix_min_ratio = value;
             renderPreview();
         }
     });
@@ -1330,10 +1557,11 @@ $(function () {
         addTag(target, $input);
     });
 
-    $("#compute-btn").on("click", function () {
+    $("#compute-btn, #compute-btn-top").on("click", function () {
         if (typeof compute === "function") {
             compute();
         }
     });
 
+    // auto-compute on initial page load once all scripts are ready
 });

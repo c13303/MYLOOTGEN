@@ -13,7 +13,12 @@ function compute() {
     const gainPerLevel = state.gain_per_level || 0;
     const attributes = state.attributes || {};
     const attrNames = Object.keys(attributes);
-    const slots = Object.keys(state.equipment_slots || {});
+    const slotsList = (state.equipment_slots || []).slice().sort((a, b) => (a.position || 0) - (b.position || 0));
+    const slots = slotsList.map((s) => s.name);
+    const slotPositions = slotsList.reduce((map, s) => {
+        map[s.name] = s.position;
+        return map;
+    }, {});
     const items = state.items || [];
     const damageTypes = state.damage_types || [];
     const damageTypesSorted = [...damageTypes].sort((a, b) => (b.name || "").length - (a.name || "").length);
@@ -50,6 +55,11 @@ function compute() {
     const basePhysRes = state.base_physical_resistance || 0;
     const generatePercent = state.generate_percent || 0;
     const lootRandRange = state.loot_rand_range || 0;
+    const fmt = (v, digits = 0) => {
+        if (!Number.isFinite(v)) return "0";
+        const factor = 10 ** digits;
+        return `${Math.round(v * factor) / factor}`;
+    };
 
     let totalXp = 0;
     let totalSeconds = 0;
@@ -84,6 +94,7 @@ function compute() {
         slotsToApply.forEach((slot) => {
             const source = slot === slotOverride ? lootOverride : gearBySlot[slot]?.loot;
             if (!source) return;
+            Object.entries(source.baseAdds || {}).forEach(([k, v]) => { damageAdds[k] = (damageAdds[k] || 0) + v; });
             Object.entries(source.dmgAdds || {}).forEach(([k, v]) => { damageAdds[k] = (damageAdds[k] || 0) + v; });
             Object.entries(source.dmgMods || {}).forEach(([k, v]) => { damageMods[k] = (damageMods[k] || 0) + v; });
             Object.entries(source.resAdds || {}).forEach(([k, v]) => { resists[k] = (resists[k] || 0) + v; });
@@ -172,7 +183,8 @@ function compute() {
         attrNames.forEach((attr) => {
             stats[attr] = Math.round(currentStats[attr] || 0);
         });
-        const attackSpeedBase = (state.attack_speed_base || 0) + lvl * (state.attack_speed_per_level || 0);
+        const attackSpeedBaseVal = state.attack_speed_base || 0;
+        const attackSpeedBase = attackSpeedBaseVal;
 
         const damageTotalsBase = {};
         const resistTotalsBase = {};
@@ -200,7 +212,9 @@ function compute() {
             minAttrValRaw + 1,
             Math.round(lootRandRange * (state.affix_max_multiplier || 2.2) + lvlPow * (state.affix_max_slope || 1.3))
         );
-        const minAttrVal = Math.min(minAttrValRaw, affixCap);
+        const ratioMin = state.affix_min_ratio ?? 0.6;
+        const minAttrValRatio = Math.max(1, Math.round(maxAttrValRaw * ratioMin));
+        const minAttrVal = Math.min(Math.min(minAttrValRaw, minAttrValRatio), affixCap);
         const maxAttrVal = Math.min(maxAttrValRaw, affixCap);
 
         // simulate loot batch
@@ -219,49 +233,113 @@ function compute() {
             const typePool = (cat.attribute_types && cat.attribute_types.length) ? cat.attribute_types : damageTypes.map((d) => d.name);
             const bonuses = [];
             const dmgAdds = {};
+            const baseAdds = {};
             const dmgMods = {};
             const resAdds = {};
             let localAtkBonus = 0;
             let hasAtkSpeed = false;
             const allowAtkSpeedThisItem = cat.allow_attack_speed_mod && pseudoRand((lvl + d + 31) * 0.37) < 0.25;
-            const usedTypes = new Set();
-            for (let k = 0; k < Math.min(attrs, affixLimit); k += 1) {
-                let typeName = null;
-                for (let tries = 0; tries < 5; tries += 1) {
-                    const pickIdx = Math.floor(pseudoRand((lvl + 11 + tries) * (d + 1) * (k + 1)) * typePool.length) % typePool.length;
-                    const candidate = typePool[pickIdx] || "Physical";
-                    if (!usedTypes.has(candidate)) {
-                        typeName = candidate;
-                        break;
-                    }
+            const usedDamageTypes = new Set(); // dmg/base
+            const usedModTypes = new Set();
+            const usedResTypes = new Set();
+            const baseTypes = new Set();
+            const atkBonusMinBase = Math.max(0, state.attack_speed_bonus_min ?? 10);
+            const atkBonusMaxBase = Math.max(0, state.attack_speed_bonus_max ?? 20);
+            const levelScale = state.attack_speed_affix_level_scale ?? 0.5;
+            const rarityScale = state.attack_speed_affix_rarity_scale ?? 0.1;
+            const lvlFactor = 1 + levelScale * (levels > 1 ? (lvl - 1) / (levels - 1) : 0);
+            const rarityFactor = 1 + rarityScale * (cat?.rarity ?? 1);
+            const atkBonusMin = Math.round(atkBonusMinBase * lvlFactor * rarityFactor);
+            const atkBonusMaxRaw = Math.round(atkBonusMaxBase * lvlFactor * rarityFactor);
+            const atkBonusMax = Math.max(atkBonusMin, atkBonusMaxRaw);
+
+            const itemDamagePool = (chosenItem.damage_types && chosenItem.damage_types.length) ? chosenItem.damage_types : typePool;
+            const sourcesToUseRaw = Math.max(0, chosenItem.source_damage_slots || 0);
+            const baseMin = state.base_damage_types_per_item_min ?? 1;
+            const baseMax = state.base_damage_types_per_item_max ?? 2;
+            const maxSources = Math.max(baseMin, Math.min(baseMax, sourcesToUseRaw));
+            if (maxSources > 0 && chosenItem.base_damage > 0 && itemDamagePool.length) {
+                const pickedTypes = new Set();
+                for (let s = 0; s < maxSources; s += 1) {
+                    const type = itemDamagePool[Math.floor(pseudoRand((lvl + d + 101 + s) * (d + 1)) * itemDamagePool.length) % itemDamagePool.length];
+                    if (pickedTypes.has(type)) continue;
+                    pickedTypes.add(type);
+                    baseAdds[type] = (baseAdds[type] || 0) + chosenItem.base_damage;
+                    baseTypes.add(type);
+                    usedDamageTypes.add(type);
+                    bonuses.push(`+${chosenItem.base_damage} ${type} dmg (BASE)`);
                 }
-                if (!typeName) continue;
+            }
+            for (let k = 0; k < Math.min(attrs, affixLimit); k += 1) {
                 const useAttackSpeed = allowAtkSpeedThisItem && !hasAtkSpeed && pseudoRand(k + lvl + d) < 0.1;
                 const roll = pseudoRand(k + d + lvl);
                 let kind = "damage";
                 if (useAttackSpeed) kind = "attack";
                 else if (roll < 0.45) kind = "damage";
-                else if (roll < 0.75) kind = "modifier";
+                else if (roll < 0.75 && chosenItem.modifier !== false) kind = "modifier";
                 else kind = "resist";
-                const bonus = Math.max(minAttrVal, Math.round(minAttrVal + pseudoRand(k + d + lvl) * (maxAttrVal - minAttrVal)));
+                // if item is not a source of damage, push toward modifier/resist
+                if (!chosenItem.source_damage && kind === "damage") {
+                    // no flat damage on non-damage sources
+                    kind = (roll < 0.75 && chosenItem.modifier !== false) ? "modifier" : "resist";
+                }
+
+                const targetSet = kind === "modifier"
+                    ? usedModTypes
+                    : kind === "resist"
+                        ? usedResTypes
+                        : usedDamageTypes;
+
+                let typeName = null;
+                const damageLimit = state.damage_affix_types_limit ?? 1;
+                const damageTypesCount = baseTypes.size;
+                for (let tries = 0; tries < 6; tries += 1) {
+                    const pickIdx = Math.floor(pseudoRand((lvl + 11 + tries) * (d + 1) * (k + 1)) * typePool.length) % typePool.length;
+                    const candidate = typePool[pickIdx] || "Physical";
+                    if (kind === "damage" && damageTypesCount >= damageLimit && !baseTypes.has(candidate)) continue;
+                    if (kind === "damage" && baseTypes.has(candidate) && targetSet.has(candidate)) continue;
+                    if (!targetSet.has(candidate)) {
+                        typeName = candidate;
+                        break;
+                    }
+                }
+                if (!typeName) continue;
+
+                let bonus = Math.max(minAttrVal, Math.round(minAttrVal + pseudoRand(k + d + lvl) * (maxAttrVal - minAttrVal)));
                 if (kind === "attack") {
+                    const atkRand = pseudoRand(k + lvl + d + 999);
+                    const atkVal = Math.round(atkBonusMin + atkRand * (atkBonusMax - atkBonusMin));
+                    bonus = Math.max(atkBonusMin, Math.min(atkBonusMax, atkVal));
                     hasAtkSpeed = true;
                     localAtkBonus += bonus;
                     bonuses.push(`+${bonus}% Attack Speed`);
                 } else if (kind === "damage") {
-                    dmgAdds[typeName] = (dmgAdds[typeName] || 0) + bonus;
-                    bonuses.push(`+${bonus}% ${typeName} dmg`);
-                    usedTypes.add(typeName);
+                    // treat all damage affixes as extra base damage, only on damage sources
+                    baseAdds[typeName] = (baseAdds[typeName] || 0) + bonus;
+                    bonuses.push(`+${bonus} ${typeName} dmg (BASE)`);
+                    targetSet.add(typeName);
+                    baseTypes.add(typeName);
                 } else if (kind === "modifier") {
                     dmgMods[typeName] = (dmgMods[typeName] || 0) + bonus;
                     bonuses.push(`+${bonus}% ${typeName} modifier`);
+                    targetSet.add(typeName);
                 } else {
                     resAdds[typeName] = (resAdds[typeName] || 0) + bonus;
                     bonuses.push(`+${bonus}% ${typeName} res`);
-                    usedTypes.add(typeName);
+                    targetSet.add(typeName);
                 }
             }
-            lootList.push({ slot, category: cat.name, name: chosenItem.name, bonuses, dmgAdds, dmgMods, resAdds, atkBonus: localAtkBonus || extractAtkBonus(bonuses) });
+            lootList.push({
+                slot,
+                category: cat.name,
+                name: chosenItem.name,
+                bonuses,
+                dmgAdds,
+                baseAdds,
+                dmgMods,
+                resAdds,
+                atkBonus: localAtkBonus || extractAtkBonus(bonuses)
+            });
         }
 
         // try equipping each new loot if it improves total DPS compared to current gear
@@ -273,13 +351,15 @@ function compute() {
             adds: currentAdds,
             mods: currentMods
         } = aggregateWithGear(damageTotalsBase, resistTotalsBase);
-        const attackSpeedBaseCurrent = (state.attack_speed_base || 0) + lvl * (state.attack_speed_per_level || 0);
-        let currentAttackSpeed = attackSpeedBaseCurrent * (1 + currentAtkBonus / 100);
+        const attackSpeedBaseCurrent = attackSpeedBaseVal;
+        let currentAttackSpeedRaw = attackSpeedBaseCurrent * (1 + currentAtkBonus / 100);
+        let currentAttackSpeed = currentAttackSpeedRaw;
         let currentTotalDps = computeTotalDps(currentDamage, currentAttackSpeed);
 
         lootList.forEach((loot, lootIdx) => {
             const agg = aggregateWithGear(damageTotalsBase, resistTotalsBase, loot.slot, loot);
-            const candidateAttackSpeed = attackSpeedBaseCurrent * (1 + agg.atkBonus / 100);
+            const candidateAttackSpeedRaw = attackSpeedBaseCurrent * (1 + agg.atkBonus / 100);
+            const candidateAttackSpeed = candidateAttackSpeedRaw;
             const candidateTotalDps = computeTotalDps(agg.damage, candidateAttackSpeed);
             const prev = gearBySlot[loot.slot]?.loot;
             const prevTotal = currentTotalDps;
@@ -293,6 +373,7 @@ function compute() {
                 currentDamage = agg.damage;
                 currentResists = agg.resists;
                 currentAtkBonus = agg.atkBonus;
+                currentAttackSpeedRaw = candidateAttackSpeedRaw;
                 currentAttackSpeed = candidateAttackSpeed;
                 currentTotalDps = candidateTotalDps;
                 currentAdds = agg.adds;
@@ -326,9 +407,24 @@ function compute() {
             return `    <span style="color:#facc15">${loot.slot}</span>: <span style="color:${catColor}">${loot.name}</span> <span style="color:${catColor}">[${loot.category}]</span> ${bonusesColored.join(", ")}`;
         });
 
-        const gearTableRows = equippedLoot.map((loot) => {
+        const equippedSorted = [...equippedLoot].sort((a, b) => {
+            const pa = slotPositions[a.slot] ?? 9999;
+            const pb = slotPositions[b.slot] ?? 9999;
+            if (pa !== pb) return pa - pb;
+            return (a.slot || "").localeCompare(b.slot || "");
+        });
+
+        const gearTableRows = equippedSorted.map((loot) => {
             const ordered = orderBonuses(loot.bonuses);
-            const bonusesColored = ordered.map((b) => colorizeBonus(b)).join(", ");
+        const bonusesColored = ordered.map((b) => {
+            if (b.includes("(BASE)")) {
+                return `<strong>${colorizeBonus(b.replace(" (BASE)", ""))}</strong>`;
+            }
+            if (b.toLowerCase().includes("modifier")) {
+                return colorizeBonus(b.replace(" modifier", ""));
+            }
+            return colorizeBonus(b);
+        }).join(", ");
             const catColor = categoryColorMap[loot.category] || "#e2e8f0";
             return `
       <tr>
@@ -356,8 +452,18 @@ function compute() {
             : '<div class="gear-table empty">No gear</div>';
 
         const colorize = (k, text) => `<span style="color:${colorMap[k] || "#e2e8f0"}">${text}</span>`;
-        const dmgSummary = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: +${v}% dmg`)).join(", ") || "None";
-        const resSummary = Object.entries(currentResists).map(([k, v]) => colorize(k, `${k}: +${v}% res`)).join(", ") || "None";
+        const dmgTypesAll = new Set([
+            ...Object.keys(currentAdds || {}),
+            ...Object.keys(currentMods || {}),
+            ...Object.keys(currentDamage || {})
+        ]);
+        const dmgSummary = Array.from(dmgTypesAll).map((k) => {
+            const base = currentAdds?.[k] || 0;
+            const mod = currentMods?.[k] || 0;
+            const total = currentDamage?.[k] || 0;
+            return colorize(k, `${k}: Base ${fmt(base)} | Mod ${fmt(mod)}% | Total ${fmt(total)}`);
+        }).join(", ") || "None";
+        const resSummary = Object.entries(currentResists).map(([k, v]) => colorize(k, `${k}: +${fmt(v)}% res`)).join(", ") || "None";
         const attrBounds = attrNames.map((a) => {
             const bounds = attributes[a] || { min: 0, max: 0 };
             return `${a}: ${bounds.min}-${bounds.max}`;
@@ -365,7 +471,15 @@ function compute() {
 
         const allLootRows = lootList.map((l, idx) => {
             const ordered = orderBonuses(l.bonuses);
-            const bonusesColored = ordered.map((b) => colorizeBonus(b)).join(", ");
+            const bonusesColored = ordered.map((b) => {
+                if (b.includes("(BASE)")) {
+                    return `<strong>${colorizeBonus(b.replace(" (BASE)", ""))}</strong>`;
+                }
+                if (b.toLowerCase().includes("modifier")) {
+                    return colorizeBonus(b.replace(" modifier", ""));
+                }
+                return colorizeBonus(b);
+            }).join(", ");
             const catColor = categoryColorMap[l.category] || "#e2e8f0";
             const equipInfo = equippedThisLevel.get(idx);
             const equipCell = equipInfo
@@ -401,23 +515,28 @@ function compute() {
         const attrRangeText = `Attrib range for loot: ${minAttrVal}-${maxAttrVal}%`;
         const attackSpeed = attackSpeedBase * (1 + currentAtkBonus / 100);
 
-        const dpsParts = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: ${(v * attackSpeed).toFixed(1)} DPS`));
+        const dpsParts = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: ${fmt(v * currentAttackSpeed)} DPS`));
         const dpsLine = dpsParts.length ? dpsParts.join(" | ") : "None";
         const dmgBreakdownRows = (() => {
             const allTypes = new Set([...Object.keys(currentAdds || {}), ...Object.keys(currentMods || {}), ...Object.keys(currentDamage || {})]);
-            return Array.from(allTypes).map((k) => {
+            const rows = Array.from(allTypes).map((k) => {
                 const base = currentAdds?.[k] || 0;
                 const mod = currentMods?.[k] || 0;
                 const total = currentDamage?.[k] || 0;
                 const dpsVal = total * attackSpeed;
                 const label = colorize(k, k);
+                return { k, base, mod, total, dpsVal, label };
+            });
+            rows.sort((a, b) => (b.dpsVal || 0) - (a.dpsVal || 0));
+            return rows.map((row) => {
+                const rowColor = colorMap[row.k] || "#e2e8f0";
                 return `
-          <tr>
-            <td>${label}</td>
-            <td>${base.toFixed(1)}%</td>
-            <td>${mod.toFixed(1)}%</td>
-            <td>${total.toFixed(1)}%</td>
-            <td>${dpsVal.toFixed(1)}</td>
+          <tr style="color:${rowColor}">
+            <td>${row.label}</td>
+            <td>${fmt(row.base)}</td>
+            <td>${fmt(row.mod)}</td>
+            <td>${fmt(row.total)}</td>
+            <td>${fmt(row.dpsVal)}</td>
           </tr>`;
             }).join("");
         })();
@@ -456,17 +575,17 @@ function compute() {
             totals: {
                 damage: currentDamage,
                 resists: currentResists,
-                attack_speed: attackSpeed,
+                attack_speed: currentAttackSpeed,
                 dps: dpsParts
             }
         });
 
+        const isLast = lvl === levels;
         results.push(`
-<details class="compute-card" ${lvl === 1 ? "open" : ""}>
+<details class="compute-card" ${isLast ? "open" : ""}>
   <summary>${summaryText}</summary>
   <div class="body">
-    <div>Distribution: ${distribution}</div>
-    <div>Attr bounds: ${attrBounds}</div>
+    <div>Distribution: ${distribution}</div>    
     <div>${attrRangeText}</div>
     <div>Gear:</div>
     ${gearTableHtml}
@@ -477,12 +596,11 @@ function compute() {
     <div class="build-block">
       <div class="build-heading">Build snapshot</div>
       <div class="build-line">Stats: ${statsLinePretty}</div>
-      <div class="build-line">Attack Speed: ${attackSpeed.toFixed(2)}</div>
-      <div class="build-line">Totals -> Damage: ${dmgSummary} | Resists: ${resSummary}</div>
+      <div class="build-line">Attack Speed: ${fmt(currentAttackSpeed, 2)} /s</div>
+      <div class="build-line">Resists: ${resSummary}</div>
       <div class="build-subtitle">Damage breakdown</div>
       ${dmgBreakdownTable}
       <div class="build-line">DPS total: ${Math.round(currentTotalDps)}</div>
-      <div class="build-line">DPS detail: ${dpsLine}</div>
     </div>
   </div>
 </details>
@@ -532,6 +650,13 @@ function compute() {
   <text x="${width / 2}" y="${height - 4}" fill="#94a3b8" font-size="12" text-anchor="middle">Level</text>
   <text x="6" y="${height / 2}" fill="#94a3b8" font-size="12" transform="rotate(-90 6 ${height / 2})" text-anchor="middle">DPS</text>
 </svg>`;
+        }
+        // scroll to last level and open it
+        const cards = container.querySelectorAll(".compute-card");
+        if (cards.length > 0) {
+            const last = cards[cards.length - 1];
+            last.open = true;
+            last.scrollIntoView({ behavior: "smooth", block: "start" });
         }
     }
 }
