@@ -23,7 +23,7 @@ $(function () {
     const $affixPower = $("#affix-power");
     const $affixCap = $("#affix-cap");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
-    const $attrPerLevelFactor = $("#attr-per-level-factor");
+    const $attrPerLevelFactor = $("#attr-per-level-factor"); 
     const $additionalLootFactor = $("#additional-loot-factor");
     const $unarmedGrowth = $("#unarmed-growth");
     const $xpBase = $("#xp-base");
@@ -404,7 +404,7 @@ $(function () {
             });
         }
 
-        const $addAttrType = $('<button type="button">Add attr type</button>').css({
+        const $addAttrType = $('<button type="button">Add affix type</button>').css({
             padding: "8px 12px",
             borderRadius: "8px",
             border: "none",
@@ -513,7 +513,7 @@ $(function () {
             $skillMod,
             $("<label>Color</label>").css({ fontWeight: "600" }),
             $color,
-            $("<label>Attribute types</label>").css({ fontWeight: "600" }),
+            $("<label>Affix types</label>").css({ fontWeight: "600" }),
             $attrTypesWrap,
             $actions
         );
@@ -549,9 +549,9 @@ $(function () {
         });
 
         const $rarity = $(`<p><strong>Rarity:</strong> ${cat.rarity}</p>`).css({ margin: "0 0 8px" });
-        const $attrs = $(`<p><strong>Attributes:</strong> ${cat.attributes}</p>`).css({ margin: "0 0 8px" });
+        const $attrs = $(`<p><strong>Affix count:</strong> ${cat.attributes}</p>`).css({ margin: "0 0 8px" });
         const attrTypes = (cat.attribute_types && cat.attribute_types.length) ? cat.attribute_types.join(", ") : "-";
-        const $types = $(`<p><strong>Attribute types:</strong> ${attrTypes}</p>`).css({ margin: "0 0 8px" });
+        const $types = $(`<p><strong>Affix types:</strong> ${attrTypes}</p>`).css({ margin: "0 0 8px" });
         const $atk = $(`<p><strong>Allow attack speed:</strong> ${cat.allow_attack_speed_mod ? "Yes" : "No"}</p>`).css({ margin: "0 0 14px" });
         const $skill = $(`<p><strong>Skill mod:</strong> ${cat.skill_mod ?? "-"}</p>`).css({ margin: "0 0 14px" });
         const $unlock = $(`<p><strong>Unlock level:</strong> ${cat.unlock_level ?? 1}</p>`).css({ margin: "0 0 14px" });

@@ -24,7 +24,7 @@ const state = {
     median_time_per_level: 600,
     level_time_multiplier: 1,
     rarity_growth_factor: 1,
-    generate_percent: 3,
+    generate_percent: 10,
     loot_rand_range: 3,
     unarmed_physical_damage: 10,
     base_physical_resistance: 5,

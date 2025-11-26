@@ -247,15 +247,23 @@ function compute() {
         }
 
         // try equipping each new loot if it improves total DPS compared to current gear
+        const equippedThisLevel = new Map();
         let { damage: currentDamage, resists: currentResists, atkBonus: currentAtkBonus } = aggregateWithGear(damageTotalsBase, resistTotalsBase);
         const attackSpeedBaseCurrent = (state.attack_speed_base || 0) + lvl * (state.attack_speed_per_level || 0);
         let currentAttackSpeed = attackSpeedBaseCurrent * (1 + currentAtkBonus / 100);
         let currentTotalDps = computeTotalDps(currentDamage, currentAttackSpeed);
 
-        lootList.forEach((loot) => {
+        lootList.forEach((loot, lootIdx) => {
             const agg = aggregateWithGear(damageTotalsBase, resistTotalsBase, loot.slot, loot);
             const candidateAttackSpeed = attackSpeedBaseCurrent * (1 + agg.atkBonus / 100);
             const candidateTotalDps = computeTotalDps(agg.damage, candidateAttackSpeed);
+            const prev = gearBySlot[loot.slot]?.loot;
+            const prevTotal = currentTotalDps;
+            const reasonText = !prev
+                ? `Slot was empty -> ${candidateTotalDps.toFixed(1)} DPS`
+                : candidateTotalDps > prevTotal
+                    ? `Higher DPS ${prevTotal.toFixed(1)} → ${candidateTotalDps.toFixed(1)}`
+                    : `Tie on DPS (${candidateTotalDps.toFixed(1)})`;
             if (candidateTotalDps >= currentTotalDps) {
                 gearBySlot[loot.slot] = { loot: { ...loot, atkBonus: loot.atkBonus || 0 } };
                 currentDamage = agg.damage;
@@ -263,6 +271,7 @@ function compute() {
                 currentAtkBonus = agg.atkBonus;
                 currentAttackSpeed = candidateAttackSpeed;
                 currentTotalDps = candidateTotalDps;
+                equippedThisLevel.set(lootIdx, reasonText);
             }
         });
 
@@ -289,6 +298,35 @@ function compute() {
             return `    <span style="color:#facc15">${loot.slot}</span>: <span style="color:${catColor}">${loot.name}</span> <span style="color:${catColor}">[${loot.category}]</span> ${bonusesColored.join(", ")}`;
         });
 
+        const gearTableRows = equippedLoot.map((loot) => {
+            const ordered = orderBonuses(loot.bonuses);
+            const bonusesColored = ordered.map((b) => colorizeBonus(b)).join(", ");
+            const catColor = categoryColorMap[loot.category] || "#e2e8f0";
+            return `
+      <tr>
+        <td><span style="color:#facc15">${loot.slot}</span></td>
+        <td><span style="color:${catColor}">${loot.name}</span></td>
+        <td><span style="color:${catColor}">${loot.category}</span></td>
+        <td>${bonusesColored}</td>
+      </tr>`;
+        });
+
+        const gearTableHtml = gearTableRows.length
+            ? `<div class="gear-table"><table>
+      <thead>
+        <tr>
+          <th>Slot</th>
+          <th>Item</th>
+          <th>Cat.</th>
+          <th>Bonuses</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${gearTableRows.join("")}
+      </tbody>
+    </table></div>`
+            : '<div class="gear-table empty">No gear</div>';
+
         const colorize = (k, text) => `<span style="color:${colorMap[k] || "#e2e8f0"}">${text}</span>`;
         const dmgSummary = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: +${v}% dmg`)).join(", ") || "None";
         const resSummary = Object.entries(currentResists).map(([k, v]) => colorize(k, `${k}: +${v}% res`)).join(", ") || "None";
@@ -297,21 +335,40 @@ function compute() {
             return `${a}: ${bounds.min}-${bounds.max}`;
         }).join(" | ");
 
-        const gearListHtml = gearLines.map((g) => `<li>${g}</li>`).join("");
-        const allLootHtml = lootList.length
-            ? `<ul>${lootList.map((l) => {
-                const ordered = orderBonuses(l.bonuses);
-                const bonusesColored = ordered.map((b) => colorizeBonus(b)).join(", ");
-                const catColor = categoryColorMap[l.category] || "#e2e8f0";
-                return `<li><span style="color:#facc15">${l.slot}</span> | <span style="color:${catColor}">${l.category}</span> | <span style="color:${catColor}">${l.name}</span> | ${bonusesColored}</li>`;
-            }).join("")}</ul>`
-            : "No loot";
-        const pickedHtml = equippedLoot.map((l) => {
+        const allLootRows = lootList.map((l, idx) => {
             const ordered = orderBonuses(l.bonuses);
             const bonusesColored = ordered.map((b) => colorizeBonus(b)).join(", ");
             const catColor = categoryColorMap[l.category] || "#e2e8f0";
-            return `<li><span style="color:#facc15">${l.slot}</span> | <span style="color:${catColor}">${l.category}</span> | <span style="color:${catColor}">${l.name}</span> | ${bonusesColored}</li>`;
-        }).join("") || "No equip";
+            const equipInfo = equippedThisLevel.get(idx);
+            const equipCell = equipInfo
+                ? `<div class="equip-flag"><span class="equip-badge">Equipped</span><span class="equip-reason">${equipInfo}</span></div>`
+                : '<span class="equip-reason muted">Not equipped</span>';
+            return `
+      <tr>
+        <td><span style="color:#facc15">${l.slot}</span></td>
+        <td><span style="color:${catColor}">${l.name}</span></td>
+        <td><span style="color:${catColor}">${l.category}</span></td>
+        <td>${bonusesColored}</td>
+        <td>${equipCell}</td>
+      </tr>`;
+        });
+
+        const allLootHtml = lootList.length
+            ? `<div class="loot-table"><table>
+      <thead>
+        <tr>
+          <th>Slot</th>
+          <th>Item</th>
+          <th>Cat.</th>
+          <th>Bonuses</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${allLootRows.join("")}
+      </tbody>
+    </table></div>`
+            : '<div class="loot-table empty">No loot</div>';
         const statsLine = attrNames.map((a) => `${a}=${stats[a]}`).join(", ");
         const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}`;
         const attrRangeText = `Attrib range for loot: ${minAttrVal}-${maxAttrVal}%`;
@@ -351,12 +408,10 @@ function compute() {
     <div>Attr bounds: ${attrBounds}</div>
     <div>${attrRangeText}</div>
     <div>Gear:</div>
-    <ul>${gearListHtml}</ul>
+    ${gearTableHtml}
     <details>
       <summary>See all loot of this level (${lootList.length})</summary>
       ${allLootHtml}
-      <div>Equipped (best guess):</div>
-      <ul>${pickedHtml}</ul>
     </details>
     <div>Totals → Damage: ${dmgSummary} | Resists: ${resSummary}</div>
     <div>DPS : ${dpsLine}</div>

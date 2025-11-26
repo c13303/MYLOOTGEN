@@ -204,6 +204,80 @@ p {
   gap: 8px;
 }
 
+.gear-table,
+.loot-table {
+  margin-top: 6px;
+  overflow-x: auto;
+}
+
+.gear-table table,
+.loot-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(15, 23, 42, 0.25);
+  border: 1px solid rgba(226, 232, 240, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.gear-table th,
+.gear-table td,
+.loot-table th,
+.loot-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.08);
+  font-size: 14px;
+}
+
+.gear-table th,
+.loot-table th {
+  background: rgba(56, 189, 248, 0.12);
+  font-weight: 700;
+}
+
+.gear-table tbody tr:nth-child(even),
+.loot-table tbody tr:nth-child(even) {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.gear-table.empty,
+.loot-table.empty {
+  padding: 8px 10px;
+  border: 1px dashed rgba(226, 232, 240, 0.15);
+  border-radius: 10px;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.equip-flag {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.equip-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #4ade80;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.equip-reason {
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.equip-reason.muted {
+  color: #94a3b8;
+}
+
 .compute-card ul {
   margin: 0;
   padding-left: 18px;
