@@ -309,6 +309,23 @@ p {
   opacity: 1;
 }
 
+.level-meta {
+  font-size: 14px;
+  opacity: 0.9;
+  display: grid;
+  gap: 4px;
+}
+
+.level-grid {
+  display: grid;
+  grid-template-columns: 65% 35%;
+  gap: 12px;
+}
+
+.level-col details summary {
+  cursor: pointer;
+}
+
 .gear-table th,
 .loot-table th {
   background: rgba(56, 189, 248, 0.12);

@@ -62,6 +62,13 @@ function compute() {
         return map;
     }, {});
     const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const fmtHuman = (v) => {
+        if (!Number.isFinite(v)) return "0";
+        const abs = Math.abs(v);
+        if (abs >= 1_000_000) return `${fmt(v / 1_000_000, 1)}M`;
+        if (abs >= 1_000) return `${fmt(v / 1_000, 1)}K`;
+        return `${Math.round(v)}`;
+    };
     const growthRate = state.base_damage_growth_rate || 1;
     const jitterPct = state.base_damage_jitter_pct || 0;
     const rollGrowth = (baseVal, lvl, seed) => {
@@ -673,25 +680,6 @@ function compute() {
 
         const dpsTypesActive = new Set(Object.entries(currentDamage || {}).filter(([, v]) => v > 0).map(([k]) => k.toLowerCase()));
         const gearTableRows = equippedSorted.map((loot) => {
-            const ordered = orderBonuses(loot.bonuses);
-            const bonusesColored = ordered.map((b) => {
-                const lower = b.toLowerCase();
-                let matchedType = null;
-                dpsTypesActive.forEach((t) => { if (!matchedType && lower.includes(t.toLowerCase())) matchedType = t; });
-                const isAtk = lower.includes("attack speed");
-                const baseText = (() => {
-                    if (b.includes("(BASE)")) {
-                        return `<strong>${colorizeBonus(b.replace(" (BASE)", ""))}</strong>`;
-                    }
-                    if (lower.includes("modifier")) {
-                        return colorizeBonus(b.replace(" modifier", ""));
-                    }
-                    return colorizeBonus(b);
-                })();
-                if (!matchedType && !isAtk) return baseText;
-                const ringColor = matchedType ? (colorMap[matchedType] || "#38bdf8") : "#38bdf8";
-                return `<span class="dps-affix" style="border-color:${ringColor};background:rgba(56,189,248,0.08)">${baseText}</span>`;
-            }).join(", ");
             const catColor = categoryColorMap[loot.category] || "#e2e8f0";
             const newBadge = loot.equippedLevel === lvl
                 ? '<span class="gear-new-badge">Found this level!</span>'
@@ -699,13 +687,41 @@ function compute() {
             const dpsImpact = loot.equippedLevel === lvl && typeof loot.dpsDelta === "number"
                 ? `${loot.dpsDelta > 0 ? "+" : ""}${fmt((loot.dpsDelta / Math.max(1, currentTotalDps - loot.dpsDelta)) * 100, 1)}%`
                 : "";
+
+            const bonusesByType = { base: [], mod: [], atk: [], res: [], other: [] };
+            (loot.bonuses || []).forEach((b) => {
+                const lower = b.toLowerCase();
+                const isBase = b.includes("(BASE)");
+                const isMod = lower.includes("modifier");
+                const isAtk = lower.includes("attack speed");
+                const isRes = lower.includes("res");
+                const wrapped = (() => {
+                    if (isBase) return `<strong>${colorizeBonus(b.replace(" (BASE)", ""))}</strong>`;
+                    if (isMod) return colorizeBonus(b.replace(" modifier", ""));
+                    return colorizeBonus(b);
+                })();
+                if (isBase) bonusesByType.base.push(wrapped);
+                else if (isMod) bonusesByType.mod.push(wrapped);
+                else if (isAtk) bonusesByType.atk.push(wrapped);
+                else if (isRes) bonusesByType.res.push(wrapped);
+                else bonusesByType.other.push(wrapped);
+            });
+
+            const bonusLines = [];
+            if (bonusesByType.base.length) bonusLines.push(`<div>${bonusesByType.base.join(", ")}</div>`);
+            if (bonusesByType.mod.length) bonusLines.push(`<div>${bonusesByType.mod.join(", ")}</div>`);
+            if (bonusesByType.atk.length) bonusLines.push(`<div>${bonusesByType.atk.join(", ")}</div>`);
+            if (bonusesByType.res.length) bonusLines.push(`<div>${bonusesByType.res.join(", ")}</div>`);
+            if (bonusesByType.other.length) bonusLines.push(`<div>${bonusesByType.other.join(", ")}</div>`);
+            const bonusesBlock = bonusLines.join("");
+
             return `
       <tr>
         <td><span style="color:#facc15">${loot.slot}</span></td>
         <td>${newBadge}</td>
         <td><span style="color:${catColor}">${loot.name}</span></td>
         <td><span style="color:${catColor}">${loot.category}</span></td>
-        <td>${bonusesColored}</td>
+        <td>${bonusesBlock}</td>
         <td>${dpsImpact}</td>
       </tr>`;
         });
@@ -835,7 +851,7 @@ function compute() {
         const equipCountText = equippedThisLevel.size === 0
             ? `<span style="color:#ef4444">Nice Loot Found: 0 (plateau)</span>`
             : `Nice Loot Found: ${equippedThisLevel.size}`;
-        const baseInfo = `Lvl ${lvl} ${sep}${Math.round(currentTotalDps)} DPS ${sep}<span class="dim-blue">${readable}</span> ${sep}<span class="dim-blue">${readableTotal}</span> ${sep}<span class="dim-blue">loot ~ ${lootCount}</span>`;
+        const baseInfo = `Lvl ${lvl} ${sep}${fmtHuman(currentTotalDps)} DPS ${sep}<span class="dim-blue">${readable}</span> ${sep}<span class="dim-blue">${readableTotal}</span> ${sep}<span class="dim-blue">loot ~ ${lootCount}</span>`;
         const mixInfo = dpsMixText || '<span style="opacity:0.7">No mix</span>';
         const summaryText = `<span class="summary-col base">${baseInfo}</span><span class="summary-col mix">${mixInfo}</span><span class="summary-col loot">${equipCountText}</span>`;
         const dmgBreakdownTable = dmgBreakdownRows
@@ -884,23 +900,31 @@ function compute() {
 <details class="compute-card" ${isLast ? "open" : ""}>
   <summary>${summaryText}</summary>
   <div class="body">
-    <div>Distribution: ${distribution}</div>    
-    <div>${attrRangeText}</div>
-    <div class="loot-meta">Median base dmg: ${fmt(lastMinAttrVal)}-${fmt(lastMaxAttrVal)} | Median mod: ${modMedian}%</div>
-    <div>Gear:</div>
-    ${gearTableHtml}
-    <details>
-      <summary style="color:#cbd5e1; background-color: #27182d;">🧰 See all loot of this level (${lootList.length})</summary>
-      ${allLootHtml}
-    </details>
-    <div class="build-block">
-      <div class="build-heading">Build snapshot</div>
-      <div class="build-line">Stats: ${statsLinePretty}</div>
-      <div class="build-line">Attack Speed: ${fmt(currentAttackSpeed, 2)} /s</div>
-      <div class="build-line">Resists: ${resSummary}</div>
-      <div class="build-subtitle">Damage breakdown</div>
-      ${dmgBreakdownTable}
-      <div class="build-line">DPS total: ${Math.round(currentTotalDps)}</div>
+    <div class="level-meta">
+      <div>Distribution: ${distribution}</div>    
+      <div>${attrRangeText}</div>
+      <div class="loot-meta">Median base dmg: ${fmt(lastMinAttrVal)}-${fmt(lastMaxAttrVal)} | Median mod: ${modMedian}%</div>
+    </div>
+    <div class="level-grid">
+      <div class="level-col">
+        <div>Gear:</div>
+        ${gearTableHtml}
+        <details>
+          <summary style="color:#cbd5e1; background-color: #27182d;">🧰 See all loot of this level (${lootList.length})</summary>
+          ${allLootHtml}
+        </details>
+      </div>
+      <div class="level-col">
+        <div class="build-block">
+          <div class="build-heading">Build snapshot</div>
+          <div class="build-line">Stats: ${statsLinePretty}</div>
+          <div class="build-line">Attack Speed: ${fmt(currentAttackSpeed, 2)} /s</div>
+          <div class="build-line">Resists: ${resSummary}</div>
+          <div class="build-subtitle">Damage breakdown</div>
+          ${dmgBreakdownTable}
+          <div class="build-line">DPS total: ${fmtHuman(currentTotalDps)}</div>
+        </div>
+      </div>
     </div>
   </div>
 </details>
@@ -948,7 +972,7 @@ function compute() {
             copyHeadersBtn.onclick = () => {
                 const headers = jsonData.map((entry) => {
                     const dpsVal = Math.round(entry.totals?.dps_total ?? 0);
-                    const line = `Lvl ${entry.level} | ${dpsVal} DPS | ${entry.time_readable} | ${entry.loot_count} loot`;
+                    const line = `Lvl ${entry.level} | ${fmtHuman(dpsVal)} DPS | ${entry.time_readable} | ${entry.loot_count} loot`;
                     return line;
                 }).join("\n");
                 navigator.clipboard.writeText(headers);
