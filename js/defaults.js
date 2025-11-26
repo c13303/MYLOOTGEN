@@ -32,12 +32,15 @@ const state = {
     attack_speed_per_level: 0.02,
     // scaling knobs (exposed in UI)
     // Loot scaling knobs
-    affix_min_slope: 0.9,
-    affix_max_slope: 1.3,
-    affix_max_multiplier: 2.2,
-    affix_power: 1.2,
-    rarity_growth_power: 1.1,
-    attr_per_level_factor: 0.02,
+    affix_min_slope: 0.6,
+    affix_max_slope: 0.9,
+    affix_max_multiplier: 1.5,
+    affix_power: 1.1,
+    affix_cap: 120,
+    rarity_weight_growth: 0.05,
+    attr_per_level_factor: 0.04,
+    additional_loot_factor: 1.2,
+    unarmed_growth: 0.05,
     xp_base: 500,
     xp_growth: 1.15,
     xp_multiplier: 1,
@@ -156,77 +159,92 @@ const state = {
         {
             "name": "sword",
             "equipment_slot": "weapon_right",
-            "size": 3 // nb of grid boxes
+            "size": 3, // nb of grid boxes
+            "affix_max": 5
         },
         {
             "name": "iron helm",
             "equipment_slot": "head",
-            "size": 2
+            "size": 2,
+            "affix_max": 3
         },
         {
             "name": "mage hood",
             "equipment_slot": "head",
-            "size": 1
+            "size": 1,
+            "affix_max": 3
         },
         {
             "name": "chainmail",
             "equipment_slot": "torso",
-            "size": 4
+            "size": 4,
+            "affix_max": 4
         },
         {
             "name": "leather armor",
             "equipment_slot": "torso",
-            "size": 3
+            "size": 3,
+            "affix_max": 3
         },
         {
             "name": "longsword",
             "equipment_slot": "weapon_right",
-            "size": 3
+            "size": 3,
+            "affix_max": 5
         },
         {
             "name": "dagger",
             "equipment_slot": "weapon_right",
-            "size": 1
+            "size": 1,
+            "affix_max": 3
         },
         {
             "name": "wooden shield",
             "equipment_slot": "weapon_left",
-            "size": 2
+            "size": 2,
+            "affix_max": 3
         },
         {
             "name": "spell tome",
             "equipment_slot": "weapon_left",
-            "size": 2
+            "size": 2,
+            "affix_max": 3
         },
         {
             "name": "steel gauntlets",
             "equipment_slot": "hands",
-            "size": 2
+            "size": 2,
+            "affix_max": 3
         },
         {
             "name": "leather gloves",
             "equipment_slot": "hands",
-            "size": 1
+            "size": 1,
+            "affix_max": 2
         },
         {
             "name": "utility belt",
             "equipment_slot": "belt",
-            "size": 2
+            "size": 2,
+            "affix_max": 2
         },
         {
             "name": "potion bandolier",
             "equipment_slot": "belt",
-            "size": 2
+            "size": 2,
+            "affix_max": 2
         },
         {
             "name": "leather boots",
             "equipment_slot": "boots",
-            "size": 2
+            "size": 2,
+            "affix_max": 2
         },
         {
             "name": "steel greaves",
             "equipment_slot": "boots",
-            "size": 3
+            "size": 3,
+            "affix_max": 3
         }
 
     ],

@@ -21,8 +21,11 @@ $(function () {
     const $affixMaxSlope = $("#affix-max-slope");
     const $affixMaxMultiplier = $("#affix-max-multiplier");
     const $affixPower = $("#affix-power");
-    const $rarityGrowthPower = $("#rarity-growth-power");
+    const $affixCap = $("#affix-cap");
+    const $rarityWeightGrowth = $("#rarity-weight-growth");
     const $attrPerLevelFactor = $("#attr-per-level-factor");
+    const $additionalLootFactor = $("#additional-loot-factor");
+    const $unarmedGrowth = $("#unarmed-growth");
     const $xpBase = $("#xp-base");
     const $xpGrowth = $("#xp-growth");
     const $xpMultiplier = $("#xp-multiplier");
@@ -360,7 +363,7 @@ $(function () {
 
         const $name = $('<input type="text" placeholder="Name">').css(fieldStyle);
         const $rarity = $('<input type="number" placeholder="Rarity (0-1)" step="0.01" min="0" max="1">').css(fieldStyle);
-        const $attributes = $('<input type="number" placeholder="Attributes count" step="1" min="0">').css(fieldStyle);
+        const $attributes = $('<input type="number" placeholder="Affix count" step="1" min="0">').css(fieldStyle);
         const $unlockLevel = $('<input type="number" placeholder="Unlock level" step="1" min="1">').css(fieldStyle);
         const $skillMod = $('<input type="number" placeholder="Skill mod (optional)" step="1" min="0">').css(fieldStyle);
         const $allowAtkSpeed = $('<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="allow-atk-speed"> Allow attack speed mod</label>');
@@ -624,6 +627,7 @@ $(function () {
         }
 
         const $size = $('<input type="number" placeholder="Size (grid cells)" step="1" min="1">').css(fieldStyle);
+        const $affixMax = $('<input type="number" placeholder="Affix max" step="1" min="1">').css(fieldStyle);
 
         const $actions = $('<div class="actions"></div>').css({
             display: "flex",
@@ -658,9 +662,10 @@ $(function () {
             const name = $name.val().trim();
             const slot = $slot.val();
             const size = parseInt($size.val(), 10);
+            const affixMax = parseInt($affixMax.val(), 10);
 
-            if (!name || !slot || Number.isNaN(size) || size < 1) {
-                alert("Please fill every field correctly (size >= 1 and select a slot).");
+            if (!name || !slot || Number.isNaN(size) || size < 1 || Number.isNaN(affixMax) || affixMax < 1) {
+                alert("Please fill every field correctly (size/affix max >= 1 and select a slot).");
                 return;
             }
 
@@ -673,7 +678,8 @@ $(function () {
             state.items.push({
                 name,
                 equipment_slot: slot,
-                size
+                size,
+                affix_max: affixMax
             });
 
             renderTags("items");
@@ -682,7 +688,7 @@ $(function () {
         });
 
         $actions.append($cancel, $submit);
-        $form.append($name, $slot, $size, $actions);
+        $form.append($name, $slot, $size, $affixMax, $actions);
         $modal.append($title, $form);
         $overlay.append($modal);
         $("body").append($overlay);
@@ -1088,8 +1094,11 @@ $(function () {
     $affixMaxSlope.val(state.affix_max_slope);
     $affixMaxMultiplier.val(state.affix_max_multiplier);
     $affixPower.val(state.affix_power);
-    $rarityGrowthPower.val(state.rarity_growth_power);
+    $affixCap.val(state.affix_cap);
     $attrPerLevelFactor.val(state.attr_per_level_factor);
+    $rarityWeightGrowth.val(state.rarity_weight_growth);
+    $additionalLootFactor.val(state.additional_loot_factor);
+    $unarmedGrowth.val(state.unarmed_growth);
     $xpBase.val(state.xp_base);
     $xpGrowth.val(state.xp_growth);
     $xpMultiplier.val(state.xp_multiplier);
@@ -1250,10 +1259,18 @@ $(function () {
         }
     });
 
-    $rarityGrowthPower.on("input", function () {
+    $affixCap.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.rarity_growth_power = value;
+            state.affix_cap = value;
+            renderPreview();
+        }
+    });
+
+    $rarityWeightGrowth.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.rarity_weight_growth = value;
             renderPreview();
         }
     });
@@ -1262,6 +1279,22 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.attr_per_level_factor = value;
+            renderPreview();
+        }
+    });
+
+    $additionalLootFactor.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.additional_loot_factor = value;
+            renderPreview();
+        }
+    });
+
+    $unarmedGrowth.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.unarmed_growth = value;
             renderPreview();
         }
     });
