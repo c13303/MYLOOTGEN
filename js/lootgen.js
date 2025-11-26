@@ -375,7 +375,9 @@ function compute() {
             const sourcesToUseRaw = Math.max(0, chosenItem.source_damage_slots || 0);
             const baseMin = state.base_damage_types_per_item_min ?? 1;
             const baseMax = state.base_damage_types_per_item_max ?? 2;
-            const maxSources = Math.max(baseMin, Math.min(baseMax, sourcesToUseRaw));
+            const maxSources = sourcesToUseRaw > 0
+                ? Math.max(baseMin, Math.min(baseMax, sourcesToUseRaw))
+                : 0; // keep non-damage items free of base damage rolls
             const isDamageSource = maxSources > 0;
             if (isDamageSource && chosenItem.base_damage > 0 && itemDamagePoolWeighted.length) {
                 const pickedTypes = new Set();
@@ -513,16 +515,13 @@ function compute() {
             const candidateAttackSpeed = atkCap > 0 ? Math.min(candidateAttackSpeedRaw, atkCap) : candidateAttackSpeedRaw;
             const candidateTotalDps = computeTotalDps(agg.damage, candidateAttackSpeed);
             const prev = gearBySlot[loot.slot]?.loot;
-            const prevTotal = currentTotalDps;
-            const bringsNewType = Object.keys(agg.damage || {}).some((k) => !(currentDamage && currentDamage[k] > 0));
-            const diversityBonus = bringsNewType ? 1.1 : 1; // encourage new damage types
-            const candidateScore = candidateTotalDps * diversityBonus;
+            const candidateScore = candidateTotalDps;
             const currentScore = currentTotalDps;
             const reasonText = !prev
                 ? `Slot was empty -> ${candidateTotalDps.toFixed(1)} DPS`
                 : candidateScore > currentScore
-                    ? `Higher score ${currentScore.toFixed(1)} -> ${candidateScore.toFixed(1)}`
-                    : `Tie on score (${candidateScore.toFixed(1)})`;
+                    ? `Higher DPS ${currentScore.toFixed(1)} -> ${candidateScore.toFixed(1)}`
+                    : `Tie on DPS (${candidateScore.toFixed(1)})`;
             if (candidateScore >= currentScore) {
                 gearBySlot[loot.slot] = { loot: { ...loot, atkBonus: loot.atkBonus || 0 } };
                 currentDamage = agg.damage;
