@@ -24,35 +24,35 @@ const state = {
     median_time_per_level: 600,
     level_time_multiplier: 1,
     rarity_growth_factor: 1,
-    generate_percent: 10,
-    loot_rand_range: 3,
-    unarmed_physical_damage: 10,
+    generate_percent: 15,
+    loot_rand_range: 2,
+    unarmed_physical_damage: 1,
     base_physical_resistance: 5,
-    attack_speed_base: 1,
-    attack_speed_bonus_min: 10,
-    attack_speed_bonus_max: 30,
-    attack_speed_affix_level_scale: 0.5, // scales affix range with level/levels_max
-    attack_speed_affix_rarity_scale: 0.1, // scales affix range with rarity weight (1 common -> 1+scale*rarityFactor)
-    attack_speed_cap: 5, // clamp final attack speed after bonuses (0/null to disable)
-    affix_rarity_scale: 0.1, // scales affix min/max with category rarity
+    attack_speed_base: 1.6,
+    attack_speed_bonus_min: 5,
+    attack_speed_bonus_max: 15,
+    attack_speed_affix_level_scale: 0.4, // scales affix range with level/levels_max
+    attack_speed_affix_rarity_scale: 0.08, // scales affix range with rarity weight (1 common -> 1+scale*rarityFactor)
+    attack_speed_cap: 3.5, // clamp final attack speed after bonuses (0/null to disable)
+    affix_rarity_scale: 0.08, // scales affix min/max with category rarity
     common_decay: 0.08, // exponential decay applied to categories unlocked at level 1
     resist_affix_min_chance: 0.25,
-    base_damage_types_per_item_min: 2,
-    base_damage_types_per_item_max: 3,
-    damage_affix_types_limit: 2,
-    damage_types_total_limit: 3,
+    base_damage_types_per_item_min: 1,
+    base_damage_types_per_item_max: 2,
+    damage_affix_types_limit: 1,
+    damage_types_total_limit: 2,
     // scaling knobs (exposed in UI)
     // Loot scaling knobs
-    affix_min_slope: 0.6,
-    affix_min_ratio: 0.6,
-    affix_max_slope: 0.9,
-    affix_max_multiplier: 1.5,
-    affix_power: 1.1,
-    affix_cap: 120,
+    affix_min_slope: 0.3,
+    affix_min_ratio: 0.55,
+    affix_max_slope: 0.6,
+    affix_max_multiplier: 1.3,
+    affix_power: 1.25,
+    affix_cap: 300,
     rarity_weight_growth: 0.05,
     attr_per_level_factor: 0.04,
     additional_loot_factor: 1.2,
-    unarmed_growth: 0.05,
+    unarmed_growth: 0.03,
     xp_base: 500,
     xp_growth: 1.15,
     xp_multiplier: 1,
@@ -200,7 +200,7 @@ const state = {
             "size": 3, // nb of grid boxes
             "affix_max": 5,
             "source_damage_slots": 1,
-            "base_damage": 110,
+            "base_damage": 3,
             "modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.15
@@ -255,7 +255,7 @@ const state = {
             "size": 3,
             "affix_max": 5,
             "source_damage_slots": 1,
-            "base_damage": 130,
+            "base_damage": 4,
             "modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.15
@@ -266,7 +266,7 @@ const state = {
             "size": 1,
             "affix_max": 3,
             "source_damage_slots": 1,
-            "base_damage": 80,
+            "base_damage": 2,
             "modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.15
@@ -288,7 +288,7 @@ const state = {
             "size": 2,
             "affix_max": 3,
             "source_damage_slots": 1,
-            "base_damage": 120,
+            "base_damage": 3,
             "modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.25

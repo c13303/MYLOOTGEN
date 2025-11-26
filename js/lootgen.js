@@ -122,6 +122,9 @@ function compute() {
                 ? allowedNames
                 : damageTypes.map((dt) => dt.name)
         );
+        if (level <= 5 && allowed.has("Physical")) {
+            return [{ name: "Physical", weight: 1 }];
+        }
         const weighted = damageTypes
             .filter((dt) => allowed.has(dt.name))
             .map((dt) => {
@@ -170,21 +173,29 @@ function compute() {
         .filter((b) => b.includes("Attack Speed"))
         .reduce((sum, b) => sum + (parseInt(b.replace(/\D/g, ""), 10) || 0), 0);
 
-    const aggregateWithGear = (baseDamage, baseResists, slotOverride, lootOverride) => {
+    const aggregateWithGear = (baseDamage, baseResists, unarmedBase, slotOverride, lootOverride) => {
         const damageAdds = { ...baseDamage };
         const resists = { ...baseResists };
         const damageMods = {};
         let atkBonus = 0;
+        let hasWeaponDamage = false;
         const slotsToApply = new Set([...Object.keys(gearBySlot), ...(slotOverride ? [slotOverride] : [])]);
         slotsToApply.forEach((slot) => {
             const source = slot === slotOverride ? lootOverride : gearBySlot[slot]?.loot;
             if (!source) return;
-            Object.entries(source.baseAdds || {}).forEach(([k, v]) => { damageAdds[k] = (damageAdds[k] || 0) + v; });
+            const isWeaponSlot = slot === "weapon_right" || slot === "weapon_left";
+            Object.entries(source.baseAdds || {}).forEach(([k, v]) => {
+                damageAdds[k] = (damageAdds[k] || 0) + v;
+                if (isWeaponSlot && v > 0) hasWeaponDamage = true;
+            });
             Object.entries(source.dmgAdds || {}).forEach(([k, v]) => { damageAdds[k] = (damageAdds[k] || 0) + v; });
             Object.entries(source.dmgMods || {}).forEach(([k, v]) => { damageMods[k] = (damageMods[k] || 0) + v; });
             Object.entries(source.resAdds || {}).forEach(([k, v]) => { resists[k] = (resists[k] || 0) + v; });
             atkBonus += source.atkBonus || 0;
         });
+        if (!hasWeaponDamage && unarmedBase > 0) {
+            damageAdds.Physical = (damageAdds.Physical || 0) + unarmedBase;
+        }
         const damage = {};
         const allTypes = new Set([...Object.keys(damageAdds), ...Object.keys(damageMods)]);
         allTypes.forEach((k) => {
@@ -280,7 +291,6 @@ function compute() {
         const resistTotalsBase = {};
         const unarmedGrowth = state.unarmed_growth || 0;
         const scaledUnarmed = baseUnarmed * (1 + unarmedGrowth * lvl);
-        if (scaledUnarmed > 0) damageTotalsBase.Physical = scaledUnarmed;
         if (basePhysRes > 0) resistTotalsBase.Physical = basePhysRes;
 
         const pickCategory = (seed) => {
@@ -502,7 +512,7 @@ function compute() {
             atkBonus: currentAtkBonus,
             adds: currentAdds,
             mods: currentMods
-        } = aggregateWithGear(damageTotalsBase, resistTotalsBase);
+        } = aggregateWithGear(damageTotalsBase, resistTotalsBase, scaledUnarmed);
         const attackSpeedBaseCurrent = attackSpeedBaseVal;
         let currentAttackSpeedRaw = attackSpeedBaseCurrent * (1 + currentAtkBonus / 100);
         const atkCap = state.attack_speed_cap || 0;
@@ -510,20 +520,47 @@ function compute() {
         let currentTotalDps = computeTotalDps(currentDamage, currentAttackSpeed);
 
         lootList.forEach((loot, lootIdx) => {
-            const agg = aggregateWithGear(damageTotalsBase, resistTotalsBase, loot.slot, loot);
+            const agg = aggregateWithGear(damageTotalsBase, resistTotalsBase, scaledUnarmed, loot.slot, loot);
             const candidateAttackSpeedRaw = attackSpeedBaseCurrent * (1 + agg.atkBonus / 100);
             const candidateAttackSpeed = atkCap > 0 ? Math.min(candidateAttackSpeedRaw, atkCap) : candidateAttackSpeedRaw;
             const candidateTotalDps = computeTotalDps(agg.damage, candidateAttackSpeed);
             const prev = gearBySlot[loot.slot]?.loot;
             const candidateScore = candidateTotalDps;
             const currentScore = currentTotalDps;
-            const reasonText = !prev
-                ? `Slot was empty -> ${candidateTotalDps.toFixed(1)} DPS`
-                : candidateScore > currentScore
-                    ? `Higher DPS ${currentScore.toFixed(1)} -> ${candidateScore.toFixed(1)}`
-                    : `Tie on DPS (${candidateScore.toFixed(1)})`;
+            const topBaseDelta = (() => {
+                let best = null;
+                Object.entries(agg.adds || {}).forEach(([k, v]) => {
+                    const delta = v - (currentAdds?.[k] || 0);
+                    if (delta > 0 && (!best || delta > best.delta)) best = { k, delta };
+                });
+                return best;
+            })();
+            const topModDelta = (() => {
+                let best = null;
+                Object.entries(agg.mods || {}).forEach(([k, v]) => {
+                    const delta = v - (currentMods?.[k] || 0);
+                    if (delta > 0 && (!best || delta > best.delta)) best = { k, delta };
+                });
+                return best;
+            })();
+            let reasonText;
+            if (!prev) {
+                if (topBaseDelta) reasonText = `New slot: base +${fmt(topBaseDelta.delta)} ${topBaseDelta.k}`;
+                else if (topModDelta) reasonText = `New slot: modifier +${fmt(topModDelta.delta)}% ${topModDelta.k}`;
+                else reasonText = `Slot was empty -> ${candidateTotalDps.toFixed(1)} DPS`;
+            } else if (candidateScore > currentScore) {
+                if (topBaseDelta && (!topModDelta || topBaseDelta.delta >= topModDelta.delta)) {
+                    reasonText = `Base damage +${fmt(topBaseDelta.delta)} ${topBaseDelta.k}`;
+                } else if (topModDelta) {
+                    reasonText = `Modifier +${fmt(topModDelta.delta)}% ${topModDelta.k}`;
+                } else {
+                    reasonText = `Higher DPS ${currentScore.toFixed(1)} -> ${candidateScore.toFixed(1)}`;
+                }
+            } else {
+                reasonText = `Tie on DPS (${candidateScore.toFixed(1)})`;
+            }
             if (candidateScore >= currentScore) {
-                gearBySlot[loot.slot] = { loot: { ...loot, atkBonus: loot.atkBonus || 0 } };
+                gearBySlot[loot.slot] = { loot: { ...loot, atkBonus: loot.atkBonus || 0, equippedLevel: lvl } };
                 currentDamage = agg.damage;
                 currentResists = agg.resists;
                 currentAtkBonus = agg.atkBonus;
@@ -570,19 +607,23 @@ function compute() {
 
         const gearTableRows = equippedSorted.map((loot) => {
             const ordered = orderBonuses(loot.bonuses);
-        const bonusesColored = ordered.map((b) => {
-            if (b.includes("(BASE)")) {
-                return `<strong>${colorizeBonus(b.replace(" (BASE)", ""))}</strong>`;
-            }
-            if (b.toLowerCase().includes("modifier")) {
-                return colorizeBonus(b.replace(" modifier", ""));
-            }
-            return colorizeBonus(b);
-        }).join(", ");
+            const bonusesColored = ordered.map((b) => {
+                if (b.includes("(BASE)")) {
+                    return `<strong>${colorizeBonus(b.replace(" (BASE)", ""))}</strong>`;
+                }
+                if (b.toLowerCase().includes("modifier")) {
+                    return colorizeBonus(b.replace(" modifier", ""));
+                }
+                return colorizeBonus(b);
+            }).join(", ");
             const catColor = categoryColorMap[loot.category] || "#e2e8f0";
+            const newBadge = loot.equippedLevel === lvl
+                ? '<span class="gear-new-badge">Found this level!</span>'
+                : "";
             return `
       <tr>
         <td><span style="color:#facc15">${loot.slot}</span></td>
+        <td>${newBadge}</td>
         <td><span style="color:${catColor}">${loot.name}</span></td>
         <td><span style="color:${catColor}">${loot.category}</span></td>
         <td>${bonusesColored}</td>
@@ -594,6 +635,7 @@ function compute() {
       <thead>
         <tr>
           <th>Slot</th>
+          <th>New</th>
           <th>Item</th>
           <th>Cat.</th>
           <th>Bonuses</th>
@@ -670,7 +712,6 @@ function compute() {
 
         const dpsParts = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: ${fmt(v * currentAttackSpeed)} DPS`));
         const dpsLine = dpsParts.length ? dpsParts.join(" | ") : "None";
-        let topDamageType = null;
         const dmgBreakdownRows = (() => {
             const allTypes = new Set([...Object.keys(currentAdds || {}), ...Object.keys(currentMods || {}), ...Object.keys(currentDamage || {})]);
             const rows = Array.from(allTypes).map((k) => {
@@ -682,22 +723,34 @@ function compute() {
                 return { k, base, mod, total, dpsVal, label };
             });
             rows.sort((a, b) => (b.dpsVal || 0) - (a.dpsVal || 0));
-            topDamageType = rows[0] || null;
             return rows.map((row) => {
                 const rowColor = colorMap[row.k] || "#e2e8f0";
                 return `
           <tr style="color:${rowColor}">
             <td>${row.label}</td>
             <td>${fmt(row.base)}</td>
-            <td>${fmt(row.mod)}</td>
+            <td>${fmt(row.mod)}%</td>
             <td>${fmt(row.total)}</td>
             <td>${fmt(row.dpsVal)}</td>
           </tr>`;
             }).join("");
         })();
-        const dominantText = topDamageType ? ` | Top: ${topDamageType.k} (${fmt(topDamageType.dpsVal)})` : ""; //TODO ajouter la couleur du type de damage
-        const equipCountText = ` | eq: ${equippedThisLevel.size}`;
-        const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}${dominantText}${equipCountText}`;
+        const dpsMixText = (() => {
+            if (!currentTotalDps) return "";
+            const entries = Object.entries(currentDamage || {});
+            if (!entries.length) return "";
+            const parts = entries
+                .map(([k, v]) => {
+                    const dpsVal = v * currentAttackSpeed;
+                    if (dpsVal <= 0) return null;
+                    const pct = dpsVal / currentTotalDps * 100;
+                    return colorize(k, `${k} (${fmt(pct, 0)}%)`);
+                })
+                .filter(Boolean);
+            return parts.length ? ` | ${parts.join(" ")}` : "";
+        })();
+        const equipCountText = ` | equiped: ${equippedThisLevel.size}`;
+        const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}${dpsMixText}${equipCountText}`;
         const dmgBreakdownTable = dmgBreakdownRows
             ? `<div class="build-table"><table>
       <thead>
@@ -734,7 +787,8 @@ function compute() {
                 damage: currentDamage,
                 resists: currentResists,
                 attack_speed: currentAttackSpeed,
-                dps: dpsParts
+                dps: dpsParts,
+                dps_total: currentTotalDps
             }
         });
 
@@ -772,18 +826,33 @@ function compute() {
 
     const container = document.getElementById("compute-result");
     if (container) {
-        container.innerHTML = results.join("") + `<div class="compute-actions"><button type="button" class="compute-json-btn" id="recompute-btn">Compute again</button><button type="button" class="compute-json-btn" id="copy-json">Copy result JSON</button></div>`;
+        container.innerHTML = results.join("") + `<div class="compute-actions"><button type="button" class="compute-json-btn" id="recompute-btn">Compute again</button><button type="button" class="compute-json-btn" id="copy-headers">Copy Leveling Headers</button><button type="button" class="compute-json-btn" id="copy-loot">Copy Loot Progression</button></div>`;
         // append chart placeholder
         const chartId = "dps-chart";
         container.innerHTML += `<div id="${chartId}" class="dps-chart"></div>`;
-        const copyBtn = document.getElementById("copy-json");
-        if (copyBtn) {
-            copyBtn.onclick = () => {
+        const copyHeadersBtn = document.getElementById("copy-headers");
+        if (copyHeadersBtn) {
+            copyHeadersBtn.onclick = () => {
                 const headers = jsonData.map((entry) => {
-                    const line = `Lvl ${entry.level} | ${Math.round(entry.totals.dps && entry.totals.dps.length ? parseFloat((entry.totals.dps[0].match(/([0-9.]+)/) || [0, 0])[1]) : 0)} DPS | ${entry.time_readable} | ${entry.loot_count} loot`;
+                    const dpsVal = Math.round(entry.totals?.dps_total ?? 0);
+                    const line = `Lvl ${entry.level} | ${dpsVal} DPS | ${entry.time_readable} | ${entry.loot_count} loot`;
                     return line;
                 }).join("\n");
                 navigator.clipboard.writeText(headers);
+            };
+        }
+        const copyLootBtn = document.getElementById("copy-loot");
+        if (copyLootBtn) {
+            copyLootBtn.onclick = () => {
+                const lootText = jsonData.map((entry) => {
+                    const header = `Lvl ${entry.level} | ${entry.time_readable} | loot ~ ${entry.loot_count}`;
+                    const lootLines = (entry.all_loot || []).map((loot) => {
+                        const bonuses = (loot.bonuses || []).join(", ");
+                        return `  - ${loot.slot}: ${loot.name} [${loot.category}] ${bonuses}`;
+                    });
+                    return [header, ...lootLines].join("\n");
+                }).join("\n\n");
+                navigator.clipboard.writeText(lootText);
             };
         }
         const recomputeBtn = document.getElementById("recompute-btn");
