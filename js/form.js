@@ -36,7 +36,18 @@ $(function () {
     const $xpGrowth = $("#xp-growth");
     const $xpMultiplier = $("#xp-multiplier");
     const $preview = $("#config-preview");
-    const attrNames = ["physical", "energy", "dexterity"];
+    const attrNames = ["force", "intelligence", "dexterity"];
+
+    if (state.attributes?.physical && !state.attributes.force) {
+        state.attributes.force = state.attributes.physical;
+        delete state.attributes.physical;
+    }
+    if (state.attributes?.energy && !state.attributes.intelligence) {
+        state.attributes.intelligence = state.attributes.energy;
+        delete state.attributes.energy;
+    }
+    if (state.stats_progression_model === "favorite_physical") state.stats_progression_model = "favorite_force";
+    if (state.stats_progression_model === "favorite_energy") state.stats_progression_model = "favorite_intelligence";
 
     function openDamageForm() {
         const $overlay = $('<div class="modal-overlay"></div>').css({
@@ -85,6 +96,25 @@ $(function () {
             background: "rgba(15,23,42,0.7)",
             color: "#e2e8f0"
         });
+
+        const $attributeSelect = $('<select></select>').css({
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0"
+        });
+        $attributeSelect.append('<option value="force">Force</option>');
+        $attributeSelect.append('<option value="dexterity">Dexterity</option>');
+        $attributeSelect.append('<option value="intelligence">Intelligence</option>');
+
+        const $attributeModifier = $('<input type="number" placeholder="Attribute modifier (e.g. 0.6)" step="0.01" min="0">').css({
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "1px solid rgba(226,232,240,0.2)",
+            background: "rgba(15,23,42,0.7)",
+            color: "#e2e8f0"
+        }).val(0.6);
 
         const $overTimeWrapper = $('<label style="display:flex; align-items:center; gap:8px;"></label>');
         const $overTime = $('<input type="checkbox">');
@@ -205,6 +235,8 @@ $(function () {
             const damageName = $name.val().trim();
             const baseDamage = parseFloat($baseDamage.val());
             const isOverTime = $overTime.is(":checked");
+            const attribute = $attributeSelect.val() || "force";
+            const attributeModifier = parseFloat($attributeModifier.val());
             const ranges = [];
             let invalid = false;
 
@@ -221,7 +253,7 @@ $(function () {
                 ranges.push([min, max, rarity]);
             });
 
-            if (!damageName || Number.isNaN(baseDamage) || ranges.length === 0 || invalid) {
+            if (!damageName || Number.isNaN(baseDamage) || Number.isNaN(attributeModifier) || ranges.length === 0 || invalid) {
                 alert("Please fill every field correctly (rarity between 0 and 1, max level >= min level).");
                 return;
             }
@@ -230,6 +262,8 @@ $(function () {
                 name: damageName,
                 base_damage: baseDamage,
                 is_over_time: isOverTime,
+                attribute,
+                attribute_modifier: attributeModifier,
                 ranges,
                 color: $color.val() || "#ffffff"
             });
@@ -243,6 +277,10 @@ $(function () {
         $form.append(
             $name,
             $baseDamage,
+            $("<label>Attribute</label>").css({ fontWeight: "600" }),
+            $attributeSelect,
+            $("<label>Attribute modifier</label>").css({ fontWeight: "600" }),
+            $attributeModifier,
             $("<label>Color</label>").css({ fontWeight: "600" }),
             $color,
             $overTimeWrapper,
@@ -288,6 +326,18 @@ $(function () {
         const $overTime = $(`<p><strong>Over time:</strong> ${damage.is_over_time ? "Yes" : "No"}</p>`).css({
             margin: "0 0 10px"
         });
+        const attrLabel = (() => {
+            const attr = damage.attribute || "force";
+            if (attr === "dexterity") return "Dexterity";
+            if (attr === "intelligence") return "Intelligence";
+            return "Force";
+        })();
+        const $attribute = $(`<p><strong>Attribute:</strong> ${attrLabel}</p>`).css({
+            margin: "0 0 8px"
+        });
+        const $attributeMod = $(`<p><strong>Attribute modifier:</strong> ${damage.attribute_modifier ?? "-"}x</p>`).css({
+            margin: "0 0 10px"
+        });
         const $color = $(`<p><strong>Color:</strong> <span style="color:${damage.color || "#fff"}">${damage.color || "default"}</span></p>`).css({
             margin: "0 0 10px"
         });
@@ -321,7 +371,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $base, $overTime, $color, $rangesTitle, $list, $close);
+        $modal.append($title, $base, $overTime, $attribute, $attributeMod, $color, $rangesTitle, $list, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
@@ -1143,7 +1193,7 @@ $(function () {
 
         items.forEach((value, index) => {
             const label = key === "damage_types"
-                ? `${value.name}${value.is_over_time ? " (over time)" : ""}`
+                ? `${value.name}${value.is_over_time ? " (over time)" : ""}${value.attribute ? ` | ${value.attribute}${value.attribute_modifier ? ` x${value.attribute_modifier}` : ""}` : ""}`
                 : key === "categories"
                     ? value.name
                     : key === "items"

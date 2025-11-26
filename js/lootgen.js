@@ -10,6 +10,16 @@ function compute() {
     const xpMult = state.xp_multiplier || 1;
     const gainPerLevel = state.gain_per_level || 0;
     const attributes = state.attributes || {};
+    if (attributes.physical && !attributes.force) {
+        attributes.force = attributes.physical;
+        delete attributes.physical;
+    }
+    if (attributes.energy && !attributes.intelligence) {
+        attributes.intelligence = attributes.energy;
+        delete attributes.energy;
+    }
+    if (state.stats_progression_model === "favorite_physical") state.stats_progression_model = "favorite_force";
+    if (state.stats_progression_model === "favorite_energy") state.stats_progression_model = "favorite_intelligence";
     const attrNames = Object.keys(attributes);
     const slotsList = (state.equipment_slots || []).slice().sort((a, b) => (a.position || 0) - (b.position || 0));
     const slots = slotsList.map((s) => s.name);
@@ -17,8 +27,26 @@ function compute() {
         map[s.name] = s.position;
         return map;
     }, {});
+    const normalizeAttrKey = (key) => {
+        if (key === "physical") return "force";
+        if (key === "energy") return "intelligence";
+        return key;
+    };
+
     const items = state.items || [];
     const damageTypes = state.damage_types || [];
+    const attributeModifierDefault = typeof state.attribute_modifier_default === "number" ? state.attribute_modifier_default : 0.6;
+    damageTypes.forEach((dt) => {
+        if (!dt.attribute) dt.attribute = dt.name === "Physical" ? "force" : "intelligence";
+        if (typeof dt.attribute_modifier !== "number") dt.attribute_modifier = attributeModifierDefault;
+    });
+    const damageTypeAttrMap = damageTypes.reduce((map, dt) => {
+        map[dt.name] = {
+            attr: normalizeAttrKey(dt.attribute || "force"),
+            mod: typeof dt.attribute_modifier === "number" ? dt.attribute_modifier : attributeModifierDefault
+        };
+        return map;
+    }, {});
     const damageTypesSorted = [...damageTypes].sort((a, b) => (b.name || "").length - (a.name || "").length);
     const rarityBaseWeights = state.rarity_base_weights || {};
     const raritySoftCaps = state.rarity_soft_caps || {};
@@ -175,6 +203,7 @@ function compute() {
 
     const aggregateWithGear = (baseDamage, baseResists, unarmedBase, slotOverride, lootOverride) => {
         const damageAdds = { ...baseDamage };
+        const baseFromGear = new Set();
         const resists = { ...baseResists };
         const damageMods = {};
         let atkBonus = 0;
@@ -186,9 +215,13 @@ function compute() {
             const isWeaponSlot = slot === "weapon_right" || slot === "weapon_left";
             Object.entries(source.baseAdds || {}).forEach(([k, v]) => {
                 damageAdds[k] = (damageAdds[k] || 0) + v;
+                baseFromGear.add(k);
                 if (isWeaponSlot && v > 0) hasWeaponDamage = true;
             });
-            Object.entries(source.dmgAdds || {}).forEach(([k, v]) => { damageAdds[k] = (damageAdds[k] || 0) + v; });
+            Object.entries(source.dmgAdds || {}).forEach(([k, v]) => {
+                damageAdds[k] = (damageAdds[k] || 0) + v;
+                baseFromGear.add(k);
+            });
             Object.entries(source.dmgMods || {}).forEach(([k, v]) => { damageMods[k] = (damageMods[k] || 0) + v; });
             Object.entries(source.resAdds || {}).forEach(([k, v]) => { resists[k] = (resists[k] || 0) + v; });
             atkBonus += source.atkBonus || 0;
@@ -199,7 +232,11 @@ function compute() {
         const damage = {};
         const allTypes = new Set([...Object.keys(damageAdds), ...Object.keys(damageMods)]);
         allTypes.forEach((k) => {
-            const base = damageAdds[k] || 0;
+            const baseRaw = damageAdds[k] || 0;
+            const attrMeta = damageTypeAttrMap[k];
+            const shouldScaleWithAttr = baseFromGear.has(k);
+            const attrBonus = baseRaw > 0 && shouldScaleWithAttr && attrMeta ? (currentStats[attrMeta.attr] || 0) * (attrMeta.mod || 0) : 0;
+            const base = baseRaw + attrBonus;
             const mod = damageMods[k] || 0;
             damage[k] = base * (1 + mod / 100);
         });
@@ -214,21 +251,25 @@ function compute() {
 
     const currentStats = {};
     attrNames.forEach((attr) => {
-        const bounds = attributes[attr] || { min: 0 };
-        currentStats[attr] = Math.round(bounds.min || 0);
+        const norm = normalizeAttrKey(attr);
+        const bounds = attributes[norm] || { min: 0 };
+        currentStats[norm] = Math.round(bounds.min || 0);
     });
 
     const applyStatGain = (lvl) => {
         if (lvl === 1) return;
         const model = (state.stats_progression_model || "balanced").toLowerCase();
-        let target = "physical";
-        if (model === "favorite_energy") target = "energy";
+        let target = "force";
+        if (model === "favorite_intelligence" || model === "favorite_energy") target = "intelligence";
         else if (model === "favorite_dexterity") target = "dexterity";
         else if (model === "balanced") {
             if (attrNames.length > 0) {
                 const idx = Math.floor(pseudoRand(lvl * 3.1415) * attrNames.length) % attrNames.length;
-                target = attrNames[idx];
+                target = normalizeAttrKey(attrNames[idx]);
             }
+        } else if (model.startsWith("favorite_")) {
+            const specified = normalizeAttrKey(model.replace("favorite_", ""));
+            if (attrNames.includes(specified)) target = specified;
         }
         const bounds = attributes[target] || { max: currentStats[target] + gainPerLevel };
         currentStats[target] = Math.min(bounds.max ?? (currentStats[target] + gainPerLevel), currentStats[target] + gainPerLevel);
@@ -605,16 +646,26 @@ function compute() {
             return (a.slot || "").localeCompare(b.slot || "");
         });
 
+        const dpsTypesActive = new Set(Object.entries(currentDamage || {}).filter(([, v]) => v > 0).map(([k]) => k.toLowerCase()));
         const gearTableRows = equippedSorted.map((loot) => {
             const ordered = orderBonuses(loot.bonuses);
             const bonusesColored = ordered.map((b) => {
-                if (b.includes("(BASE)")) {
-                    return `<strong>${colorizeBonus(b.replace(" (BASE)", ""))}</strong>`;
-                }
-                if (b.toLowerCase().includes("modifier")) {
-                    return colorizeBonus(b.replace(" modifier", ""));
-                }
-                return colorizeBonus(b);
+                const lower = b.toLowerCase();
+                let matchedType = null;
+                dpsTypesActive.forEach((t) => { if (!matchedType && lower.includes(t.toLowerCase())) matchedType = t; });
+                const isAtk = lower.includes("attack speed");
+                const baseText = (() => {
+                    if (b.includes("(BASE)")) {
+                        return `<strong>${colorizeBonus(b.replace(" (BASE)", ""))}</strong>`;
+                    }
+                    if (lower.includes("modifier")) {
+                        return colorizeBonus(b.replace(" modifier", ""));
+                    }
+                    return colorizeBonus(b);
+                })();
+                if (!matchedType && !isAtk) return baseText;
+                const ringColor = matchedType ? (colorMap[matchedType] || "#38bdf8") : "#38bdf8";
+                return `<span class="dps-affix" style="border-color:${ringColor};background:rgba(56,189,248,0.08)">${baseText}</span>`;
             }).join(", ");
             const catColor = categoryColorMap[loot.category] || "#e2e8f0";
             const newBadge = loot.equippedLevel === lvl
@@ -747,7 +798,7 @@ function compute() {
                     return colorize(k, `${k} (${fmt(pct, 0)}%)`);
                 })
                 .filter(Boolean);
-            return parts.length ? ` | ${parts.join(" ")}` : "";
+            return parts.length ? ` ${parts.join(" ")}` : "";
         })();
         const equipCountText = ` | equiped: ${equippedThisLevel.size}`;
         const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}${dpsMixText}${equipCountText}`;

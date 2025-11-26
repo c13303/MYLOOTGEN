@@ -353,6 +353,16 @@ p {
   font-size: 12px;
 }
 
+.dps-affix {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  background: rgba(56, 189, 248, 0.05);
+}
+
 .equip-reason {
   font-size: 13px;
   color: #cbd5e1;

@@ -14,9 +14,9 @@ const damage_structure_example = {
 
 const state = {
     attributes: {
-        physical: { min: 140, max: 200 },
-        energy: { min: 80, max: 130 },
-        dexterity: { min: 90, max: 140 }
+        force: { min: 1, max: 120 },
+        intelligence: { min: 1, max: 120 },
+        dexterity: { min: 1, max: 60 }
     },
     stats_progression_model: "balanced",
     gain_per_level: 2,
@@ -51,6 +51,7 @@ const state = {
     affix_cap: 300,
     rarity_weight_growth: 0.05,
     attr_per_level_factor: 0.04,
+    attribute_modifier_default: 0.6,
     additional_loot_factor: 1.2,
     unarmed_growth: 0.03,
     xp_base: 500,
@@ -94,49 +95,63 @@ const state = {
                 [0, 100, 0.5]
             ],
             "base_damage": 200,
-            "color": "#d4d4d4"
+            "color": "#d4d4d4",
+            "attribute": "force",
+            "attribute_modifier": 0.6
         },
         {
             "name": "Fire",
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
             "base_damage": 200,
-            "color": "#f97316"
+            "color": "#f97316",
+            "attribute": "intelligence",
+            "attribute_modifier": 0.6
         },
         {
             "name": "Ice",
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
             "base_damage": 200,
-            "color": "#38bdf8"
+            "color": "#38bdf8",
+            "attribute": "intelligence",
+            "attribute_modifier": 0.6
         },
         {
             "name": "Shock",
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
             "base_damage": 200,
-            "color": "#a855f7"
+            "color": "#a855f7",
+            "attribute": "intelligence",
+            "attribute_modifier": 0.6
         },
         {
             "name": "Poison",
             "is_over_time": true,
             "ranges": [[0, 100, 0.5]],
             "base_damage": 200,
-            "color": "#22c55e"
+            "color": "#22c55e",
+            "attribute": "intelligence",
+            "attribute_modifier": 0.6
         },
         {
             "name": "Chaos",
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
             "base_damage": 200,
-            "color": "#eab308"
+            "color": "#eab308",
+            "attribute": "intelligence",
+            "attribute_modifier": 0.6
         },
         {
             "name": "Fire Burn",
             "is_over_time": true,
             "ranges": [[0, 100, 0.5]],
             "base_damage": 200,
-            "color": "#fb7185"
+            "color": "#fb7185",
+            "attribute": "intelligence",
+            "attribute_modifier": 0.6
         }
     ],
     categories: [
