@@ -69,6 +69,23 @@ function compute() {
         if (abs >= 1_000) return `${fmt(v / 1_000, 1)}K`;
         return `${Math.round(v)}`;
     };
+    const copyText = (text) => {
+        try {
+            if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+                navigator.clipboard.writeText(text).catch(() => {});
+                return;
+            }
+        } catch (_) { /* fall back */ }
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand("copy"); } catch (_) {}
+        document.body.removeChild(ta);
+    };
     const growthRate = state.base_damage_growth_rate || 1;
     const jitterPct = state.base_damage_jitter_pct || 0;
     const rollGrowth = (baseVal, lvl, seed) => {
@@ -975,7 +992,7 @@ function compute() {
                     const line = `Lvl ${entry.level} | ${fmtHuman(dpsVal)} DPS | ${entry.time_readable} | ${entry.loot_count} loot`;
                     return line;
                 }).join("\n");
-                navigator.clipboard.writeText(headers);
+                copyText(headers);
             };
         }
         const copyLootBtn = document.getElementById("copy-loot");
@@ -989,7 +1006,7 @@ function compute() {
                     });
                     return [header, ...lootLines].join("\n");
                 }).join("\n\n");
-                navigator.clipboard.writeText(lootText);
+                copyText(lootText);
             };
         }
         const recomputeBtn = document.getElementById("recompute-btn");
