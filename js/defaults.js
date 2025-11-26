@@ -43,17 +43,17 @@ const state = {
     damage_types_total_limit: 2,
     // scaling knobs (exposed in UI)
     // Loot scaling knobs
-    affix_min_slope: 0.3,
+    base_damage_power_progression: 2, // exponent for base dmg per level (lvl^power)
+    base_damage_min: 2, // floor to guarantee lvl 1 >= 2
+    base_damage_scale: 1, // global scalar for base dmg progression
+    base_damage_jitter_pct: 0.1, // +/- jitter applied around median (0.1 = ±10%)
+    affix_min_multiplier: 0.65,
     affix_min_ratio: 0.55,
-    affix_max_slope: 0.6,
-    affix_max_multiplier: 1.3,
-    affix_power: 1.25,
-    affix_cap: 300,
+    affix_max_multiplier: 1.35,
+    affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on base dmg
     rarity_weight_growth: 0.05,
     attr_per_level_factor: 0.04,
     attribute_modifier_default: 0.02,
-    base_damage_growth_rate: 1.12, // per-level multiplier for damage progression (median) - higher to avoid low-level plateaus
-    base_damage_jitter_pct: 0.25, // +/- jitter applied around median (0.25 = ±25%)
     additional_loot_factor: 1.2,
     unarmed_growth: 0.03,
     xp_base: 500,

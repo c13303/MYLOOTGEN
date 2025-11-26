@@ -86,14 +86,6 @@ function compute() {
         try { document.execCommand("copy"); } catch (_) {}
         document.body.removeChild(ta);
     };
-    const growthRate = state.base_damage_growth_rate || 1;
-    const jitterPct = state.base_damage_jitter_pct || 0;
-    const rollGrowth = (baseVal, lvl, seed) => {
-        if (!baseVal || growthRate <= 0) return 0;
-        const median = baseVal * Math.pow(growthRate, Math.max(0, lvl - 1));
-        const jitter = 1 + (pseudoRand(seed) * jitterPct); // upward-only jitter to avoid regressions
-        return Math.max(0, Math.round(median * jitter));
-    };
     const colorizeTypeText = (text) => {
         let result = text;
         damageTypesSorted.forEach((dt) => {
@@ -142,6 +134,17 @@ function compute() {
     const pseudoRand = (seed) => {
         const x = Math.sin(seed + runSeed) * 10000;
         return x - Math.floor(x);
+    };
+    const baseDamagePower = state.base_damage_power_progression ?? 2;
+    const baseDamageMinVal = state.base_damage_min ?? 2;
+    const baseDamageScale = state.base_damage_scale ?? 1;
+    const baseDamageJitterPct = state.base_damage_jitter_pct ?? 0;
+    const baseDamageDeterministic = (lvl) => Math.max(baseDamageMinVal, Math.pow(Math.max(1, lvl), baseDamagePower)) * baseDamageScale;
+    const baseDamageForLevel = (lvl, seed = 0) => {
+        const base = baseDamageDeterministic(lvl);
+        if (baseDamageJitterPct <= 0) return Math.round(base);
+        const jitter = 1 + (pseudoRand(seed) * baseDamageJitterPct);
+        return Math.max(baseDamageMinVal, Math.round(base * jitter));
     };
 
     const applySoftCaps = (percents) => {
@@ -396,15 +399,18 @@ function compute() {
             const cat = pickCategory(lvl + d + 3);
             droppedThisLevel.add(cat.name);
             pityCounters[cat.name] = 0;
-            const affixPower = state.affix_power || 1;
-            const lvlPow = Math.pow(lvl, affixPower);
-            const affixCap = state.affix_cap || Infinity;
+            const affixCap = (typeof state.affix_cap === "number" && state.affix_cap > 0) ? state.affix_cap : Infinity;
             const rarityScale = state.affix_rarity_scale ?? 0;
             const rarityFactor = 1 + rarityScale * (cat?.rarity ?? 1);
             const powerScale = cat?.power_scale ?? 1;
-            const minAttrValRaw = Math.max(1, Math.round((lootRandRange + lvlPow * (state.affix_min_slope || 0.9)) * rarityFactor));
+            const baseProgression = baseDamageForLevel(lvl, lvl + d + 0.17);
+            const baseRoll = baseProgression + lootRandRange;
+            const minMultiplier = state.affix_min_multiplier ?? 0.65;
+            const maxMultiplier = state.affix_max_multiplier ?? 1.35;
+            const minAttrValRaw = Math.max(baseProgression, Math.round(baseRoll * minMultiplier * rarityFactor));
             const maxAttrValRaw = Math.max(
-                Math.round((lootRandRange * (state.affix_max_multiplier || 2.2) + lvlPow * (state.affix_max_slope || 1.3)) * rarityFactor)
+                minAttrValRaw + 1,
+                Math.round(baseRoll * maxMultiplier * rarityFactor)
             );
             const ratioMinRaw = state.affix_min_ratio ?? 0.6;
             const ratioMin = Math.min(1, Math.max(0, ratioMinRaw));
@@ -466,7 +472,7 @@ function compute() {
             const isDamageSource = maxSources > 0;
             if (isDamageSource && chosenItem.base_damage > 0 && itemDamagePoolWeighted.length) {
                 const pickedTypes = new Set();
-                const scaledBaseDamage = rollGrowth((chosenItem.base_damage || 0) * powerScale, lvl, (lvl + d + 101));
+                const scaledBaseDamage = Math.max(1, Math.round(baseDamageForLevel(lvl, (lvl + d + 101)) * (chosenItem.base_damage || 0) * powerScale));
                 for (let s = 0; s < maxSources; s += 1) {
                     const seed = (lvl + d + 101 + s) * (d + 1);
                     const type = pickWeightedDamageType(itemDamagePoolWeighted, seed) || typePool[0] || "Physical";
@@ -526,7 +532,7 @@ function compute() {
                     bonuses.push(`+${bonus}% Attack Speed`);
                     affixCount += 1;
                 } else if (kind === "damage") {
-                    const scaledBonus = rollGrowth(bonus, lvl, (lvl + d + k + 7));
+                    const scaledBonus = Math.max(1, Math.round(bonus));
                     bonuses.push(`+${scaledBonus} ${typeName} dmg (BASE)`);
                     baseAdds[typeName] = (baseAdds[typeName] || 0) + scaledBonus;
                     targetSet.add(typeName);
@@ -822,7 +828,7 @@ function compute() {
       </tbody>
     </table></div>`
             : '<div class="loot-table empty">No loot</div>';
-        const attrRangeText = `Attrib range for loot: ${lastMinAttrVal}-${lastMaxAttrVal}%`;
+        const attrRangeText = `Attrib range for loot: ${lastMinAttrVal}-${lastMaxAttrVal}`;
         const attackSpeed = attackSpeedBase * (1 + currentAtkBonus / 100);
 
         const dpsParts = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: ${fmt(v * currentAttackSpeed)} DPS`));
@@ -900,7 +906,7 @@ function compute() {
             distribution,
             stats,
             attr_bounds: attrBounds,
-            attr_range: `${lastMinAttrVal}-${lastMaxAttrVal}%`,
+            attr_range: `${lastMinAttrVal}-${lastMaxAttrVal}`,
             gear: gearLines,
             all_loot: lootList,
             totals: {
@@ -920,7 +926,8 @@ function compute() {
     <div class="level-meta">
       <div>Distribution: ${distribution}</div>    
       <div>${attrRangeText}</div>
-      <div class="loot-meta">Median base dmg: ${fmt(lastMinAttrVal)}-${fmt(lastMaxAttrVal)} | Median mod: ${modMedian}%</div>
+      <div class="loot-meta">Base dmg minimum: ${fmt(baseDamageDeterministic(lvl))}</div>
+      <div class="loot-meta">Median mod: ${modMedian}%</div>
     </div>
     <div class="level-grid">
       <div class="level-col">

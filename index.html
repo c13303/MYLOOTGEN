@@ -115,11 +115,6 @@
           </div>
 
           <div class="field">
-            <label for="generate-percent" title="Percent of theoretical loot actually rolled each level (sampling rate).">Loot Gen % in Sim</label>
-            <input type="number" id="generate-percent" name="generate_percent" min="1" max="100" step="1">
-          </div>
-
-          <div class="field">
             <label for="loot-rand-range" title="Random offset added to affix min/max computation; higher = wider spread.">Range of rand for loot attrib</label>
             <input type="number" id="loot-rand-range" name="loot_rand_range" min="1" step="1">
           </div>
@@ -147,8 +142,8 @@
           </div>
 
           <div class="field">
-            <label for="affix-min-slope" title="Growth slope for the lower bound of affix rolls. Higher = stronger mins at high levels.">Affix min slope</label>
-            <input type="number" id="affix-min-slope" name="affix_min_slope" min="0" step="0.01">
+            <label for="base-damage-power" title="Exponent applied to level for base dmg progression (lvl^power).">Base dmg power</label>
+            <input type="number" id="base-damage-power" name="base_damage_power_progression" min="0" step="0.1">
           </div>
 
           <div class="field">
@@ -161,8 +156,8 @@
           </div>
 
           <div class="field">
-            <label for="affix-max-slope" title="Growth slope for the upper bound of affix rolls.">Affix max slope</label>
-            <input type="number" id="affix-max-slope" name="affix_max_slope" min="0" step="0.01">
+            <label for="base-damage-min" title="Minimum base damage floor at level 1 (keeps early levels granular).">Base dmg min (lvl 1 floor)</label>
+            <input type="number" id="base-damage-min" name="base_damage_min" min="0" step="1">
           </div>
 
           <div class="field">
@@ -171,8 +166,8 @@
           </div>
 
           <div class="field">
-            <label for="affix-power" title="Exponent applied to level when computing affix scaling; >1 accelerates growth.">Affix power (exponential growth)</label>
-            <input type="number" id="affix-power" name="affix_power" min="0" step="0.01">
+            <label for="affix-min-multiplier" title="Multiplier on base dmg progression for the lower bound of affix rolls.">Affix min multiplier</label>
+            <input type="number" id="affix-min-multiplier" name="affix_min_multiplier" min="0" step="0.01">
           </div>
 
           <div class="field">
@@ -199,26 +194,35 @@
             <label for="unarmed-growth" title="Percent growth of unarmed damage per level.">Unarmed growth per level</label>
             <input type="number" id="unarmed-growth" name="unarmed_growth" min="0" step="0.001">
           </div>
+        </div>
+      </div>
 
+      <div class="form-section">
+        <div class="section-title">Simulation Parameters</div>
+        <div class="field-grid">
           <div class="field">
-            <label for="xp-base" title="Base XP needed at level 1 before growth and multiplier.">XP base per level</label>
-            <input type="number" id="xp-base" name="xp_base" min="1" step="1">
-          </div>
-
-          <div class="field">
-            <label for="xp-growth" title="Exponent applied to level for XP requirement; >1 increases curve steepness.">XP growth</label>
-            <input type="number" id="xp-growth" name="xp_growth" min="0" step="0.01">
-          </div>
-
-          <div class="field">
-            <label for="xp-multiplier" title="Global multiplier on XP required per level.">XP multiplier</label>
-            <input type="number" id="xp-multiplier" name="xp_multiplier" min="0" step="0.1">
+            <label for="generate-percent" title="Percent of theoretical loot actually rolled each level (sampling rate).">Loot Gen % in Sim</label>
+            <input type="number" id="generate-percent" name="generate_percent" min="1" max="100" step="1">
           </div>
         </div>
       </div>
 
       <details class="form-section">
-        <summary class="section-title">Configuration avancée</summary>
+        <summary class="section-title">XP & Damage System Configuration</summary>
+        <div class="field-grid">
+          <div class="field">
+            <label for="xp-base" title="Base XP needed at level 1 before growth and multiplier.">XP base per level</label>
+            <input type="number" id="xp-base" name="xp_base" min="1" step="1">
+          </div>
+          <div class="field">
+            <label for="xp-growth" title="Exponent applied to level for XP requirement; >1 increases curve steepness.">XP growth</label>
+            <input type="number" id="xp-growth" name="xp_growth" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label for="xp-multiplier" title="Global multiplier on XP required per level.">XP multiplier</label>
+            <input type="number" id="xp-multiplier" name="xp_multiplier" min="0" step="0.1">
+          </div>
+        </div>
         <div class="field">
           <label title="Slots available for items; affects which items can be rolled and equipped.">Equipment slots</label>
           <div class="tag-list" data-tags="equipment_slots"></div>
