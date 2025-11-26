@@ -1,7 +1,7 @@
 $(function () {
 
     /// check structures in defaults.js
-
+ 
     const $levels = $("#levels");
     const $skillSlots = $("#skill-slots");
     const $attrRanges = $(".attr-number");
