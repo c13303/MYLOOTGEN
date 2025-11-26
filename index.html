@@ -133,6 +133,10 @@
         <label for="attack-speed-affix-rarity-scale" title="Scales AS affix range with rarity (0 = none, 0.1 = mild).">AS affix rarity scale</label>
         <input type="number" id="attack-speed-affix-rarity-scale" name="attack_speed_affix_rarity_scale" min="0" step="0.01">
       </div>
+      <div class="field">
+        <label for="attack-speed-cap" title="Clamp final attack speed after bonuses (0 to disable).">Attack speed cap</label>
+        <input type="number" id="attack-speed-cap" name="attack_speed_cap" min="0" step="0.01">
+      </div>
 
       <div class="field">
         <label for="affix-min-slope" title="Growth slope for the lower bound of affix rolls. Higher = stronger mins at high levels.">Affix min slope</label>
@@ -142,6 +146,10 @@
       <div class="field">
         <label for="affix-min-ratio" title="Forces the minimum affix to be at least this ratio of the max roll.">Affix min ratio (of max)</label>
         <input type="number" id="affix-min-ratio" name="affix_min_ratio" min="0" max="1" step="0.01">
+      </div>
+      <div class="field">
+        <label for="affix-rarity-scale" title="Scales affix min/max with rarity (0 = none).">Affix rarity scale</label>
+        <input type="number" id="affix-rarity-scale" name="affix_rarity_scale" min="0" step="0.01">
       </div>
 
       <div class="field">

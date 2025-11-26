@@ -20,6 +20,8 @@ $(function () {
     const $attackSpeedBonusMax = $("#attack-speed-bonus-max");
     const $attackSpeedAffixLevelScale = $("#attack-speed-affix-level-scale");
     const $attackSpeedAffixRarityScale = $("#attack-speed-affix-rarity-scale");
+    const $attackSpeedCap = $("#attack-speed-cap");
+    const $affixRarityScale = $("#affix-rarity-scale");
     const $affixMinSlope = $("#affix-min-slope");
     const $affixMinRatio = $("#affix-min-ratio");
     const $affixMaxSlope = $("#affix-max-slope");
@@ -1290,6 +1292,8 @@ $(function () {
     $attackSpeedBonusMax.val(state.attack_speed_bonus_max ?? 20);
     $attackSpeedAffixLevelScale.val(state.attack_speed_affix_level_scale ?? 0.5);
     $attackSpeedAffixRarityScale.val(state.attack_speed_affix_rarity_scale ?? 0.1);
+    $attackSpeedCap.val(state.attack_speed_cap ?? 0);
+    $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
     $affixMinSlope.val(state.affix_min_slope);
     $affixMinRatio.val(state.affix_min_ratio ?? 0.6);
     $affixMaxSlope.val(state.affix_max_slope);
@@ -1446,6 +1450,20 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.attack_speed_affix_rarity_scale = value;
+            renderPreview();
+        }
+    });
+    $attackSpeedCap.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.attack_speed_cap = value;
+            renderPreview();
+        }
+    });
+    $affixRarityScale.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.affix_rarity_scale = value;
             renderPreview();
         }
     });

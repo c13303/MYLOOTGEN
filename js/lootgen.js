@@ -203,29 +203,34 @@ function compute() {
             return categories[categories.length - 1];
         };
 
-        // paliers d'affixes configurables
-        const affixPower = state.affix_power || 1;
-        const lvlPow = Math.pow(lvl, affixPower);
-        const affixCap = state.affix_cap || Infinity;
-        const minAttrValRaw = Math.max(1, Math.round(lootRandRange + lvlPow * (state.affix_min_slope || 0.9)));
-        const maxAttrValRaw = Math.max(
-            minAttrValRaw + 1,
-            Math.round(lootRandRange * (state.affix_max_multiplier || 2.2) + lvlPow * (state.affix_max_slope || 1.3))
-        );
-        const ratioMinRaw = state.affix_min_ratio ?? 0.6;
-        const ratioMin = Math.min(1, Math.max(0, ratioMinRaw));
-        let minAttrValRatio = Math.max(1, Math.round(maxAttrValRaw * ratioMin));
-        let minAttrVal = Math.min(minAttrValRaw, minAttrValRatio);
-        let maxAttrVal = maxAttrValRaw;
-        if (minAttrVal > maxAttrVal) minAttrVal = maxAttrVal;
-        minAttrVal = Math.max(1, Math.min(minAttrVal, affixCap));
-        maxAttrVal = Math.max(minAttrVal, Math.min(maxAttrVal, affixCap));
-
         // simulate loot batch
         const totalDrops = Math.max(1, Math.floor((lootCount * generatePercent) / 100));
         const lootList = [];
+        let lastMinAttrVal = 0;
+        let lastMaxAttrVal = 0;
         for (let d = 0; d < totalDrops; d += 1) {
             const cat = pickCategory(lvl + d + 3);
+            // paliers d'affixes configurables (par catégorie)
+            const affixPower = state.affix_power || 1;
+            const lvlPow = Math.pow(lvl, affixPower);
+            const affixCap = state.affix_cap || Infinity;
+            const rarityScale = state.affix_rarity_scale ?? 0;
+            const rarityFactor = 1 + rarityScale * (cat?.rarity ?? 1);
+            const minAttrValRaw = Math.max(1, Math.round((lootRandRange + lvlPow * (state.affix_min_slope || 0.9)) * rarityFactor));
+            const maxAttrValRaw = Math.max(
+                minAttrValRaw + 1,
+                Math.round((lootRandRange * (state.affix_max_multiplier || 2.2) + lvlPow * (state.affix_max_slope || 1.3)) * rarityFactor)
+            );
+            const ratioMinRaw = state.affix_min_ratio ?? 0.6;
+            const ratioMin = Math.min(1, Math.max(0, ratioMinRaw));
+            let minAttrValRatio = Math.max(1, Math.round(maxAttrValRaw * ratioMin));
+            let minAttrVal = Math.min(minAttrValRaw, minAttrValRatio);
+            let maxAttrVal = maxAttrValRaw;
+            if (minAttrVal > maxAttrVal) minAttrVal = maxAttrVal;
+            minAttrVal = Math.max(1, Math.min(minAttrVal, affixCap));
+            maxAttrVal = Math.max(minAttrVal, Math.min(maxAttrVal, affixCap));
+            lastMinAttrVal = minAttrVal;
+            lastMaxAttrVal = maxAttrVal;
             const slot = slots.length ? slots[Math.floor(pseudoRand((lvl + 7) * (d + 1)) * slots.length) % slots.length] : "slot";
             const available = items.filter((it) => it.equipment_slot === slot);
             const chosenItem = available.length ? available[Math.floor(pseudoRand((lvl + 13) * (d + 1)) * available.length) % available.length] : { name: "None" };
@@ -249,12 +254,12 @@ function compute() {
             const baseTypes = new Set();
             const atkBonusMinBase = Math.max(0, state.attack_speed_bonus_min ?? 10);
             const atkBonusMaxBase = Math.max(0, state.attack_speed_bonus_max ?? 20);
-            const levelScale = state.attack_speed_affix_level_scale ?? 0.5;
-            const rarityScale = state.attack_speed_affix_rarity_scale ?? 0.1;
-            const lvlFactor = 1 + levelScale * (levels > 1 ? (lvl - 1) / (levels - 1) : 0);
-            const rarityFactor = 1 + rarityScale * (cat?.rarity ?? 1);
-            const atkBonusMin = Math.round(atkBonusMinBase * lvlFactor * rarityFactor);
-            const atkBonusMaxRaw = Math.round(atkBonusMaxBase * lvlFactor * rarityFactor);
+            const asLevelScale = state.attack_speed_affix_level_scale ?? 0.5;
+            const asRarityScale = state.attack_speed_affix_rarity_scale ?? 0.1;
+            const asLvlFactor = 1 + asLevelScale * (levels > 1 ? (lvl - 1) / (levels - 1) : 0);
+            const asRarityFactor = 1 + asRarityScale * (cat?.rarity ?? 1);
+            const atkBonusMin = Math.round(atkBonusMinBase * asLvlFactor * asRarityFactor);
+            const atkBonusMaxRaw = Math.round(atkBonusMaxBase * asLvlFactor * asRarityFactor);
             const atkBonusMax = Math.max(atkBonusMin, atkBonusMaxRaw);
 
             const itemDamagePool = (chosenItem.damage_types && chosenItem.damage_types.length) ? chosenItem.damage_types : typePool;
@@ -298,11 +303,14 @@ function compute() {
 
                 let typeName = null;
                 const damageLimit = state.damage_affix_types_limit ?? 1;
-                const damageTypesCount = baseTypes.size;
+            const damageTypesCount = baseTypes.size;
                 for (let tries = 0; tries < 6; tries += 1) {
                     const pickIdx = Math.floor(pseudoRand((lvl + 11 + tries) * (d + 1) * (k + 1)) * typePool.length) % typePool.length;
                     const candidate = typePool[pickIdx] || "Physical";
-                    if (kind === "damage" && damageTypesCount >= damageLimit && !baseTypes.has(candidate)) continue;
+                    const totalDamageLimit = state.damage_types_total_limit ?? 2;
+                    const wouldAddNewDamageType = kind === "damage" && !baseTypes.has(candidate);
+                    if (kind === "damage" && damageTypesCount >= damageLimit && wouldAddNewDamageType) continue;
+                    if (kind === "damage" && baseTypes.size >= totalDamageLimit && wouldAddNewDamageType) continue;
                     if (kind === "damage" && baseTypes.has(candidate) && targetSet.has(candidate)) continue;
                     if (!targetSet.has(candidate)) {
                         typeName = candidate;
@@ -381,13 +389,14 @@ function compute() {
         } = aggregateWithGear(damageTotalsBase, resistTotalsBase);
         const attackSpeedBaseCurrent = attackSpeedBaseVal;
         let currentAttackSpeedRaw = attackSpeedBaseCurrent * (1 + currentAtkBonus / 100);
-        let currentAttackSpeed = currentAttackSpeedRaw;
+        const atkCap = state.attack_speed_cap || 0;
+        let currentAttackSpeed = atkCap > 0 ? Math.min(currentAttackSpeedRaw, atkCap) : currentAttackSpeedRaw;
         let currentTotalDps = computeTotalDps(currentDamage, currentAttackSpeed);
 
         lootList.forEach((loot, lootIdx) => {
             const agg = aggregateWithGear(damageTotalsBase, resistTotalsBase, loot.slot, loot);
             const candidateAttackSpeedRaw = attackSpeedBaseCurrent * (1 + agg.atkBonus / 100);
-            const candidateAttackSpeed = candidateAttackSpeedRaw;
+            const candidateAttackSpeed = atkCap > 0 ? Math.min(candidateAttackSpeedRaw, atkCap) : candidateAttackSpeedRaw;
             const candidateTotalDps = computeTotalDps(agg.damage, candidateAttackSpeed);
             const prev = gearBySlot[loot.slot]?.loot;
             const prevTotal = currentTotalDps;
@@ -540,7 +549,7 @@ function compute() {
     </table></div>`
             : '<div class="loot-table empty">No loot</div>';
         const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}`;
-        const attrRangeText = `Attrib range for loot: ${minAttrVal}-${maxAttrVal}%`;
+        const attrRangeText = `Attrib range for loot: ${lastMinAttrVal}-${lastMaxAttrVal}%`;
         const attackSpeed = attackSpeedBase * (1 + currentAtkBonus / 100);
 
         const dpsParts = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: ${fmt(v * currentAttackSpeed)} DPS`));
@@ -597,7 +606,7 @@ function compute() {
             distribution,
             stats,
             attr_bounds: attrBounds,
-            attr_range: `${minAttrVal}-${maxAttrVal}%`,
+            attr_range: `${lastMinAttrVal}-${lastMaxAttrVal}%`,
             gear: gearLines,
             all_loot: lootList,
             totals: {

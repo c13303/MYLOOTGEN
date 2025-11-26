@@ -33,10 +33,13 @@ const state = {
     attack_speed_bonus_max: 30,
     attack_speed_affix_level_scale: 0.5, // scales affix range with level/levels_max
     attack_speed_affix_rarity_scale: 0.1, // scales affix range with rarity weight (1 common -> 1+scale*rarityFactor)
+    attack_speed_cap: 5, // clamp final attack speed after bonuses (0/null to disable)
+    affix_rarity_scale: 0.1, // scales affix min/max with category rarity
     resist_affix_min_chance: 0.25,
     base_damage_types_per_item_min: 1,
     base_damage_types_per_item_max: 2,
     damage_affix_types_limit: 1,
+    damage_types_total_limit: 2,
     // scaling knobs (exposed in UI)
     // Loot scaling knobs
     affix_min_slope: 0.6,
