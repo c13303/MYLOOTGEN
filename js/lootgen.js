@@ -5,8 +5,6 @@ function compute() {
     const baseLevelTime = state.median_time_per_level || 0;
     const lootTime = state.median_time_per_loot || 1;
     const timeMult = state.level_time_multiplier || 0;
-    const rarityGrowth = state.rarity_growth_factor || 0;
-    const rarityWeightGrowth = state.rarity_weight_growth || 0;
     const xpBase = state.xp_base || 0;
     const xpGrowth = state.xp_growth || 1;
     const xpMult = state.xp_multiplier || 1;
@@ -22,6 +20,11 @@ function compute() {
     const items = state.items || [];
     const damageTypes = state.damage_types || [];
     const damageTypesSorted = [...damageTypes].sort((a, b) => (b.name || "").length - (a.name || "").length);
+    const rarityBaseWeights = state.rarity_base_weights || {};
+    const raritySoftCaps = state.rarity_soft_caps || {};
+    const rarityPityThresholds = state.rarity_pity_thresholds || {};
+    const rarityUnlockWindow = state.rarity_unlock_window ?? 10;
+    const raritySigmoidK = state.rarity_sigmoid_k ?? 0.4;
     const colorMap = damageTypesSorted.reduce((map, dt) => {
         map[dt.name] = dt.color || "#ffffff";
         return map;
@@ -60,19 +63,101 @@ function compute() {
         const factor = 10 ** digits;
         return `${Math.round(v * factor) / factor}`;
     };
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
     let totalXp = 0;
     let totalSeconds = 0;
     const results = [];
     const jsonData = [];
     const dpsSeries = [];
+    const pityCounters = {};
+    categories.forEach((cat) => {
+        pityCounters[cat.name] = 0;
+    });
 
     // persist best gear across levels to avoid DPS drops
     const gearBySlot = {}; // slot -> { loot, atkBonus, dmgAdds, resAdds }
 
+    const runSeed = Math.random() * 1000000;
     const pseudoRand = (seed) => {
-        const x = Math.sin(seed) * 10000;
+        const x = Math.sin(seed + runSeed) * 10000;
         return x - Math.floor(x);
+    };
+
+    const applySoftCaps = (percents) => {
+        const capped = [];
+        let surplus = 0;
+        percents.forEach((pct, idx) => {
+            const cat = categories[idx];
+            const cap = raritySoftCaps[cat.name];
+            if (typeof cap === "number" && cap >= 0 && pct > cap) {
+                capped[idx] = cap;
+                surplus += pct - cap;
+            } else {
+                capped[idx] = pct;
+            }
+        });
+        if (surplus <= 0) return capped;
+        let recipientTotal = 0;
+        const recipients = [];
+        capped.forEach((pct, idx) => {
+            const cap = raritySoftCaps[categories[idx].name];
+            const isCapped = typeof cap === "number" && pct >= cap;
+            if (!isCapped && pct > 0) {
+                recipientTotal += pct;
+                recipients.push(idx);
+            }
+        });
+        if (recipientTotal <= 0 || recipients.length === 0) return capped;
+        recipients.forEach((idx) => {
+            const share = capped[idx] / recipientTotal;
+            capped[idx] += surplus * share;
+        });
+        return capped;
+    };
+
+    const damagePoolForLevel = (level, allowedNames) => {
+        const allowed = new Set(
+            (allowedNames && allowedNames.length)
+                ? allowedNames
+                : damageTypes.map((dt) => dt.name)
+        );
+        const weighted = damageTypes
+            .filter((dt) => allowed.has(dt.name))
+            .map((dt) => {
+                const weight = (dt.ranges || []).reduce((sum, range) => {
+                    const [min, max, rarity] = range;
+                    if (level >= min && level <= max) {
+                        return sum + (rarity ?? 1);
+                    }
+                    return sum;
+                }, 0);
+                return { name: dt.name, weight };
+            })
+            .filter((entry) => entry.weight > 0);
+
+        if (weighted.length > 0) return weighted;
+
+        // Fallback: keep allowed types but unweighted to avoid empty pools
+        const fallback = damageTypes
+            .filter((dt) => allowed.has(dt.name))
+            .map((dt) => ({ name: dt.name, weight: 1 }));
+        if (fallback.length > 0) return fallback;
+
+        // Absolute fallback
+        return [{ name: "Physical", weight: 1 }];
+    };
+
+    const pickWeightedDamageType = (pool, seed) => {
+        if (!pool || pool.length === 0) return null;
+        const total = pool.reduce((sum, entry) => sum + entry.weight, 0);
+        if (total <= 0) return pool[0].name;
+        let target = pseudoRand(seed) * total;
+        for (let i = 0; i < pool.length; i += 1) {
+            target -= pool[i].weight;
+            if (target <= 0) return pool[i].name;
+        }
+        return pool[pool.length - 1].name;
     };
 
     const pickDamage = (seed) => {
@@ -149,25 +234,30 @@ function compute() {
         totalSeconds += levelTime;
 
         const weights = categories.map((cat) => {
-            const baseWeight = cat.rarity ?? 1;
+            const baseWeight = rarityBaseWeights[cat.name] ?? cat.rarity ?? 0;
             const unlock = cat.unlock_level || 1;
             if (lvl < unlock) return 0;
-            const progress = Math.min(1, (lvl - unlock) / Math.max(1, levels - unlock));
-            const factor = 0.2 + progress * (1 + rarityGrowth);
-            const growthWeight = 1 + rarityWeightGrowth * (lvl - unlock);
-            return baseWeight * factor * growthWeight;
+            const unlockFactor = 0.5 + 0.5 * clamp01((lvl - unlock) / Math.max(1, rarityUnlockWindow));
+            const sigmoidInput = (lvl - unlock) - rarityUnlockWindow / 2;
+            const progress = 1 / (1 + Math.exp(-raritySigmoidK * sigmoidInput));
+            let w = baseWeight * unlockFactor * progress;
+            const decay = (cat.common_decay ?? state.common_decay) ?? 0;
+            if (decay > 0 && unlock === 1) {
+                const decayPower = Math.max(0, lvl - (unlock + 4)); // decay commons after first few levels
+                w *= Math.exp(-decay * decayPower);
+            }
+            return w;
         });
 
-        let percents = [];
-        const weightSum = weights.reduce((sum, w) => sum + w, 0) || 1;
-        percents = weights.map((w) => Math.round((w / weightSum) * 1000) / 10);
-        const uniqueIndex = categories.findIndex((c) => (c.name || "").toLowerCase() === "unique");
-        if (uniqueIndex >= 0 && percents[uniqueIndex] > 3) {
-            const uniqueCap = 3;
-            const otherTotal = percents.reduce((sum, p, idx) => idx === uniqueIndex ? sum : sum + p, 0);
-            const scale = otherTotal > 0 ? (100 - uniqueCap) / otherTotal : 1;
-            percents = percents.map((p, idx) => idx === uniqueIndex ? uniqueCap : Math.round(p * scale * 10) / 10);
+        const weightSum = weights.reduce((sum, w) => sum + w, 0);
+        const basePercents = weightSum > 0
+            ? weights.map((w) => (w / weightSum) * 100)
+            : categories.map(() => 0);
+        let percentsRaw = applySoftCaps(basePercents);
+        if (percentsRaw.every((p) => p === 0) && categories.length > 0) {
+            percentsRaw = categories.map((_, idx) => (idx === 0 ? 100 : 0));
         }
+        const percents = percentsRaw.map((p) => Math.round(p * 10) / 10);
         const distribution = categories.map((cat, idx) => `${cat.name}: ${percents[idx]}%`).join(", ");
 
         const formatTime = (sec) => {
@@ -194,10 +284,18 @@ function compute() {
         if (basePhysRes > 0) resistTotalsBase.Physical = basePhysRes;
 
         const pickCategory = (seed) => {
-            const rand = pseudoRand(seed);
+            const forced = categories
+                .filter((cat) => {
+                    const threshold = rarityPityThresholds[cat.name];
+                    return typeof threshold === "number" && (pityCounters[cat.name] || 0) >= threshold;
+                })
+                .sort((a, b) => (rarityBaseWeights[a.name] ?? a.rarity ?? 0) - (rarityBaseWeights[b.name] ?? b.rarity ?? 0));
+            if (forced.length) return forced[0];
+            const totalPct = percents.reduce((sum, p) => sum + p, 0) || 1;
+            const rand = pseudoRand(seed) * totalPct;
             let acc = 0;
             for (let i = 0; i < percents.length; i += 1) {
-                acc += percents[i] / 100;
+                acc += percents[i];
                 if (rand <= acc) return categories[i];
             }
             return categories[categories.length - 1];
@@ -206,19 +304,21 @@ function compute() {
         // simulate loot batch
         const totalDrops = Math.max(1, Math.floor((lootCount * generatePercent) / 100));
         const lootList = [];
+        const droppedThisLevel = new Set();
         let lastMinAttrVal = 0;
         let lastMaxAttrVal = 0;
         for (let d = 0; d < totalDrops; d += 1) {
             const cat = pickCategory(lvl + d + 3);
-            // paliers d'affixes configurables (par catégorie)
+            droppedThisLevel.add(cat.name);
+            pityCounters[cat.name] = 0;
             const affixPower = state.affix_power || 1;
             const lvlPow = Math.pow(lvl, affixPower);
             const affixCap = state.affix_cap || Infinity;
             const rarityScale = state.affix_rarity_scale ?? 0;
             const rarityFactor = 1 + rarityScale * (cat?.rarity ?? 1);
+            const powerScale = cat?.power_scale ?? 1;
             const minAttrValRaw = Math.max(1, Math.round((lootRandRange + lvlPow * (state.affix_min_slope || 0.9)) * rarityFactor));
             const maxAttrValRaw = Math.max(
-                minAttrValRaw + 1,
                 Math.round((lootRandRange * (state.affix_max_multiplier || 2.2) + lvlPow * (state.affix_max_slope || 1.3)) * rarityFactor)
             );
             const ratioMinRaw = state.affix_min_ratio ?? 0.6;
@@ -226,6 +326,8 @@ function compute() {
             let minAttrValRatio = Math.max(1, Math.round(maxAttrValRaw * ratioMin));
             let minAttrVal = Math.min(minAttrValRaw, minAttrValRatio);
             let maxAttrVal = maxAttrValRaw;
+            minAttrVal = Math.max(1, Math.round(minAttrVal * powerScale));
+            maxAttrVal = Math.max(minAttrVal + 1, Math.round(maxAttrVal * powerScale));
             if (minAttrVal > maxAttrVal) minAttrVal = maxAttrVal;
             minAttrVal = Math.max(1, Math.min(minAttrVal, affixCap));
             maxAttrVal = Math.max(minAttrVal, Math.min(maxAttrVal, affixCap));
@@ -239,7 +341,11 @@ function compute() {
                 ? Math.max(1, cat.attributes + Math.floor(lvl * attrGrowth))
                 : 1;
             const affixLimit = chosenItem.affix_max || attrs;
-            const typePool = (cat.attribute_types && cat.attribute_types.length) ? cat.attribute_types : damageTypes.map((d) => d.name);
+            const typePoolWeighted = damagePoolForLevel(
+                lvl,
+                (cat.attribute_types && cat.attribute_types.length) ? cat.attribute_types : null
+            );
+            const typePool = typePoolWeighted.map((t) => t.name);
             const bonuses = [];
             const dmgAdds = {};
             const baseAdds = {};
@@ -262,22 +368,27 @@ function compute() {
             const atkBonusMaxRaw = Math.round(atkBonusMaxBase * asLvlFactor * asRarityFactor);
             const atkBonusMax = Math.max(atkBonusMin, atkBonusMaxRaw);
 
-            const itemDamagePool = (chosenItem.damage_types && chosenItem.damage_types.length) ? chosenItem.damage_types : typePool;
+            const itemDamagePoolWeighted = damagePoolForLevel(
+                lvl,
+                (chosenItem.damage_types && chosenItem.damage_types.length) ? chosenItem.damage_types : typePool
+            );
             const sourcesToUseRaw = Math.max(0, chosenItem.source_damage_slots || 0);
             const baseMin = state.base_damage_types_per_item_min ?? 1;
             const baseMax = state.base_damage_types_per_item_max ?? 2;
             const maxSources = Math.max(baseMin, Math.min(baseMax, sourcesToUseRaw));
             const isDamageSource = maxSources > 0;
-            if (isDamageSource && chosenItem.base_damage > 0 && itemDamagePool.length) {
+            if (isDamageSource && chosenItem.base_damage > 0 && itemDamagePoolWeighted.length) {
                 const pickedTypes = new Set();
+                const scaledBaseDamage = Math.round((chosenItem.base_damage || 0) * powerScale);
                 for (let s = 0; s < maxSources; s += 1) {
-                    const type = itemDamagePool[Math.floor(pseudoRand((lvl + d + 101 + s) * (d + 1)) * itemDamagePool.length) % itemDamagePool.length];
+                    const seed = (lvl + d + 101 + s) * (d + 1);
+                    const type = pickWeightedDamageType(itemDamagePoolWeighted, seed) || typePool[0] || "Physical";
                     if (pickedTypes.has(type)) continue;
                     pickedTypes.add(type);
-                    baseAdds[type] = (baseAdds[type] || 0) + chosenItem.base_damage;
+                    baseAdds[type] = (baseAdds[type] || 0) + scaledBaseDamage;
                     baseTypes.add(type);
                     usedDamageTypes.add(type);
-                    bonuses.push(`+${chosenItem.base_damage} ${type} dmg (BASE)`);
+                    bonuses.push(`+${scaledBaseDamage} ${type} dmg (BASE)`);
                 }
             }
             let affixCount = 0;
@@ -303,10 +414,9 @@ function compute() {
 
                 let typeName = null;
                 const damageLimit = state.damage_affix_types_limit ?? 1;
-            const damageTypesCount = baseTypes.size;
+                const damageTypesCount = baseTypes.size;
                 for (let tries = 0; tries < 6; tries += 1) {
-                    const pickIdx = Math.floor(pseudoRand((lvl + 11 + tries) * (d + 1) * (k + 1)) * typePool.length) % typePool.length;
-                    const candidate = typePool[pickIdx] || "Physical";
+                    const candidate = pickWeightedDamageType(typePoolWeighted, (lvl + 11 + tries) * (d + 1) * (k + 1)) || "Physical";
                     const totalDamageLimit = state.damage_types_total_limit ?? 2;
                     const wouldAddNewDamageType = kind === "damage" && !baseTypes.has(candidate);
                     if (kind === "damage" && damageTypesCount >= damageLimit && wouldAddNewDamageType) continue;
@@ -351,8 +461,7 @@ function compute() {
             if (resChance > 0 && affixCount < affixLimit && usedResTypes.size === 0 && pseudoRand(lvl + d + 9999) < resChance) {
                 let resType = null;
                 for (let tries = 0; tries < 6; tries += 1) {
-                    const pickIdx = Math.floor(pseudoRand((lvl + 17 + tries) * (d + 1)) * typePool.length) % typePool.length;
-                    const candidate = typePool[pickIdx] || "Physical";
+                    const candidate = pickWeightedDamageType(typePoolWeighted, (lvl + 17 + tries) * (d + 1)) || "Physical";
                     if (!usedResTypes.has(candidate)) {
                         resType = candidate;
                         break;
@@ -377,6 +486,11 @@ function compute() {
                 atkBonus: localAtkBonus || extractAtkBonus(bonuses)
             });
         }
+        categories.forEach((cat) => {
+            if (!droppedThisLevel.has(cat.name)) {
+                pityCounters[cat.name] = (pityCounters[cat.name] || 0) + 1;
+            }
+        });
 
         // try equipping each new loot if it improves total DPS compared to current gear
         const equippedThisLevel = new Map();
@@ -400,12 +514,16 @@ function compute() {
             const candidateTotalDps = computeTotalDps(agg.damage, candidateAttackSpeed);
             const prev = gearBySlot[loot.slot]?.loot;
             const prevTotal = currentTotalDps;
+            const bringsNewType = Object.keys(agg.damage || {}).some((k) => !(currentDamage && currentDamage[k] > 0));
+            const diversityBonus = bringsNewType ? 1.1 : 1; // encourage new damage types
+            const candidateScore = candidateTotalDps * diversityBonus;
+            const currentScore = currentTotalDps;
             const reasonText = !prev
                 ? `Slot was empty -> ${candidateTotalDps.toFixed(1)} DPS`
-                : candidateTotalDps > prevTotal
-                    ? `Higher DPS ${prevTotal.toFixed(1)} ??? ${candidateTotalDps.toFixed(1)}`
-                    : `Tie on DPS (${candidateTotalDps.toFixed(1)})`;
-            if (candidateTotalDps >= currentTotalDps) {
+                : candidateScore > currentScore
+                    ? `Higher score ${currentScore.toFixed(1)} -> ${candidateScore.toFixed(1)}`
+                    : `Tie on score (${candidateScore.toFixed(1)})`;
+            if (candidateScore >= currentScore) {
                 gearBySlot[loot.slot] = { loot: { ...loot, atkBonus: loot.atkBonus || 0 } };
                 currentDamage = agg.damage;
                 currentResists = agg.resists;
@@ -548,12 +666,12 @@ function compute() {
       </tbody>
     </table></div>`
             : '<div class="loot-table empty">No loot</div>';
-        const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}`;
         const attrRangeText = `Attrib range for loot: ${lastMinAttrVal}-${lastMaxAttrVal}%`;
         const attackSpeed = attackSpeedBase * (1 + currentAtkBonus / 100);
 
         const dpsParts = Object.entries(currentDamage).map(([k, v]) => colorize(k, `${k}: ${fmt(v * currentAttackSpeed)} DPS`));
         const dpsLine = dpsParts.length ? dpsParts.join(" | ") : "None";
+        let topDamageType = null;
         const dmgBreakdownRows = (() => {
             const allTypes = new Set([...Object.keys(currentAdds || {}), ...Object.keys(currentMods || {}), ...Object.keys(currentDamage || {})]);
             const rows = Array.from(allTypes).map((k) => {
@@ -565,6 +683,7 @@ function compute() {
                 return { k, base, mod, total, dpsVal, label };
             });
             rows.sort((a, b) => (b.dpsVal || 0) - (a.dpsVal || 0));
+            topDamageType = rows[0] || null;
             return rows.map((row) => {
                 const rowColor = colorMap[row.k] || "#e2e8f0";
                 return `
@@ -577,6 +696,9 @@ function compute() {
           </tr>`;
             }).join("");
         })();
+        const dominantText = topDamageType ? ` | Top: ${topDamageType.k} (${fmt(topDamageType.dpsVal)})` : ""; //TODO ajouter la couleur du type de damage
+        const equipCountText = ` | eq: ${equippedThisLevel.size}`;
+        const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}${dominantText}${equipCountText}`;
         const dmgBreakdownTable = dmgBreakdownRows
             ? `<div class="build-table"><table>
       <thead>
@@ -651,18 +773,24 @@ function compute() {
 
     const container = document.getElementById("compute-result");
     if (container) {
-        container.innerHTML = results.join("") + `<button type="button" class="compute-json-btn" id="copy-json">Copy result JSON</button>`;
+        container.innerHTML = results.join("") + `<div class="compute-actions"><button type="button" class="compute-json-btn" id="recompute-btn">Compute again</button><button type="button" class="compute-json-btn" id="copy-json">Copy result JSON</button></div>`;
         // append chart placeholder
         const chartId = "dps-chart";
         container.innerHTML += `<div id="${chartId}" class="dps-chart"></div>`;
-        const btn = document.getElementById("copy-json");
-        if (btn) {
-            btn.onclick = () => {
+        const copyBtn = document.getElementById("copy-json");
+        if (copyBtn) {
+            copyBtn.onclick = () => {
                 const headers = jsonData.map((entry) => {
                     const line = `Lvl ${entry.level} | ${Math.round(entry.totals.dps && entry.totals.dps.length ? parseFloat((entry.totals.dps[0].match(/([0-9.]+)/) || [0, 0])[1]) : 0)} DPS | ${entry.time_readable} | ${entry.loot_count} loot`;
                     return line;
                 }).join("\n");
                 navigator.clipboard.writeText(headers);
+            };
+        }
+        const recomputeBtn = document.getElementById("recompute-btn");
+        if (recomputeBtn) {
+            recomputeBtn.onclick = () => {
+                if (typeof compute === "function") compute();
             };
         }
         const chartEl = document.getElementById(chartId);

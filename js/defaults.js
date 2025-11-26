@@ -35,11 +35,12 @@ const state = {
     attack_speed_affix_rarity_scale: 0.1, // scales affix range with rarity weight (1 common -> 1+scale*rarityFactor)
     attack_speed_cap: 5, // clamp final attack speed after bonuses (0/null to disable)
     affix_rarity_scale: 0.1, // scales affix min/max with category rarity
+    common_decay: 0.08, // exponential decay applied to categories unlocked at level 1
     resist_affix_min_chance: 0.25,
-    base_damage_types_per_item_min: 1,
-    base_damage_types_per_item_max: 2,
-    damage_affix_types_limit: 1,
-    damage_types_total_limit: 2,
+    base_damage_types_per_item_min: 2,
+    base_damage_types_per_item_max: 3,
+    damage_affix_types_limit: 2,
+    damage_types_total_limit: 3,
     // scaling knobs (exposed in UI)
     // Loot scaling knobs
     affix_min_slope: 0.6,
@@ -57,6 +58,25 @@ const state = {
     xp_multiplier: 1,
     levels: 60,
     skill_slots: 4,
+    rarity_base_weights: {
+        common: 16,
+        magic: 8,
+        rare: 3,
+        legendary: 1,
+        unique: 0.5
+    },
+    rarity_soft_caps: {
+        unique: 3,
+        legendary: 10,
+        rare: 25,
+        magic: 35
+    },
+    rarity_pity_thresholds: {
+        legendary: 15,
+        unique: 35
+    },
+    rarity_unlock_window: 10,
+    rarity_sigmoid_k: 0.4,
     equipment_slots: [
         { name: "head", position: 1 },
         { name: "torso", position: 2 },
@@ -70,50 +90,52 @@ const state = {
         {
             "name": "Physical",
             "is_over_time": false,
-            "ranges": [[0, 100, 1]],
-            "base_damage": 100,
+            "ranges": [
+                [0, 100, 0.5]
+            ],
+            "base_damage": 200,
             "color": "#d4d4d4"
         },
         {
             "name": "Fire",
             "is_over_time": false,
-            "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
-            "base_damage": 100,
+            "ranges": [[0, 100, 0.5]],
+            "base_damage": 200,
             "color": "#f97316"
         },
         {
             "name": "Ice",
             "is_over_time": false,
-            "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
-            "base_damage": 100,
+            "ranges": [[0, 100, 0.5]],
+            "base_damage": 200,
             "color": "#38bdf8"
         },
         {
             "name": "Shock",
             "is_over_time": false,
-            "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
-            "base_damage": 100,
+            "ranges": [[0, 100, 0.5]],
+            "base_damage": 200,
             "color": "#a855f7"
         },
         {
             "name": "Poison",
             "is_over_time": true,
-            "ranges": [[0, 50, 0.5], [50, 100, 0.6]],
-            "base_damage": 10,
+            "ranges": [[0, 100, 0.5]],
+            "base_damage": 200,
             "color": "#22c55e"
         },
         {
             "name": "Chaos",
             "is_over_time": false,
-            "ranges": [[0, 50, 0.1], [50, 100, 0.6]],
-            "base_damage": 120,
+            "ranges": [[0, 100, 0.5]],
+            "base_damage": 200,
             "color": "#eab308"
         },
         {
             "name": "Fire Burn",
             "is_over_time": true,
-            "ranges": [[10, 100, 0.5]],
-            "base_damage": 40,
+            "ranges": [[0, 100, 0.5]],
+            "base_damage": 200,
             "color": "#fb7185"
         }
     ],
@@ -125,6 +147,7 @@ const state = {
             "attribute_types": ["Physical"],
             "allow_attack_speed_mod": false,
             "unlock_level": 1,
+            "power_scale": 1,
             "color": "#cbd5e1"
         },
         {
@@ -134,6 +157,7 @@ const state = {
             "attribute_types": ["Physical", "Fire", "Ice", "Shock"],
             "allow_attack_speed_mod": true,
             "unlock_level": 5,
+            "power_scale": 2,
             "color": "#38bdf8"
         },
         {
@@ -143,6 +167,7 @@ const state = {
             "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn"],
             "allow_attack_speed_mod": true,
             "unlock_level": 8,
+            "power_scale": 3,
             "color": "#a855f7"
         },
         {
@@ -153,6 +178,7 @@ const state = {
             "allow_attack_speed_mod": true,
             "skill_mod": 1,
             "unlock_level": 15,
+            "power_scale": 4,
             "color": "#f59e0b"
         },
         {
@@ -163,6 +189,7 @@ const state = {
             "allow_attack_speed_mod": true,
             "skill_mod": 2,
             "unlock_level": 30,
+            "power_scale": 4,
             "color": "#f43f5e"
         }
     ],
