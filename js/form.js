@@ -776,6 +776,7 @@ $(function () {
         const $affixMax = $('<input type="number" placeholder="Affix max" step="1" min="1">').css(fieldStyle);
         const $sourceDamageSlots = $('<input type="number" placeholder="Damage sources (count)" step="1" min="0">').css(fieldStyle);
         const $baseDamage = $('<input type="number" placeholder="Base damage (points)" step="1" min="0">').css(fieldStyle);
+        const $resChance = $('<input type="number" placeholder="Resist min chance (0-1)" step="0.01" min="0" max="1">').css(fieldStyle);
         const $modifierWrap = $('<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="modifier-flag" checked> Modifier (%)</label>');
 
         const dmgTypes = (state.damage_types || []).map((d) => d.name);
@@ -839,6 +840,7 @@ $(function () {
             const baseDamageVal = parseInt($baseDamage.val(), 10);
             const modifierFlag = $modifierWrap.find("input").is(":checked");
             const typeList = Array.from(selectedTypes);
+            const resChanceVal = parseFloat($resChance.val());
 
             if (!name || !slot || Number.isNaN(size) || size < 1 || Number.isNaN(affixMax) || affixMax < 1) {
                 alert("Please fill every field correctly (size/affix max >= 1 and select a slot).");
@@ -867,7 +869,8 @@ $(function () {
                 source_damage_slots: Number.isNaN(sourceDamageSlots) ? 0 : sourceDamageSlots,
                 base_damage: (!Number.isNaN(sourceDamageSlots) && sourceDamageSlots > 0) ? baseDamageVal : 0,
                 modifier: modifierFlag,
-                damage_types: typeList
+                damage_types: typeList,
+                ...(Number.isNaN(resChanceVal) ? {} : { resist_affix_min_chance: resChanceVal })
             });
 
             renderTags("items");
@@ -876,7 +879,7 @@ $(function () {
         });
 
         $actions.append($cancel, $submit);
-        $form.append($name, $slot, $size, $affixMax, $sourceDamageSlots, $baseDamage, $modifierWrap, $typesContainer, $actions);
+        $form.append($name, $slot, $size, $affixMax, $sourceDamageSlots, $baseDamage, $resChance, $modifierWrap, $typesContainer, $actions);
         $modal.append($title, $form);
         $overlay.append($modal);
         $("body").append($overlay);
@@ -915,6 +918,7 @@ $(function () {
         const $mod = $(`<p><strong>Modifier:</strong> ${item.modifier ? "Yes" : "No"}</p>`).css({ margin: "0 0 8px" });
         const typeList = (item.damage_types && item.damage_types.length) ? item.damage_types.join(", ") : "-";
         const $types = $(`<p><strong>Damage types:</strong> ${typeList}</p>`).css({ margin: "0 0 14px" });
+        const $resChance = $(`<p><strong>Resist min chance:</strong> ${item.resist_affix_min_chance ?? "-"}</p>`).css({ margin: "0 0 14px" });
 
         const $close = $('<button type="button">Close</button>').css({
             padding: "8px 12px",
@@ -928,7 +932,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $slot, $size, $source, $base, $mod, $types, $close);
+        $modal.append($title, $slot, $size, $source, $base, $mod, $types, $resChance, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }

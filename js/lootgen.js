@@ -212,10 +212,14 @@ function compute() {
             minAttrValRaw + 1,
             Math.round(lootRandRange * (state.affix_max_multiplier || 2.2) + lvlPow * (state.affix_max_slope || 1.3))
         );
-        const ratioMin = state.affix_min_ratio ?? 0.6;
-        const minAttrValRatio = Math.max(1, Math.round(maxAttrValRaw * ratioMin));
-        const minAttrVal = Math.min(Math.min(minAttrValRaw, minAttrValRatio), affixCap);
-        const maxAttrVal = Math.min(maxAttrValRaw, affixCap);
+        const ratioMinRaw = state.affix_min_ratio ?? 0.6;
+        const ratioMin = Math.min(1, Math.max(0, ratioMinRaw));
+        let minAttrValRatio = Math.max(1, Math.round(maxAttrValRaw * ratioMin));
+        let minAttrVal = Math.min(minAttrValRaw, minAttrValRatio);
+        let maxAttrVal = maxAttrValRaw;
+        if (minAttrVal > maxAttrVal) minAttrVal = maxAttrVal;
+        minAttrVal = Math.max(1, Math.min(minAttrVal, affixCap));
+        maxAttrVal = Math.max(minAttrVal, Math.min(maxAttrVal, affixCap));
 
         // simulate loot batch
         const totalDrops = Math.max(1, Math.floor((lootCount * generatePercent) / 100));
@@ -258,7 +262,8 @@ function compute() {
             const baseMin = state.base_damage_types_per_item_min ?? 1;
             const baseMax = state.base_damage_types_per_item_max ?? 2;
             const maxSources = Math.max(baseMin, Math.min(baseMax, sourcesToUseRaw));
-            if (maxSources > 0 && chosenItem.base_damage > 0 && itemDamagePool.length) {
+            const isDamageSource = maxSources > 0;
+            if (isDamageSource && chosenItem.base_damage > 0 && itemDamagePool.length) {
                 const pickedTypes = new Set();
                 for (let s = 0; s < maxSources; s += 1) {
                     const type = itemDamagePool[Math.floor(pseudoRand((lvl + d + 101 + s) * (d + 1)) * itemDamagePool.length) % itemDamagePool.length];
@@ -270,6 +275,7 @@ function compute() {
                     bonuses.push(`+${chosenItem.base_damage} ${type} dmg (BASE)`);
                 }
             }
+            let affixCount = 0;
             for (let k = 0; k < Math.min(attrs, affixLimit); k += 1) {
                 const useAttackSpeed = allowAtkSpeedThisItem && !hasAtkSpeed && pseudoRand(k + lvl + d) < 0.1;
                 const roll = pseudoRand(k + d + lvl);
@@ -279,7 +285,7 @@ function compute() {
                 else if (roll < 0.75 && chosenItem.modifier !== false) kind = "modifier";
                 else kind = "resist";
                 // if item is not a source of damage, push toward modifier/resist
-                if (!chosenItem.source_damage && kind === "damage") {
+                if (!isDamageSource && kind === "damage") {
                     // no flat damage on non-damage sources
                     kind = (roll < 0.75 && chosenItem.modifier !== false) ? "modifier" : "resist";
                 }
@@ -313,21 +319,43 @@ function compute() {
                     hasAtkSpeed = true;
                     localAtkBonus += bonus;
                     bonuses.push(`+${bonus}% Attack Speed`);
+                    affixCount += 1;
                 } else if (kind === "damage") {
                     // treat all damage affixes as extra base damage, only on damage sources
                     baseAdds[typeName] = (baseAdds[typeName] || 0) + bonus;
                     bonuses.push(`+${bonus} ${typeName} dmg (BASE)`);
                     targetSet.add(typeName);
                     baseTypes.add(typeName);
+                    affixCount += 1;
                 } else if (kind === "modifier") {
                     dmgMods[typeName] = (dmgMods[typeName] || 0) + bonus;
-                    bonuses.push(`+${bonus}% ${typeName} modifier`);
+                    bonuses.push(`+${bonus}% ${typeName}`);
                     targetSet.add(typeName);
+                    affixCount += 1;
                 } else {
                     resAdds[typeName] = (resAdds[typeName] || 0) + bonus;
                     bonuses.push(`+${bonus}% ${typeName} res`);
                     targetSet.add(typeName);
+                    affixCount += 1;
                 }
+            }
+            const resChance = (chosenItem.resist_affix_min_chance ?? state.resist_affix_min_chance ?? 0);
+            if (resChance > 0 && affixCount < affixLimit && usedResTypes.size === 0 && pseudoRand(lvl + d + 9999) < resChance) {
+                let resType = null;
+                for (let tries = 0; tries < 6; tries += 1) {
+                    const pickIdx = Math.floor(pseudoRand((lvl + 17 + tries) * (d + 1)) * typePool.length) % typePool.length;
+                    const candidate = typePool[pickIdx] || "Physical";
+                    if (!usedResTypes.has(candidate)) {
+                        resType = candidate;
+                        break;
+                    }
+                }
+                resType = resType || typePool[0] || "Physical";
+                const resBonus = Math.max(minAttrVal, Math.round(minAttrVal + pseudoRand(lvl + d + 42) * (maxAttrVal - minAttrVal)));
+                resAdds[resType] = (resAdds[resType] || 0) + resBonus;
+                bonuses.push(`+${resBonus}% ${resType} res`);
+                usedResTypes.add(resType);
+                affixCount += 1;
             }
             lootList.push({
                 slot,

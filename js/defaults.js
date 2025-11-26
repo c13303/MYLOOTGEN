@@ -33,6 +33,7 @@ const state = {
     attack_speed_bonus_max: 30,
     attack_speed_affix_level_scale: 0.5, // scales affix range with level/levels_max
     attack_speed_affix_rarity_scale: 0.1, // scales affix range with rarity weight (1 common -> 1+scale*rarityFactor)
+    resist_affix_min_chance: 0.25,
     base_damage_types_per_item_min: 1,
     base_damage_types_per_item_max: 2,
     damage_affix_types_limit: 1,
@@ -171,7 +172,8 @@ const state = {
             "source_damage_slots": 1,
             "base_damage": 110,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.15
         },
         {
             "name": "iron helm",
@@ -181,7 +183,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.5
         },
         {
             "name": "mage hood",
@@ -191,7 +194,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.5
         },
         {
             "name": "chainmail",
@@ -201,7 +205,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.6
         },
         {
             "name": "leather armor",
@@ -211,7 +216,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.6
         },
         {
             "name": "longsword",
@@ -221,7 +227,8 @@ const state = {
             "source_damage_slots": 1,
             "base_damage": 130,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.15
         },
         {
             "name": "dagger",
@@ -231,7 +238,8 @@ const state = {
             "source_damage_slots": 1,
             "base_damage": 80,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.15
         },
         {
             "name": "wooden shield",
@@ -241,7 +249,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.6
         },
         {
             "name": "spell tome",
@@ -251,7 +260,8 @@ const state = {
             "source_damage_slots": 1,
             "base_damage": 120,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.25
         },
         {
             "name": "steel gauntlets",
@@ -261,7 +271,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.45
         },
         {
             "name": "leather gloves",
@@ -271,7 +282,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.45
         },
         {
             "name": "utility belt",
@@ -281,7 +293,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.5
         },
         {
             "name": "potion bandolier",
@@ -291,7 +304,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.5
         },
         {
             "name": "leather boots",
@@ -301,7 +315,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.5
         },
         {
             "name": "steel greaves",
@@ -311,7 +326,8 @@ const state = {
             "source_damage_slots": 0,
             "base_damage": 0,
             "modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "resist_affix_min_chance": 0.5
         }
 
     ],
