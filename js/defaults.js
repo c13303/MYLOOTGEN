@@ -51,7 +51,9 @@ const state = {
     affix_cap: 300,
     rarity_weight_growth: 0.05,
     attr_per_level_factor: 0.04,
-    attribute_modifier_default: 0.6,
+    attribute_modifier_default: 0.02,
+    base_damage_growth_rate: 1.12, // per-level multiplier for damage progression (median) - higher to avoid low-level plateaus
+    base_damage_jitter_pct: 0.25, // +/- jitter applied around median (0.25 = ±25%)
     additional_loot_factor: 1.2,
     unarmed_growth: 0.03,
     xp_base: 500,
@@ -97,7 +99,7 @@ const state = {
             "base_damage": 200,
             "color": "#d4d4d4",
             "attribute": "force",
-            "attribute_modifier": 0.6
+            "attribute_modifier": 0.02
         },
         {
             "name": "Fire",
@@ -106,7 +108,7 @@ const state = {
             "base_damage": 200,
             "color": "#f97316",
             "attribute": "intelligence",
-            "attribute_modifier": 0.6
+            "attribute_modifier": 0.02
         },
         {
             "name": "Ice",
@@ -115,7 +117,7 @@ const state = {
             "base_damage": 200,
             "color": "#38bdf8",
             "attribute": "intelligence",
-            "attribute_modifier": 0.6
+            "attribute_modifier": 0.02
         },
         {
             "name": "Shock",
@@ -124,7 +126,7 @@ const state = {
             "base_damage": 200,
             "color": "#a855f7",
             "attribute": "intelligence",
-            "attribute_modifier": 0.6
+            "attribute_modifier": 0.02
         },
         {
             "name": "Poison",
@@ -133,7 +135,7 @@ const state = {
             "base_damage": 200,
             "color": "#22c55e",
             "attribute": "intelligence",
-            "attribute_modifier": 0.6
+            "attribute_modifier": 0.02
         },
         {
             "name": "Chaos",
@@ -142,7 +144,7 @@ const state = {
             "base_damage": 200,
             "color": "#eab308",
             "attribute": "intelligence",
-            "attribute_modifier": 0.6
+            "attribute_modifier": 0.02
         },
         {
             "name": "Fire Burn",
@@ -151,7 +153,7 @@ const state = {
             "base_damage": 200,
             "color": "#fb7185",
             "attribute": "intelligence",
-            "attribute_modifier": 0.6
+            "attribute_modifier": 0.02
         }
     ],
     categories: [

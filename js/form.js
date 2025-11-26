@@ -108,13 +108,13 @@ $(function () {
         $attributeSelect.append('<option value="dexterity">Dexterity</option>');
         $attributeSelect.append('<option value="intelligence">Intelligence</option>');
 
-        const $attributeModifier = $('<input type="number" placeholder="Attribute modifier (e.g. 0.6)" step="0.01" min="0">').css({
+        const $attributeModifier = $('<input type="number" placeholder="Attribute modifier (e.g. 0.02)" step="0.01" min="0">').css({
             padding: "8px 10px",
             borderRadius: "8px",
             border: "1px solid rgba(226,232,240,0.2)",
             background: "rgba(15,23,42,0.7)",
             color: "#e2e8f0"
-        }).val(0.6);
+        }).val(0.02);
 
         const $overTimeWrapper = $('<label style="display:flex; align-items:center; gap:8px;"></label>');
         const $overTime = $('<input type="checkbox">');

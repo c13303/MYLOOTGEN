@@ -62,6 +62,14 @@ function compute() {
         return map;
     }, {});
     const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const growthRate = state.base_damage_growth_rate || 1;
+    const jitterPct = state.base_damage_jitter_pct || 0;
+    const rollGrowth = (baseVal, lvl, seed) => {
+        if (!baseVal || growthRate <= 0) return 0;
+        const median = baseVal * Math.pow(growthRate, Math.max(0, lvl - 1));
+        const jitter = 1 + (pseudoRand(seed) * jitterPct); // upward-only jitter to avoid regressions
+        return Math.max(0, Math.round(median * jitter));
+    };
     const colorizeTypeText = (text) => {
         let result = text;
         damageTypesSorted.forEach((dt) => {
@@ -235,8 +243,10 @@ function compute() {
             const baseRaw = damageAdds[k] || 0;
             const attrMeta = damageTypeAttrMap[k];
             const shouldScaleWithAttr = baseFromGear.has(k);
-            const attrBonus = baseRaw > 0 && shouldScaleWithAttr && attrMeta ? (currentStats[attrMeta.attr] || 0) * (attrMeta.mod || 0) : 0;
-            const base = baseRaw + attrBonus;
+            const attrScale = baseRaw > 0 && shouldScaleWithAttr && attrMeta
+                ? 1 + (currentStats[attrMeta.attr] || 0) * (attrMeta.mod || 0)
+                : 1;
+            const base = baseRaw * attrScale;
             const mod = damageMods[k] || 0;
             damage[k] = base * (1 + mod / 100);
         });
@@ -432,7 +442,7 @@ function compute() {
             const isDamageSource = maxSources > 0;
             if (isDamageSource && chosenItem.base_damage > 0 && itemDamagePoolWeighted.length) {
                 const pickedTypes = new Set();
-                const scaledBaseDamage = Math.round((chosenItem.base_damage || 0) * powerScale);
+                const scaledBaseDamage = rollGrowth((chosenItem.base_damage || 0) * powerScale, lvl, (lvl + d + 101));
                 for (let s = 0; s < maxSources; s += 1) {
                     const seed = (lvl + d + 101 + s) * (d + 1);
                     const type = pickWeightedDamageType(itemDamagePoolWeighted, seed) || typePool[0] || "Physical";
@@ -492,21 +502,23 @@ function compute() {
                     bonuses.push(`+${bonus}% Attack Speed`);
                     affixCount += 1;
                 } else if (kind === "damage") {
-                    // treat all damage affixes as extra base damage, only on damage sources
-                    baseAdds[typeName] = (baseAdds[typeName] || 0) + bonus;
-                    bonuses.push(`+${bonus} ${typeName} dmg (BASE)`);
+                    const scaledBonus = rollGrowth(bonus, lvl, (lvl + d + k + 7));
+                    bonuses.push(`+${scaledBonus} ${typeName} dmg (BASE)`);
+                    baseAdds[typeName] = (baseAdds[typeName] || 0) + scaledBonus;
                     targetSet.add(typeName);
                     baseTypes.add(typeName);
                     affixCount += 1;
                 } else if (kind === "modifier") {
-                    dmgMods[typeName] = (dmgMods[typeName] || 0) + bonus;
-                    bonuses.push(`+${bonus}% ${typeName}`);
+                    const scaledBonus = Math.max(10, bonus); // guarantee meaningful modifier even at low levels
+                    dmgMods[typeName] = (dmgMods[typeName] || 0) + scaledBonus;
+                    bonuses.push(`+${scaledBonus}% ${typeName} dmg modifier`);
                     targetSet.add(typeName);
+                    usedModTypes.add(typeName);
                     affixCount += 1;
-                } else {
+                } else if (kind === "resist") {
                     resAdds[typeName] = (resAdds[typeName] || 0) + bonus;
                     bonuses.push(`+${bonus}% ${typeName} res`);
-                    targetSet.add(typeName);
+                    usedResTypes.add(typeName);
                     affixCount += 1;
                 }
             }
@@ -568,6 +580,8 @@ function compute() {
             const prev = gearBySlot[loot.slot]?.loot;
             const candidateScore = candidateTotalDps;
             const currentScore = currentTotalDps;
+            const hasPrev = Boolean(gearBySlot[loot.slot]?.loot);
+            const minGain = currentScore > 0 ? currentScore * 0.005 : 0.01; // require small positive gain
             const topBaseDelta = (() => {
                 let best = null;
                 Object.entries(agg.adds || {}).forEach(([k, v]) => {
@@ -600,8 +614,19 @@ function compute() {
             } else {
                 reasonText = `Tie on DPS (${candidateScore.toFixed(1)})`;
             }
-            if (candidateScore >= currentScore) {
-                gearBySlot[loot.slot] = { loot: { ...loot, atkBonus: loot.atkBonus || 0, equippedLevel: lvl } };
+            const isMeaningfulGain = !hasPrev
+                ? candidateScore > 0
+                : candidateScore >= currentScore + minGain;
+
+            if (isMeaningfulGain) {
+                gearBySlot[loot.slot] = {
+                    loot: {
+                        ...loot,
+                        atkBonus: loot.atkBonus || 0,
+                        equippedLevel: lvl,
+                        dpsDelta: candidateScore - currentScore
+                    }
+                };
                 currentDamage = agg.damage;
                 currentResists = agg.resists;
                 currentAtkBonus = agg.atkBonus;
@@ -671,6 +696,9 @@ function compute() {
             const newBadge = loot.equippedLevel === lvl
                 ? '<span class="gear-new-badge">Found this level!</span>'
                 : "";
+            const dpsImpact = loot.equippedLevel === lvl && typeof loot.dpsDelta === "number"
+                ? `${loot.dpsDelta > 0 ? "+" : ""}${fmt((loot.dpsDelta / Math.max(1, currentTotalDps - loot.dpsDelta)) * 100, 1)}%`
+                : "";
             return `
       <tr>
         <td><span style="color:#facc15">${loot.slot}</span></td>
@@ -678,6 +706,7 @@ function compute() {
         <td><span style="color:${catColor}">${loot.name}</span></td>
         <td><span style="color:${catColor}">${loot.category}</span></td>
         <td>${bonusesColored}</td>
+        <td>${dpsImpact}</td>
       </tr>`;
         });
 
@@ -690,6 +719,7 @@ function compute() {
           <th>Item</th>
           <th>Cat.</th>
           <th>Bonuses</th>
+          <th>DPS impact</th>
         </tr>
       </thead>
       <tbody>
@@ -742,6 +772,7 @@ function compute() {
       </tr>`;
         });
 
+        const modMedian = fmt((lastMinAttrVal + lastMaxAttrVal) / 2);
         const allLootHtml = lootList.length
             ? `<div class="loot-table"><table>
       <thead>
@@ -798,10 +829,15 @@ function compute() {
                     return colorize(k, `${k} (${fmt(pct, 0)}%)`);
                 })
                 .filter(Boolean);
-            return parts.length ? ` ${parts.join(" ")}` : "";
+            return parts.length ? parts.join(" · ") : "";
         })();
-        const equipCountText = ` | equiped: ${equippedThisLevel.size}`;
-        const summaryText = `Lvl ${lvl} | ${Math.round(currentTotalDps)} DPS | ${readable} | ${readableTotal} | loot ~ ${lootCount}${dpsMixText}${equipCountText}`;
+        const sep = `<span style="color:#0ea5e9; opacity:0.9"> | </span>`;
+        const equipCountText = equippedThisLevel.size === 0
+            ? `<span style="color:#ef4444">Nice Loot Found: 0 (plateau)</span>`
+            : `Nice Loot Found: ${equippedThisLevel.size}`;
+        const baseInfo = `Lvl ${lvl} ${sep}${Math.round(currentTotalDps)} DPS ${sep}<span class="dim-blue">${readable}</span> ${sep}<span class="dim-blue">${readableTotal}</span> ${sep}<span class="dim-blue">loot ~ ${lootCount}</span>`;
+        const mixInfo = dpsMixText || '<span style="opacity:0.7">No mix</span>';
+        const summaryText = `<span class="summary-col base">${baseInfo}</span><span class="summary-col mix">${mixInfo}</span><span class="summary-col loot">${equipCountText}</span>`;
         const dmgBreakdownTable = dmgBreakdownRows
             ? `<div class="build-table"><table>
       <thead>
@@ -850,10 +886,11 @@ function compute() {
   <div class="body">
     <div>Distribution: ${distribution}</div>    
     <div>${attrRangeText}</div>
+    <div class="loot-meta">Median base dmg: ${fmt(lastMinAttrVal)}-${fmt(lastMaxAttrVal)} | Median mod: ${modMedian}%</div>
     <div>Gear:</div>
     ${gearTableHtml}
     <details>
-      <summary>See all loot of this level (${lootList.length})</summary>
+      <summary style="color:#cbd5e1; background-color: #27182d;">🧰 See all loot of this level (${lootList.length})</summary>
       ${allLootHtml}
     </details>
     <div class="build-block">
@@ -873,7 +910,32 @@ function compute() {
     const totalHours = Math.floor(totalSeconds / 3600);
     const totalMins = Math.round((totalSeconds % 3600) / 60);
     const totalReadable = `${totalHours}h ${totalMins}m`;
-    results.push(`<div><strong>Total time:</strong> ${totalReadable}</div>`);
+    const plateauThreshold = 0.02; // <2% growth
+    const spikeThreshold = 1.0; // >=100% growth
+    let plateauCount = 0;
+    let spikeCount = 0;
+    let steadyCount = 0;
+    for (let i = 1; i < dpsSeries.length; i += 1) {
+        const prev = dpsSeries[i - 1].dps || 0;
+        const curr = dpsSeries[i].dps || 0;
+        if (prev <= 0) continue;
+        const growth = (curr - prev) / prev;
+        if (growth < plateauThreshold) plateauCount += 1;
+        else if (growth >= spikeThreshold) spikeCount += 1;
+        else steadyCount += 1;
+    }
+    const diagnostic = `<div class="dps-diagnostic">
+  <span style="color:#ef4444">Plateaux (&lt;2%): ${plateauCount}</span> |
+  <span style="color:#8b5cf6">Spikes (&ge;100%): ${spikeCount}</span> |
+  <span style="color:#22c55e">OK: ${steadyCount}</span>
+</div>`;
+    const levelDetails = results.join("");
+    const summarySection = `<div><strong>Total time:</strong> ${totalReadable}</div>`;
+    const wrapped = `<details class="compute-levels" open><summary class="section-title">Level per level details</summary>${levelDetails}</details><div class="section-title">Progression Analysis</div>${diagnostic}`;
+    results.length = 0;
+    results.push('<div class="result-title">BUILD SIMULATED !</div>');
+    results.push(summarySection);
+    results.push(wrapped);
 
     const container = document.getElementById("compute-result");
     if (container) {
@@ -927,10 +989,10 @@ function compute() {
 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <polyline points="${points}" fill="none" stroke="#38bdf8" stroke-width="2.5" />
   ${dpsSeries.map((p) => {
-        const x = pad + ((p.level - 1) / Math.max(1, levels - 1)) * (width - pad * 2);
-        const y = pad + (1 - p.dps / maxDps) * (height - pad * 2);
-        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="#38bdf8" />`;
-    }).join("")}
+                const x = pad + ((p.level - 1) / Math.max(1, levels - 1)) * (width - pad * 2);
+                const y = pad + (1 - p.dps / maxDps) * (height - pad * 2);
+                return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="#38bdf8" />`;
+            }).join("")}
   <text x="${width / 2}" y="${height - 4}" fill="#94a3b8" font-size="12" text-anchor="middle">Level</text>
   <text x="6" y="${height / 2}" fill="#94a3b8" font-size="12" transform="rotate(-90 6 ${height / 2})" text-anchor="middle">DPS</text>
 </svg>`;
