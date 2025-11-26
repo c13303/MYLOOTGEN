@@ -27,7 +27,7 @@ const state = {
     generate_percent: 15,
     loot_rand_range: 2,
     unarmed_physical_damage: 1,
-    base_physical_resistance: 5,
+    base_physical_resistance: 0,
     attack_speed_base: 1.6,
     attack_speed_bonus_min: 5,
     attack_speed_bonus_max: 15,
@@ -37,18 +37,19 @@ const state = {
     affix_rarity_scale: 0.08, // scales affix min/max with category rarity
     common_decay: 0.08, // exponential decay applied to categories unlocked at level 1
     resist_affix_min_chance: 0.25,
-    base_damage_types_per_item_min: 1,
-    base_damage_types_per_item_max: 2,
+    flat_damage_types_per_item_min: 1,
+    flat_damage_types_per_item_max: 2,
     damage_affix_types_limit: 1,
     damage_types_total_limit: 2,
     // scaling knobs (exposed in UI)
     // Loot scaling knobs
-    base_damage_power_progression: 2, // exponent for base dmg per level (lvl^power)
-    base_damage_min: 2, // floor to guarantee lvl 1 >= 2
-    base_damage_scale: 1, // global scalar for base dmg progression
-    base_damage_jitter_pct: 0.1, // +/- jitter applied around median (0.1 = ±10%)
+    flat_damage_power_progression: 2, // exponent for flat dmg per level (lvl^power)
+    flat_damage_min: 2, // floor to guarantee lvl 1 >= 2
+    flat_damage_scale: 1, // global scalar for flat dmg progression
+    flat_damage_jitter_pct: 0.1, // +/- jitter applied around median (0.1 = ±10%)
     affix_min_ratio: 0.55,
-    affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on base dmg
+    affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on flat dmg
+    affix_growth_headroom: 5, // how many extra affixes unlock from lvl 1 to max
     rarity_weight_growth: 0.05,
     attr_per_level_factor: 0.04,
     attribute_modifier_default: 0.02,
@@ -90,65 +91,72 @@ const state = {
     damage_types: [
         {
             "name": "Physical",
+            "default_damage_type": true,
             "is_over_time": false,
             "ranges": [
                 [0, 100, 0.5]
             ],
-            "base_damage": 200,
+            "flat_damage": 200,
             "color": "#d4d4d4",
             "attribute": "force",
             "attribute_modifier": 0.02
         },
         {
             "name": "Fire",
+            "default_damage_type": false,
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
-            "base_damage": 200,
+            "flat_damage": 200,
             "color": "#f97316",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
         },
         {
             "name": "Ice",
+            "default_damage_type": false,
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
-            "base_damage": 200,
+            "flat_damage": 200,
             "color": "#38bdf8",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
         },
         {
             "name": "Shock",
+            "default_damage_type": false,
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
-            "base_damage": 200,
+            "flat_damage": 200,
             "color": "#a855f7",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
         },
         {
             "name": "Poison",
+            "default_damage_type": false,
             "is_over_time": true,
             "ranges": [[0, 100, 0.5]],
-            "base_damage": 200,
+            "flat_damage": 200,
             "color": "#22c55e",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
         },
         {
             "name": "Chaos",
+            "default_damage_type": false,
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
-            "base_damage": 200,
+            "flat_damage": 200,
             "color": "#eab308",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
         },
         {
             "name": "Fire Burn",
+            "default_damage_type": false,
             "is_over_time": true,
             "ranges": [[0, 100, 0.5]],
-            "base_damage": 200,
+            "flat_damage": 200,
             "color": "#fb7185",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
@@ -171,7 +179,7 @@ const state = {
             "attributes": 2,
             "attribute_types": ["Physical", "Fire", "Ice", "Shock"],
             "allow_attack_speed_mod": true,
-            "unlock_level": 5,
+            "unlock_level": 2,
             "power_scale": 2,
             "color": "#38bdf8"
         },
@@ -213,10 +221,11 @@ const state = {
             "name": "sword",
             "equipment_slot": "weapon_right",
             "size": 3, // nb of grid boxes
-            "affix_max": 5,
+            "affix_max": 6,
             "source_damage_slots": 1,
-            "base_damage": 3,
+            "flat_damage": 3,
             "modifier": true,
+            "default_damage_resistance_factor": 0,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.15
         },
@@ -226,8 +235,9 @@ const state = {
             "size": 2,
             "affix_max": 3,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 1,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.5
         },
@@ -237,8 +247,9 @@ const state = {
             "size": 1,
             "affix_max": 3,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 1,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.5
         },
@@ -248,8 +259,9 @@ const state = {
             "size": 4,
             "affix_max": 4,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 1,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.6
         },
@@ -259,8 +271,9 @@ const state = {
             "size": 3,
             "affix_max": 3,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 1,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.6
         },
@@ -268,10 +281,11 @@ const state = {
             "name": "longsword",
             "equipment_slot": "weapon_right",
             "size": 3,
-            "affix_max": 5,
+            "affix_max": 6,
             "source_damage_slots": 1,
-            "base_damage": 4,
+            "flat_damage": 4,
             "modifier": true,
+            "default_damage_resistance_factor": 0,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.15
         },
@@ -281,8 +295,9 @@ const state = {
             "size": 1,
             "affix_max": 3,
             "source_damage_slots": 1,
-            "base_damage": 2,
+            "flat_damage": 2,
             "modifier": true,
+            "default_damage_resistance_factor": 0,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.15
         },
@@ -292,8 +307,9 @@ const state = {
             "size": 2,
             "affix_max": 3,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 1,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.6
         },
@@ -303,8 +319,9 @@ const state = {
             "size": 2,
             "affix_max": 3,
             "source_damage_slots": 1,
-            "base_damage": 3,
+            "flat_damage": 3,
             "modifier": true,
+            "default_damage_resistance_factor": 0,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.25
         },
@@ -314,8 +331,9 @@ const state = {
             "size": 2,
             "affix_max": 3,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 1,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.45
         },
@@ -325,8 +343,9 @@ const state = {
             "size": 1,
             "affix_max": 2,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 1,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.45
         },
@@ -336,8 +355,9 @@ const state = {
             "size": 2,
             "affix_max": 2,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 1,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.5
         },
@@ -347,8 +367,9 @@ const state = {
             "size": 2,
             "affix_max": 2,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 1,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.5
         },
@@ -358,8 +379,9 @@ const state = {
             "size": 2,
             "affix_max": 2,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 0.2,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.5
         },
@@ -369,8 +391,9 @@ const state = {
             "size": 3,
             "affix_max": 3,
             "source_damage_slots": 0,
-            "base_damage": 0,
+            "flat_damage": 0,
             "modifier": true,
+            "default_damage_resistance_factor": 0.2,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "resist_affix_min_chance": 0.5
         }

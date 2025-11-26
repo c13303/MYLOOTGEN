@@ -22,8 +22,8 @@ $(function () {
     const $attackSpeedAffixRarityScale = $("#attack-speed-affix-rarity-scale");
     const $attackSpeedCap = $("#attack-speed-cap");
     const $affixRarityScale = $("#affix-rarity-scale");
-    const $baseDamagePower = $("#base-damage-power");
-    const $baseDamageMin = $("#base-damage-min");
+    const $flatDamagePower = $("#flat-damage-power");
+    const $flatDamageMin = $("#flat-damage-min");
     const $affixMinRatio = $("#affix-min-ratio");
     const $affixCap = $("#affix-cap");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
@@ -46,6 +46,41 @@ $(function () {
     }
     if (state.stats_progression_model === "favorite_physical") state.stats_progression_model = "favorite_force";
     if (state.stats_progression_model === "favorite_energy") state.stats_progression_model = "favorite_intelligence";
+
+    const migrateScalarKey = (oldKey, newKey) => {
+        if (Object.prototype.hasOwnProperty.call(state, oldKey)) {
+            if (typeof state[newKey] === "undefined") {
+                state[newKey] = state[oldKey];
+            }
+            delete state[oldKey];
+        }
+    };
+
+    migrateScalarKey("base_damage_power_progression", "flat_damage_power_progression");
+    migrateScalarKey("base_damage_min", "flat_damage_min");
+    migrateScalarKey("base_damage_scale", "flat_damage_scale");
+    migrateScalarKey("base_damage_jitter_pct", "flat_damage_jitter_pct");
+    migrateScalarKey("base_damage_types_per_item_min", "flat_damage_types_per_item_min");
+    migrateScalarKey("base_damage_types_per_item_max", "flat_damage_types_per_item_max");
+
+    const migrateDamageValue = (entry) => {
+        if (!entry || typeof entry !== "object") return entry;
+        const updated = { ...entry };
+        if (Object.prototype.hasOwnProperty.call(updated, "base_damage")) {
+            if (typeof updated.flat_damage === "undefined") {
+                updated.flat_damage = updated.base_damage;
+            }
+            delete updated.base_damage;
+        }
+        return updated;
+    };
+
+    if (Array.isArray(state.damage_types)) {
+        state.damage_types = state.damage_types.map(migrateDamageValue);
+    }
+    if (Array.isArray(state.items)) {
+        state.items = state.items.map(migrateDamageValue);
+    }
 
     function openDamageForm() {
         const $overlay = $('<div class="modal-overlay"></div>').css({
@@ -87,7 +122,7 @@ $(function () {
             color: "#e2e8f0"
         });
 
-        const $baseDamage = $('<input type="number" placeholder="Base damage" step="1" min="0">').css({
+        const $flatDamage = $('<input type="number" placeholder="Flat damage" step="1" min="0">').css({
             padding: "8px 10px",
             borderRadius: "8px",
             border: "1px solid rgba(226,232,240,0.2)",
@@ -118,6 +153,11 @@ $(function () {
         const $overTime = $('<input type="checkbox">');
         const $overTimeText = $("<span>Over time</span>");
         $overTimeWrapper.append($overTime, $overTimeText).css({ cursor: "pointer", userSelect: "none" });
+
+        const $defaultWrap = $('<label style="display:flex; align-items:center; gap:8px;"></label>');
+        const $defaultType = $('<input type="checkbox">');
+        const $defaultText = $("<span>Default damage type</span>");
+        $defaultWrap.append($defaultType, $defaultText).css({ cursor: "pointer", userSelect: "none" });
 
         const $color = $('<input type="color" value="#ffffff">').css({
             padding: "4px",
@@ -231,7 +271,7 @@ $(function () {
         $form.on("submit", (event) => {
             event.preventDefault();
             const damageName = $name.val().trim();
-            const baseDamage = parseFloat($baseDamage.val());
+            const flatDamage = parseFloat($flatDamage.val());
             const isOverTime = $overTime.is(":checked");
             const attribute = $attributeSelect.val() || "force";
             const attributeModifier = parseFloat($attributeModifier.val());
@@ -251,19 +291,20 @@ $(function () {
                 ranges.push([min, max, rarity]);
             });
 
-            if (!damageName || Number.isNaN(baseDamage) || Number.isNaN(attributeModifier) || ranges.length === 0 || invalid) {
+            if (!damageName || Number.isNaN(flatDamage) || Number.isNaN(attributeModifier) || ranges.length === 0 || invalid) {
                 alert("Please fill every field correctly (rarity between 0 and 1, max level >= min level).");
                 return;
             }
 
             state.damage_types.push({
                 name: damageName,
-                base_damage: baseDamage,
+                flat_damage: flatDamage,
                 is_over_time: isOverTime,
                 attribute,
                 attribute_modifier: attributeModifier,
                 ranges,
-                color: $color.val() || "#ffffff"
+                color: $color.val() || "#ffffff",
+                default_damage_type: $defaultType.is(":checked")
             });
 
             renderTags("damage_types");
@@ -274,7 +315,7 @@ $(function () {
         $actions.append($cancel, $submit);
         $form.append(
             $name,
-            $baseDamage,
+            $flatDamage,
             $("<label>Attribute</label>").css({ fontWeight: "600" }),
             $attributeSelect,
             $("<label>Attribute modifier</label>").css({ fontWeight: "600" }),
@@ -282,6 +323,7 @@ $(function () {
             $("<label>Color</label>").css({ fontWeight: "600" }),
             $color,
             $overTimeWrapper,
+            $defaultWrap,
             $("<label>Level ranges</label>").css({ fontWeight: "600" }),
             $rangeList,
             $addRange,
@@ -318,7 +360,7 @@ $(function () {
             fontSize: "18px"
         });
 
-        const $base = $(`<p><strong>Base damage:</strong> ${damage.base_damage}</p>`).css({
+        const $base = $(`<p><strong>Flat damage:</strong> ${damage.flat_damage ?? damage.base_damage}</p>`).css({
             margin: "0 0 10px"
         });
         const $overTime = $(`<p><strong>Over time:</strong> ${damage.is_over_time ? "Yes" : "No"}</p>`).css({
@@ -825,8 +867,9 @@ $(function () {
         const $size = $('<input type="number" placeholder="Size (grid cells)" step="1" min="1">').css(fieldStyle);
         const $affixMax = $('<input type="number" placeholder="Affix max" step="1" min="1">').css(fieldStyle);
         const $sourceDamageSlots = $('<input type="number" placeholder="Damage sources (count)" step="1" min="0">').css(fieldStyle);
-        const $baseDamage = $('<input type="number" placeholder="Base damage (points)" step="1" min="0">').css(fieldStyle);
+        const $flatDamage = $('<input type="number" placeholder="Flat damage (points)" step="1" min="0">').css(fieldStyle);
         const $resChance = $('<input type="number" placeholder="Resist min chance (0-1)" step="0.01" min="0" max="1">').css(fieldStyle);
+        const $defaultResFactor = $('<input type="number" placeholder="Default Damage Resistance Factor" step="0.1" min="0">').css(fieldStyle);
         const $modifierWrap = $('<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="modifier-flag" checked> Modifier (%)</label>');
 
         const dmgTypes = (state.damage_types || []).map((d) => d.name);
@@ -844,13 +887,13 @@ $(function () {
             $typesContainer.append($lbl);
         });
 
-        function toggleBaseDamage() {
+        function toggleFlatDamage() {
             const count = parseInt($sourceDamageSlots.val(), 10);
             const on = !Number.isNaN(count) && count > 0;
-            $baseDamage.prop("disabled", !on);
+            $flatDamage.prop("disabled", !on);
         }
-        toggleBaseDamage();
-        $sourceDamageSlots.on("input", toggleBaseDamage);
+        toggleFlatDamage();
+        $sourceDamageSlots.on("input", toggleFlatDamage);
 
         const $actions = $('<div class="actions"></div>').css({
             display: "flex",
@@ -887,21 +930,26 @@ $(function () {
             const size = parseInt($size.val(), 10);
             const affixMax = parseInt($affixMax.val(), 10);
             const sourceDamageSlots = parseInt($sourceDamageSlots.val(), 10);
-            const baseDamageVal = parseInt($baseDamage.val(), 10);
+            const flatDamageVal = parseInt($flatDamage.val(), 10);
             const modifierFlag = $modifierWrap.find("input").is(":checked");
             const typeList = Array.from(selectedTypes);
             const resChanceVal = parseFloat($resChance.val());
+            const defaultResFactorVal = parseFloat($defaultResFactor.val());
 
             if (!name || !slot || Number.isNaN(size) || size < 1 || Number.isNaN(affixMax) || affixMax < 1) {
                 alert("Please fill every field correctly (size/affix max >= 1 and select a slot).");
                 return;
             }
-            if (!Number.isNaN(sourceDamageSlots) && sourceDamageSlots > 0 && (Number.isNaN(baseDamageVal) || baseDamageVal < 0)) {
-                alert("Base damage must be >= 0 when damage sources > 0.");
+            if (!Number.isNaN(sourceDamageSlots) && sourceDamageSlots > 0 && (Number.isNaN(flatDamageVal) || flatDamageVal < 0)) {
+                alert("Flat damage must be >= 0 when damage sources > 0.");
                 return;
             }
             if (typeList.length === 0) {
                 alert("Select at least one damage type.");
+                return;
+            }
+            if (Number.isNaN(defaultResFactorVal) || defaultResFactorVal < 0) {
+                alert("Default damage resistance factor must be >= 0.");
                 return;
             }
 
@@ -917,10 +965,11 @@ $(function () {
                 size,
                 affix_max: affixMax,
                 source_damage_slots: Number.isNaN(sourceDamageSlots) ? 0 : sourceDamageSlots,
-                base_damage: (!Number.isNaN(sourceDamageSlots) && sourceDamageSlots > 0) ? baseDamageVal : 0,
+                flat_damage: (!Number.isNaN(sourceDamageSlots) && sourceDamageSlots > 0) ? flatDamageVal : 0,
                 modifier: modifierFlag,
                 damage_types: typeList,
-                ...(Number.isNaN(resChanceVal) ? {} : { resist_affix_min_chance: resChanceVal })
+                ...(Number.isNaN(resChanceVal) ? {} : { resist_affix_min_chance: resChanceVal }),
+                default_damage_resistance_factor: defaultResFactorVal
             });
 
             renderTags("items");
@@ -929,7 +978,7 @@ $(function () {
         });
 
         $actions.append($cancel, $submit);
-        $form.append($name, $slot, $size, $affixMax, $sourceDamageSlots, $baseDamage, $resChance, $modifierWrap, $typesContainer, $actions);
+        $form.append($name, $slot, $size, $affixMax, $sourceDamageSlots, $flatDamage, $resChance, $defaultResFactor, $modifierWrap, $typesContainer, $actions);
         $modal.append($title, $form);
         $overlay.append($modal);
         $("body").append($overlay);
@@ -964,8 +1013,9 @@ $(function () {
         const $slot = $(`<p><strong>Slot:</strong> ${item.equipment_slot}</p>`).css({ margin: "0 0 8px" });
         const $size = $(`<p><strong>Size:</strong> ${item.size}</p>`).css({ margin: "0 0 14px" });
         const $source = $(`<p><strong>Damage sources:</strong> ${item.source_damage_slots ?? 0}</p>`).css({ margin: "0 0 8px" });
-        const $base = $(`<p><strong>Base damage:</strong> ${item.base_damage ?? 0}</p>`).css({ margin: "0 0 8px" });
+        const $base = $(`<p><strong>Flat damage:</strong> ${item.flat_damage ?? item.base_damage ?? 0}</p>`).css({ margin: "0 0 8px" });
         const $mod = $(`<p><strong>Modifier:</strong> ${item.modifier ? "Yes" : "No"}</p>`).css({ margin: "0 0 8px" });
+        const $drf = $(`<p><strong>Default Damage Resistance Factor:</strong> ${item.default_damage_resistance_factor ?? 0}</p>`).css({ margin: "0 0 8px" });
         const typeList = (item.damage_types && item.damage_types.length) ? item.damage_types.join(", ") : "-";
         const $types = $(`<p><strong>Damage types:</strong> ${typeList}</p>`).css({ margin: "0 0 14px" });
         const $resChance = $(`<p><strong>Resist min chance:</strong> ${item.resist_affix_min_chance ?? "-"}</p>`).css({ margin: "0 0 14px" });
@@ -982,7 +1032,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $slot, $size, $source, $base, $mod, $types, $resChance, $close);
+        $modal.append($title, $slot, $size, $source, $base, $mod, $drf, $types, $resChance, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
@@ -1191,7 +1241,7 @@ $(function () {
 
         items.forEach((value, index) => {
             const label = key === "damage_types"
-                ? `${value.name}${value.is_over_time ? " (over time)" : ""}${value.attribute ? ` | ${value.attribute}${value.attribute_modifier ? ` x${value.attribute_modifier}` : ""}` : ""}`
+                ? `${value.name}${value.default_damage_type ? " [default]" : ""}${value.is_over_time ? " (over time)" : ""}${value.attribute ? ` | ${value.attribute}${value.attribute_modifier ? ` x${value.attribute_modifier}` : ""}` : ""}`
                 : key === "categories"
                     ? value.name
                     : key === "items"
@@ -1342,8 +1392,8 @@ $(function () {
     $attackSpeedAffixRarityScale.val(state.attack_speed_affix_rarity_scale ?? 0.1);
     $attackSpeedCap.val(state.attack_speed_cap ?? 0);
     $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
-    $baseDamagePower.val(state.base_damage_power_progression ?? 2);
-    $baseDamageMin.val(state.base_damage_min ?? 2);
+    $flatDamagePower.val(state.flat_damage_power_progression ?? 2);
+    $flatDamageMin.val(state.flat_damage_min ?? 2);
     $affixMinRatio.val(state.affix_min_ratio ?? 0.6);
     $affixCap.val(state.affix_cap);
     $attrPerLevelFactor.val(state.attr_per_level_factor);
@@ -1514,18 +1564,18 @@ $(function () {
         }
     });
 
-    $baseDamagePower.on("input", function () {
+    $flatDamagePower.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.base_damage_power_progression = value;
+            state.flat_damage_power_progression = value;
             renderPreview();
         }
     });
 
-    $baseDamageMin.on("input", function () {
+    $flatDamageMin.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.base_damage_min = value;
+            state.flat_damage_min = value;
             renderPreview();
         }
     });

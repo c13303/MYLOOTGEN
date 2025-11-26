@@ -5,6 +5,65 @@ function compute() {
     const categories = state.categories || [];
     const items = state.items || [];
     const slots = (state.equipment_slots || []).map((s) => s.name);
+    const rarityBaseWeights = state.rarity_base_weights || {};
+    const rarityWeightGrowth = state.rarity_weight_growth || 0;
+    const damageTypes = state.damage_types || [];
+    const defaultDmgType = (damageTypes.find((dt) => dt.default_damage_type) || damageTypes[0] || { name: "Physical" }).name;
+    const colorMap = damageTypes.reduce((map, dt) => {
+        map[dt.name] = dt.color || "#e2e8f0";
+        return map;
+    }, {});
+    const colorizeBonus = (bonus) => {
+        for (const dt of damageTypes) {
+            const name = dt.name;
+            if (bonus.includes(name)) {
+                const isRes = bonus.toLowerCase().includes("res");
+                return `<span style="color:${dt.color || "#e2e8f0"}" ${isRes ? 'class="resisttext"' : ""}>${bonus}</span>`;
+            }
+        }
+        return bonus;
+    };
+    const baseLevelTime = state.median_time_per_level || 0;
+    const lootTime = state.median_time_per_loot || 1;
+    const timeMult = state.level_time_multiplier || 0;
+    const additionalLootFactor = state.additional_loot_factor || 1;
+    const generatePercent = Math.max(0, Math.min(100, state.generate_percent ?? 100));
+    const attributes = state.attributes || {};
+    const attrNames = Object.keys(attributes);
+    const baseStats = {};
+    attrNames.forEach((attr) => {
+        const bounds = attributes[attr] || {};
+        baseStats[attr] = Math.round(bounds.min ?? 0);
+    });
+    const currentStats = { ...baseStats };
+    const normalizeAttrKey = (key) => {
+        if (key === "physical") return "force";
+        if (key === "energy") return "intelligence";
+        return key;
+    };
+    const applyStatGain = (lvl) => {
+        if (lvl === 1) return;
+        const model = (state.stats_progression_model || "balanced").toLowerCase();
+        const gainPerLevel = state.gain_per_level || 0;
+        let target = "force";
+        if (model === "favorite_intelligence" || model === "favorite_energy") target = "intelligence";
+        else if (model === "favorite_dexterity") target = "dexterity";
+        else if (model === "balanced") {
+            if (attrNames.length > 0) {
+                const idx = Math.floor(pseudoRand(lvl * 3.1415) * attrNames.length) % attrNames.length;
+                target = normalizeAttrKey(attrNames[idx]);
+            }
+        } else if (model.startsWith("favorite_")) {
+            const specified = normalizeAttrKey(model.replace("favorite_", ""));
+            if (attrNames.includes(specified)) target = specified;
+        }
+        const bounds = attributes[target] || { max: currentStats[target] + gainPerLevel };
+        currentStats[target] = Math.min(bounds.max ?? (currentStats[target] + gainPerLevel), currentStats[target] + gainPerLevel);
+    };
+    const affixHeadroom = state.affix_growth_headroom ?? 5; // extra affixes unlocked by max level
+    const baseAttackSpeed = state.attack_speed_base || 0;
+    const baseResists = {};
+    if (state.base_physical_resistance) baseResists.Physical = state.base_physical_resistance;
 
     const results = [];
     const jsonData = [];
@@ -14,11 +73,29 @@ function compute() {
         const x = Math.sin(seed + runSeed) * 10000;
         return x - Math.floor(x);
     };
+    const formatTime = (sec) => {
+        const minutes = sec / 60;
+        const hours = Math.floor(minutes / 60);
+        const mins = Math.round(minutes % 60);
+        if (hours > 0) return `${hours}h ${mins}m`;
+        return `${Math.round(minutes)}m`;
+    };
 
-    const pickCategory = (seed) => {
-        if (!categories.length) return { name: "none" };
-        const idx = Math.floor(pseudoRand(seed) * categories.length) % categories.length;
-        return categories[idx];
+    const pickCategory = (seed, currentLevel) => {
+        const eligible = categories.filter((cat) => (cat.unlock_level || 1) <= currentLevel);
+        if (!eligible.length) return { name: "none" };
+        const weights = eligible.map((cat) => {
+            const baseWeight = rarityBaseWeights[cat.name] ?? cat.rarity ?? 0;
+            return Math.max(0, baseWeight + rarityWeightGrowth * (currentLevel - 1));
+        });
+        const weightSum = weights.reduce((sum, w) => sum + w, 0);
+        const rand = pseudoRand(seed) * (weightSum || 1);
+        let acc = 0;
+        for (let i = 0; i < eligible.length; i += 1) {
+            acc += weights[i];
+            if (rand <= acc) return eligible[i];
+        }
+        return eligible[eligible.length - 1];
     };
 
     const pickItem = (slot, seed) => {
@@ -29,35 +106,116 @@ function compute() {
     };
 
     for (let lvl = 1; lvl <= levels; lvl += 1) {
-        const lootCount = Math.max(1, Math.round(state.additional_loot_factor || 1));
+        applyStatGain(lvl);
+        const growth = Math.pow(1 + 0.05 * timeMult, Math.max(0, lvl - 1));
+        const levelTime = baseLevelTime * growth;
+        const lootCountRaw = Math.max(1, Math.floor(levelTime / lootTime));
+        const lootCount = Math.max(1, Math.round(lootCountRaw * additionalLootFactor));
+        const rolledLootCount = Math.max(0, Math.floor(lootCount * generatePercent / 100));
+        const readable = formatTime(levelTime);
+        const weights = categories.map((cat) => {
+            const unlock = cat.unlock_level || 1;
+            if (lvl < unlock) return 0;
+            const baseWeight = rarityBaseWeights[cat.name] ?? cat.rarity ?? 0;
+            return Math.max(0, baseWeight + rarityWeightGrowth * (lvl - 1));
+        });
+        const weightSum = weights.reduce((sum, w) => sum + w, 0);
+        const percents = weightSum > 0
+            ? weights.map((w) => (w / weightSum) * 100)
+            : categories.map(() => 0);
+        const distribution = categories.map((cat, idx) => {
+            const unlock = cat.unlock_level || 1;
+            if (lvl < unlock) return `${cat.name}: 0%`;
+            return `${cat.name}: ${Math.round((percents[idx] || 0) * 10) / 10}%`;
+        }).join(", ");
         const lootList = [];
-        for (let i = 0; i < lootCount; i += 1) {
-            const cat = pickCategory(lvl + i + 1);
+        for (let i = 0; i < rolledLootCount; i += 1) {
+            const cat = pickCategory(lvl + i + 1, lvl);
             const slot = slots.length
                 ? slots[Math.floor(pseudoRand(lvl + i + 7) * slots.length) % slots.length]
                 : "slot";
             const item = pickItem(slot, lvl + i + 13);
+            const flatMin = state.flat_damage_types_per_item_min ?? 1;
+            const flatMax = state.flat_damage_types_per_item_max ?? 2;
+            const sourceSlots = Math.max(0, item.source_damage_slots || 0);
+            const maxSources = sourceSlots > 0 ? Math.max(flatMin, Math.min(flatMax, sourceSlots)) : 0;
+            const growthRatio = levels > 1 ? (lvl - 1) / (levels - 1) : 0;
+            const growthSlots = Math.round(affixHeadroom * growthRatio);
+            const baseAffixes = Math.max(0, cat?.attributes ?? 0);
+            const maxAllowed = item.affix_max ?? (baseAffixes + affixHeadroom);
+            let affixLimit = Math.max(0, Math.min(maxAllowed, baseAffixes + growthSlots));
+            const typePool = (item.damage_types && item.damage_types.length)
+                ? item.damage_types
+                : (cat?.attribute_types && cat.attribute_types.length)
+                    ? cat.attribute_types
+                    : damageTypes.map((dt) => dt.name);
+            const typePoolFinal = (cat?.name === "common") ? [defaultDmgType] : typePool;
+            if (cat?.name === "common") {
+                affixLimit = Math.min(1, affixLimit); // commons: single affix
+            }
+            const bonuses = [];
+            const baseAdds = {};
+            const dmgAdds = {};
+            const dmgMods = {};
+            const resAdds = {};
+            let atkBonus = 0;
+
+            const usedDamageTypes = new Set();
+            const pickType = (seed) => typePoolFinal[Math.floor(pseudoRand(seed) * typePoolFinal.length) % typePoolFinal.length] || defaultDmgType;
+
+            // flat damage sources (only if item allows)
+            for (let s = 0; s < maxSources; s += 1) {
+                const type = pickType((lvl + i + 101 + s) * (s + 1));
+                if (usedDamageTypes.has(type)) continue;
+                usedDamageTypes.add(type);
+                baseAdds[type] = 0;
+                bonuses.push(`+0 ${type} flat dmg`);
+            }
+
+            // affix slots (mod/res/AS) up to affixLimit
+            for (let a = bonuses.length; a < affixLimit; a += 1) {
+                const roll = pseudoRand(lvl + i + a * 17);
+                // prioritize mod/res, add AS if allowed and rolled
+                if (cat?.allow_attack_speed_mod && roll > 0.85 && !bonuses.includes("+0% Attack Speed")) {
+                    atkBonus = 0;
+                    bonuses.push("+0% Attack Speed");
+                } else if (item.modifier !== false && roll > 0.35) {
+                    const type = pickType((lvl + i + a * 23) * 1.3);
+                    const key = type;
+                    if (!dmgMods[key]) dmgMods[key] = 0;
+                    bonuses.push(`+0% ${type} dmg mod`);
+                } else {
+                    const type = pickType((lvl + i + a * 31) * 1.7);
+                    const key = type;
+                    if (!resAdds[key]) resAdds[key] = 0;
+                    bonuses.push(`+0% ${type} res`);
+                }
+            }
+
             lootList.push({
                 slot,
                 category: cat?.name || "none",
                 name: item.name,
-                bonuses: [],
-                dmgAdds: {},
-                baseAdds: {},
-                dmgMods: {},
-                resAdds: {},
-                atkBonus: 0
+                bonuses,
+                dmgAdds,
+                baseAdds,
+                dmgMods,
+                resAdds,
+                atkBonus
             });
         }
 
         const lootRows = lootList.map((l) => {
             const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
+            const bonusText = (l.bonuses && l.bonuses.length)
+                ? l.bonuses.map((b) => colorizeBonus(b)).join(", ")
+                : "None";
             return `
       <tr>
         <td><span style="color:#facc15">${l.slot}</span></td>
         <td><span style="color:${catColor}">${l.name}</span></td>
         <td><span style="color:${catColor}">${l.category}</span></td>
-        <td>None</td>
+        <td>${bonusText}</td>
         <td><span class="equip-reason muted">Not equipped</span></td>
       </tr>`;
         }).join("");
@@ -79,17 +237,22 @@ function compute() {
     </table></div>`
             : '<div class="loot-table empty">No loot</div>';
 
-        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">0m</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span><span class="summary-col loot"><span style="color:#ef4444">Nice Loot Found: 0</span></span>`;
+        const statsLinePretty = attrNames.length
+            ? attrNames.map((a) => `${a}: ${currentStats[a] ?? 0}`).join(" | ")
+            : "none";
+        const resLinePretty = Object.keys(baseResists).length
+            ? Object.entries(baseResists).map(([k, v]) => `${k}: ${v}`).join(" | ")
+            : "none";
+
+        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span><span class="summary-col loot"><span style="color:#ef4444">Nice Loot Found: 0</span></span>`;
 
         results.push(`
 <details class="compute-card" ${lvl === levels ? "open" : ""}>
   <summary>${summaryText}</summary>
   <div class="body">
     <div class="level-meta">
-      <div>Distribution: none</div>    
-      <div>Attrib range for loot: 0-0</div>
-      <div class="loot-meta">Base dmg minimum: 0</div>
-      <div class="loot-meta">Median mod: 0%</div>
+      <div>Distribution: ${distribution || "none"}</div>    
+      <div class="loot-meta">Flat dmg: 0-0 | Dmg mod: +0-0% | Resists: +0-0% | AS: +0%</div>
     </div>
     <div class="level-grid">
       <div class="level-col">
@@ -103,9 +266,9 @@ function compute() {
       <div class="level-col">
         <div class="build-block">
           <div class="build-heading">Build snapshot</div>
-          <div class="build-line">Stats: none</div>
-          <div class="build-line">Attack Speed: 0</div>
-          <div class="build-line">Resists: none</div>
+          <div class="build-line">Stats: ${statsLinePretty}</div>
+          <div class="build-line">Attack Speed: ${baseAttackSpeed}</div>
+          <div class="build-line">Resists: ${resLinePretty}</div>
           <div class="build-subtitle">Damage breakdown</div>
           <div class="build-table empty">No damage</div>
           <div class="build-line">DPS total: 0</div>
@@ -118,20 +281,20 @@ function compute() {
 
         jsonData.push({
             level: lvl,
-            time_readable: "0m",
+            time_readable: readable,
             loot_count: lootList.length,
             xp_level: 0,
             xp_total: 0,
-            distribution: "none",
-            stats: {},
+            distribution,
+            stats: { ...currentStats },
             attr_bounds: {},
             attr_range: "0-0",
             gear: [],
             all_loot: lootList,
             totals: {
                 damage: {},
-                resists: {},
-                attack_speed: 0,
+                resists: baseResists,
+                attack_speed: baseAttackSpeed,
                 dps: [],
                 dps_total: 0
             }
@@ -187,6 +350,15 @@ function compute() {
             recomputeBtn.onclick = () => {
                 if (typeof compute === "function") compute();
             };
+        }
+
+        // scroll to last level and ensure it's open
+        const lastLevel = container.querySelector(".compute-card:last-of-type");
+        if (lastLevel) {
+            lastLevel.open = true;
+            setTimeout(() => {
+                lastLevel.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 50);
         }
     }
 }

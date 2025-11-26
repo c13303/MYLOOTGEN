@@ -60,6 +60,14 @@ p {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
 }
+.field-grid.inline-four {
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+.field-separator {
+  grid-column: 1 / -1;
+  border-top: 1px solid rgba(226, 232, 240, 0.15);
+  margin: 6px 0 2px;
+}
 
 .field.full-span {
   grid-column: 1 / -1;
