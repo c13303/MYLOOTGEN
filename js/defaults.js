@@ -45,7 +45,7 @@ const state = {
     flat_damage_power_progression: 1.8, // exponent for flat dmg per level (lvl^power)
     flat_damage_min: 2, // floor to guarantee lvl 1 >= 2
     flat_damage_median_at_max_level: 100,
-    flat_damage_formula_progression: "dmg = flat_damage_min + (flat_damage_median_at_max_level - flat_damage_min) * ((current_level - 1) / max(1, levels - 1))^flat_damage_power_progression",
+    flat_damage_formula_progression: "dmg = flat_damage_min + (flat_damage_median_at_max_level - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression",
     flat_damage_jitter_pct: 0.1, // +/- jitter applied around median (0.1 = ±10%)
     affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on flat dmg
     affix_growth_headroom: 5, // how many extra affixes unlock from lvl 1 to max

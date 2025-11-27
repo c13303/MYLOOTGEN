@@ -25,6 +25,7 @@ $(function () {
     const $flatDamageMin = $("#flat-damage-min");
     const $flatDamageMedian = $("#flat-damage-median");
     const $flatDamageFormulaDisplay = $("#flat-damage-formula-display");
+    const $flatDamageChart = $("#flat-damage-chart");
     const $affixCap = $("#affix-cap");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
     const $attrPerLevelFactor = $("#attr-per-level-factor"); 
@@ -1391,7 +1392,7 @@ $(function () {
     $attackSpeedCap.val(state.attack_speed_cap ?? 0);
     $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
     if (typeof state.flat_damage_formula_progression === "undefined") {
-        state.flat_damage_formula_progression = "dmg = flat_damage_min + (flat_damage_median_at_max_level - flat_damage_min) * ((current_level - 1) / max(1, levels - 1))^flat_damage_power_progression";
+        state.flat_damage_formula_progression = "dmg = flat_damage_min + (flat_damage_median_at_max_level - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression";
     }
     if (typeof state.flat_damage_median_at_max_level === "undefined") {
         state.flat_damage_median_at_max_level = 100;
@@ -1403,6 +1404,7 @@ $(function () {
     $flatDamageMin.val(state.flat_damage_min ?? 2);
     $flatDamageMedian.val(state.flat_damage_median_at_max_level);
     updateFlatDamageFormulaDisplay();
+    renderFlatDamageChart();
     $affixCap.val(state.affix_cap);
     $attrPerLevelFactor.val(state.attr_per_level_factor);
     $rarityWeightGrowth.val(state.rarity_weight_growth);
@@ -1422,6 +1424,7 @@ $(function () {
         const value = parseInt($(this).val(), 10);
         if (!Number.isNaN(value)) {
             state.levels = value;
+            renderFlatDamageChart();
             renderPreview();
         }
     });
@@ -1568,10 +1571,83 @@ $(function () {
         $flatDamageFormulaDisplay.text(state.flat_damage_formula_progression || "");
     }
 
+    function renderFlatDamageChart() {
+        if (!$flatDamageChart.length) return;
+        const canvas = $flatDamageChart[0];
+        const ctx = canvas.getContext("2d");
+        const width = canvas.clientWidth || 600;
+        const height = canvas.height || 240;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+
+        const lvlMax = Math.max(1, parseInt(state.levels, 10) || 1);
+        const lvlCount = Math.max(2, lvlMax);
+        const dmgMin = Number(state.flat_damage_min ?? 0);
+        const dmgMax = Number(state.flat_damage_median_at_max_level ?? dmgMin);
+        const power = Number(state.flat_damage_power_progression ?? 1);
+
+        const points = [];
+        for (let lvl = 1; lvl <= lvlCount; lvl += 1) {
+            const tRaw = (lvl - 1) / Math.max(1, lvlCount - 1);
+            const t = Math.min(1, Math.max(0, tRaw));
+            const dmg = dmgMin + (dmgMax - dmgMin) * Math.pow(t, power);
+            points.push({ lvl, dmg });
+        }
+
+        const yMinRaw = Math.min(...points.map((p) => p.dmg));
+        const yMaxRaw = Math.max(...points.map((p) => p.dmg));
+        const yPadding = Math.max(1, (yMaxRaw - yMinRaw) * 0.1);
+        const yMin = yMinRaw - yPadding;
+        const yMax = yMaxRaw + yPadding;
+
+        const pad = 36;
+        const xScale = (width - pad * 2) / Math.max(1, lvlCount - 1);
+        const yScale = (height - pad * 2) / Math.max(1, yMax - yMin);
+
+        // axes
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, pad / 2);
+        ctx.lineTo(pad, height - pad);
+        ctx.lineTo(width - pad / 2, height - pad);
+        ctx.stroke();
+
+        // labels
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("Dmg", pad + 4, pad - 10);
+        ctx.fillText("Level", width - pad - 30, height - pad + 24);
+
+        // line
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.dmg - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // dots
+        ctx.fillStyle = "#f8fafc";
+        points.forEach((p) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.dmg - yMin) * yScale;
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
     const setFlatDamagePower = (value) => {
         if (Number.isNaN(value)) return;
         state.flat_damage_power_progression = value;
         $flatDamagePower.val(value);
+        renderFlatDamageChart();
         renderPreview();
     };
 
@@ -1583,6 +1659,7 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.flat_damage_min = value;
+            renderFlatDamageChart();
             renderPreview();
         }
     });
@@ -1591,6 +1668,7 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.flat_damage_median_at_max_level = value;
+            renderFlatDamageChart();
             renderPreview();
         }
     });
