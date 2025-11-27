@@ -28,11 +28,10 @@ const state = {
     unarmed_physical_damage: 1,
     base_physical_resistance: 0,
     attack_speed_base: 1.6,
-    attack_speed_bonus_min: 5,
-    attack_speed_bonus_max: 15,
-    attack_speed_affix_level_scale: 0.4, // scales affix range with level/levels_max
-    attack_speed_affix_rarity_scale: 0.08, // scales affix range with rarity weight (1 common -> 1+scale*rarityFactor)
-    attack_speed_cap: 3.5, // clamp final attack speed after bonuses (0/null to disable)
+    attack_speed_min: 5,
+    attack_speed_max: 20,
+    attack_speed_power_progression: 1.2,
+    attack_speed_slots_auto: 2,
     affix_rarity_scale: 0.08, // scales affix min/max with category rarity
     common_decay: 0.08, // exponential decay applied to categories unlocked at level 1
     flat_damage_types_per_item_min: 1,

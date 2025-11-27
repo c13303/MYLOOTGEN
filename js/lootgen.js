@@ -64,6 +64,9 @@ function compute() {
     const baseAttackSpeed = state.attack_speed_base || 0;
     const baseResists = {};
     if (state.base_physical_resistance) baseResists.Physical = state.base_physical_resistance;
+    const asSlotsAllowed = (state.equipment_slots || []).filter((slot) => slot.allow_attack_speed !== false).length;
+    const asSlotDivider = Math.max(1, asSlotsAllowed || state.attack_speed_slots_auto || 1);
+    state.attack_speed_slots_auto = asSlotsAllowed;
     const flatSlotsAllowed = (state.equipment_slots || []).filter((slot) => slot.allow_flat_damage !== false).length;
     const flatSlotDivider = Math.max(1, flatSlotsAllowed || state.flat_damage_equipement_slots_auto || 1);
     state.flat_damage_equipement_slots_auto = flatSlotsAllowed;
@@ -76,6 +79,19 @@ function compute() {
     const pseudoRand = (seed) => {
         const x = Math.sin(seed + runSeed) * 10000;
         return x - Math.floor(x);
+    };
+    const computeAttackSpeedBonusForLevel = (lvl) => {
+        const asMin = Number(state.attack_speed_min ?? 0);
+        const asMax = Number(state.attack_speed_max ?? asMin);
+        const power = Number(state.attack_speed_power_progression ?? 1);
+        const denom = Math.max(1, (state.levels || levels) - 1);
+        const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
+        const aps = asMin + (asMax - asMin) * Math.pow(t, power); // target APS for the build
+        const baseAps = Number(state.attack_speed_base ?? 1);
+        const delta = Math.max(0, aps - baseAps);
+        const pctTotal = baseAps > 0 ? (delta / baseAps) * 100 : 0;
+        const pctPerSlot = pctTotal / asSlotDivider;
+        return pctPerSlot;
     };
     const computeFlatDamageForLevel = (lvl) => {
         const min = Number(state.flat_damage_min ?? 0);
@@ -176,6 +192,7 @@ function compute() {
         }).join(", ");
         const baseFlatDmg = computeFlatDamageForLevel(lvl);
         const lootList = [];
+        const asBonuses = [];
         for (let i = 0; i < rolledLootCount; i += 1) {
             const cat = pickCategory(lvl + i + 1, lvl);
             const slot = slots.length
@@ -247,9 +264,10 @@ function compute() {
             for (let a = bonuses.length; a < affixLimit; a += 1) {
                 const roll = pseudoRand(lvl + i + a * 17);
                 // prioritize mod/res, add AS if allowed and rolled
-                if (cat?.allow_attack_speed_mod && roll > 0.85 && !bonuses.includes("+0% Attack Speed")) {
-                    atkBonus = 0;
-                    bonuses.push("+0% Attack Speed");
+                if (cat?.allow_attack_speed_mod && roll > 0.85 && !bonuses.some((b) => b.includes("Attack Speed"))) {
+                    atkBonus = Math.max(1, Math.round(computeAttackSpeedBonusForLevel(lvl)));
+                    if (atkBonus > 0) asBonuses.push(atkBonus);
+                    bonuses.push(`+${atkBonus}% Attack Speed`);
                 } else if (item.damage_modifier !== false && roll > 0.35) {
                     const type = pickType((lvl + i + a * 23) * 1.3);
                     const key = type;
@@ -284,6 +302,8 @@ function compute() {
         const lootWeaponTotals = lootWeaponTotalsRaw.filter((v) => v > 0);
         const flatMinWeapon = lootWeaponTotals.length ? Math.min(...lootWeaponTotals) : 0;
         const flatMaxWeapon = lootWeaponTotals.length ? Math.max(...lootWeaponTotals) : 0;
+        const asMin = asBonuses.length ? Math.min(...asBonuses) : 0;
+        const asMax = asBonuses.length ? Math.max(...asBonuses) : 0;
 
         const lootRows = lootList.map((l) => {
             const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
@@ -324,7 +344,7 @@ function compute() {
             ? Object.entries(baseResists).map(([k, v]) => `${k}: ${v}`).join(" | ")
             : "none";
 
-        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span><span class="summary-col loot"><span style="color:#ef4444">Flat dmg: ${flatMinSource}-${flatMaxSource} (src) | ${flatMinWeapon}-${flatMaxWeapon} (weapon)</span></span>`;
+        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span><span class="summary-col loot"><span style="color:#ef4444">Flat dmg: ${flatMinSource}-${flatMaxSource} (src) | ${flatMinWeapon}-${flatMaxWeapon} (weapon) | AS: +${asMin}% - +${asMax}%</span></span>`;
 
     results.push(`
 <details class="compute-card" ${lvl === levels ? "open" : ""}>
@@ -332,7 +352,7 @@ function compute() {
   <div class="body">
     <div class="level-meta">
       <div>Distribution: ${distribution || "none"}</div>    
-      <div class="loot-meta">Loot Values : Flat dmg: ${flatMinSource}-${flatMaxSource} (src) | ${flatMinWeapon}-${flatMaxWeapon} (weapon) | Dmg mod: +0-0% | Resists: +0-0% | AS: +0%</div>
+      <div class="loot-meta">Loot Values : Flat dmg: ${flatMinSource}-${flatMaxSource} (src) | ${flatMinWeapon}-${flatMaxWeapon} (weapon) | Dmg mod: +0-0% | Resists: +0-0% | AS: +${asMin}% - +${asMax}%</div>
     </div>
     <div class="level-grid">
       <div class="level-col">

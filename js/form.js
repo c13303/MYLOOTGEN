@@ -15,11 +15,12 @@ $(function () {
     const $basePhysicalResistance = $("#base-physical-resistance");
     const $generatePercent = $("#generate-percent");
     const $attackSpeedBase = $("#attack-speed-base");
-    const $attackSpeedBonusMin = $("#attack-speed-bonus-min");
-    const $attackSpeedBonusMax = $("#attack-speed-bonus-max");
-    const $attackSpeedAffixLevelScale = $("#attack-speed-affix-level-scale");
-    const $attackSpeedAffixRarityScale = $("#attack-speed-affix-rarity-scale");
-    const $attackSpeedCap = $("#attack-speed-cap");
+    const $attackSpeedMin = $("#attack-speed-min");
+    const $attackSpeedMax = $("#attack-speed-max");
+    const $attackSpeedPower = $("#attack-speed-power");
+    const $attackSpeedSlotsAuto = $("#attack-speed-slots-auto");
+    const $attackSpeedFormulaDisplay = $("#attack-speed-formula-display");
+    const $attackSpeedChart = $("#attack-speed-chart");
     const $affixRarityScale = $("#affix-rarity-scale");
     const $flatDamagePower = $("#flat-damage-power");
     const $flatDamageMin = $("#flat-damage-min");
@@ -1471,11 +1472,16 @@ $(function () {
     $basePhysicalResistance.val(state.base_physical_resistance);
     $generatePercent.val(state.generate_percent);
     $attackSpeedBase.val(state.attack_speed_base);
-    $attackSpeedBonusMin.val(state.attack_speed_bonus_min ?? 10);
-    $attackSpeedBonusMax.val(state.attack_speed_bonus_max ?? 20);
-    $attackSpeedAffixLevelScale.val(state.attack_speed_affix_level_scale ?? 0.5);
-    $attackSpeedAffixRarityScale.val(state.attack_speed_affix_rarity_scale ?? 0.1);
-    $attackSpeedCap.val(state.attack_speed_cap ?? 0);
+    if (typeof state.attack_speed_min === "undefined") state.attack_speed_min = 5;
+    if (typeof state.attack_speed_max === "undefined") state.attack_speed_max = 20;
+    if (typeof state.attack_speed_power_progression === "undefined") state.attack_speed_power_progression = 1.2;
+    if (typeof state.attack_speed_slots_auto === "undefined") {
+        state.attack_speed_slots_auto = (state.equipment_slots || []).filter((slot) => slot.allow_attack_speed !== false).length;
+    }
+    $attackSpeedMin.val(state.attack_speed_min);
+    $attackSpeedMax.val(state.attack_speed_max);
+    $attackSpeedPower.val(state.attack_speed_power_progression);
+    $attackSpeedSlotsAuto.val(state.attack_speed_slots_auto);
     $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
     if (typeof state.flat_damage_formula_progression === "undefined") {
         state.flat_damage_formula_progression = "dmg = flat_damage_min + (flat_damage_max - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression";
@@ -1494,6 +1500,8 @@ $(function () {
     $flatDamageOneHandRatio.val(state.flat_damage_onehand_ratio ?? 0.75);
     updateFlatDamageFormulaDisplay();
     renderFlatDamageChart();
+    updateAttackSpeedFormulaDisplay();
+    renderAttackSpeedChart();
     $affixCap.val(state.affix_cap);
     $attrPerLevelFactor.val(state.attr_per_level_factor);
     $rarityWeightGrowth.val(state.rarity_weight_growth);
@@ -1507,6 +1515,8 @@ $(function () {
     renderTags("categories");
     renderTags("items");
     renderTags("skills");
+    updateAttackSpeedSlotsAutoCount();
+    renderAttackSpeedChart();
     validateConfig();
     renderPreview();
 
@@ -1613,39 +1623,27 @@ $(function () {
         }
     });
 
-    $attackSpeedBonusMin.on("input", function () {
+    $attackSpeedMin.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.attack_speed_bonus_min = value;
+            state.attack_speed_min = value;
+            renderAttackSpeedChart();
             renderPreview();
         }
     });
-
-    $attackSpeedBonusMax.on("input", function () {
+    $attackSpeedMax.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.attack_speed_bonus_max = value;
+            state.attack_speed_max = value;
+            renderAttackSpeedChart();
             renderPreview();
         }
     });
-    $attackSpeedAffixLevelScale.on("input", function () {
+    $attackSpeedPower.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.attack_speed_affix_level_scale = value;
-            renderPreview();
-        }
-    });
-    $attackSpeedAffixRarityScale.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.attack_speed_affix_rarity_scale = value;
-            renderPreview();
-        }
-    });
-    $attackSpeedCap.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.attack_speed_cap = value;
+            state.attack_speed_power_progression = value;
+            renderAttackSpeedChart();
             renderPreview();
         }
     });
@@ -1795,6 +1793,91 @@ $(function () {
         if ($flatDamageSlotsAuto.length) {
             $flatDamageSlotsAuto.val(allowed);
         }
+    }
+
+    function updateAttackSpeedFormulaDisplay() {
+        const asMin = state.attack_speed_min ?? "as_min";
+        const asMax = state.attack_speed_max ?? "as_max";
+        const asPow = state.attack_speed_power_progression ?? "p";
+        const formula = `APS = as_min + (as_max - as_min) * ((level - 1) / max(1, levels - 1))^as_power`;
+        $attackSpeedFormulaDisplay.text(formula.replace("as_min", asMin).replace("as_max", asMax).replace("as_power", asPow));
+    }
+
+    function updateAttackSpeedSlotsAutoCount() {
+        const allowed = (state.equipment_slots || []).filter((slot) => slot.allow_attack_speed !== false).length;
+        state.attack_speed_slots_auto = allowed;
+        if ($attackSpeedSlotsAuto.length) {
+            $attackSpeedSlotsAuto.val(allowed);
+        }
+    }
+
+    function renderAttackSpeedChart() {
+        if (!$attackSpeedChart.length) return;
+        const canvas = $attackSpeedChart[0];
+        const ctx = canvas.getContext("2d");
+        const width = canvas.clientWidth || 600;
+        const height = canvas.height || 240;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+
+        const lvlMax = Math.max(1, parseInt(state.levels, 10) || 1);
+        const lvlCount = Math.max(2, lvlMax);
+        const asMin = Number(state.attack_speed_min ?? 0);
+        const asMax = Number(state.attack_speed_max ?? asMin);
+        const power = Number(state.attack_speed_power_progression ?? 1);
+
+        const points = [];
+        for (let lvl = 1; lvl <= lvlCount; lvl += 1) {
+            const t = Math.min(1, Math.max(0, (lvl - 1) / Math.max(1, lvlCount - 1)));
+            const val = asMin + (asMax - asMin) * Math.pow(t, power);
+            points.push({ lvl, val });
+        }
+
+        const yMinRaw = Math.min(...points.map((p) => p.val));
+        const yMaxRaw = Math.max(...points.map((p) => p.val));
+        const yPadding = Math.max(0.01, (yMaxRaw - yMinRaw) * 0.1);
+        const yMin = yMinRaw - yPadding;
+        const yMax = yMaxRaw + yPadding;
+
+        const pad = 36;
+        const xScale = (width - pad * 2) / Math.max(1, lvlCount - 1);
+        const yScale = (height - pad * 2) / Math.max(1, yMax - yMin);
+
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, pad / 2);
+        ctx.lineTo(pad, height - pad);
+        ctx.lineTo(width - pad / 2, height - pad);
+        ctx.stroke();
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("AS", pad + 4, pad - 10);
+        ctx.fillText("Level", width - pad - 30, height - pad + 24);
+
+        ctx.strokeStyle = "#22c55e";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.val - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        ctx.fillStyle = "#f8fafc";
+        points.forEach((p) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.val - yMin) * yScale;
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        updateAttackSpeedFormulaDisplay();
     }
 
     const setFlatDamagePower = (value) => {
