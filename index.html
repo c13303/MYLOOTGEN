@@ -19,7 +19,7 @@
     <div style="text-align: center;">ARPG progression generator by <a href="https://chien-games.itch.io/"
         target="_blank">Charles Torris</a>. Press compute to generate loot and build simulation.
     </div>
-    <button id="compute-btn-top" type="button" class="compute-btn">Compute</button>
+    <button id="compute-btn-top" type="button" class="compute-btn">Compute all levels</button>
 
     <form id="config-form" class="config-form" autocomplete="off">
       <details class="form-section form-section-build-config" open>
@@ -156,7 +156,7 @@
       </details>
 
       <details class="form-section form-section-time-loot" open style="background-color: #2e2e39;">
-        <summary class="section-title">Time & Loot Quantity Progression</summary>
+        <summary class="section-title">Time & Loot Category Distribution</summary>
         <div class="field-grid inline-four">
           <div class="field">
             <label for="median-time-per-level"
@@ -327,6 +327,11 @@
             <canvas id="flat-damage-chart" height="240"></canvas>
           </div>
 
+          <div class="field">
+            <label for="flat-damage-onehand-ratio" title="Multiplier applied to flat dmg for one-handed weapons.">One hand ratio</label>
+            <input type="number" id="flat-damage-onehand-ratio" name="flat_damage_onehand_ratio" min="0" step="0.01">
+          </div>
+
         </div>
       </details>
       <details class="form-section form-section-sim" open>
@@ -342,7 +347,8 @@
       </details>
 
     </form>
-    <button id="compute-btn" type="button" class="compute-btn">Compute</button>
+    <div id="config-alert" class="config-alert" aria-live="polite"></div>
+    <button id="compute-btn" type="button" class="compute-btn">Compute all levels</button>
     <pre id="config-preview" class="config-preview"></pre>
     <div id="compute-result" class="compute-result"></div>
   </main>

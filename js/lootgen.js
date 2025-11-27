@@ -223,7 +223,12 @@ function compute() {
                 const typePoolRemaining = typePoolFinal.filter((t) => !usedDamageTypes.has(t));
                 const availableTypes = typePoolRemaining.length || typePoolFinal.length;
                 const sourceCount = Math.max(1, Math.min(maxSources, availableTypes));
-                const totalBaseDmg = computeFlatDamageForLevel(lvl);
+                let totalBaseDmg = computeFlatDamageForLevel(lvl);
+                const isOneHand = (slot === "weapon_right" || slot === "hand_left") && !(item.two_handed);
+                if (isOneHand) {
+                    const ratio = Math.max(0, Number(state.flat_damage_onehand_ratio ?? 1));
+                    totalBaseDmg *= ratio;
+                }
                 const maxSlice = Math.min(1, Math.max(0, item.flat_damage_multiple_max_slice ?? 0.9));
                 const weights = buildSlices(sourceCount, maxSlice, (lvl + i + 999));
                 for (let s = 0; s < sourceCount; s += 1) {
@@ -271,9 +276,14 @@ function compute() {
             });
         }
 
-        const lootFlatValues = lootList.flatMap((l) => Object.values(l.baseAdds || {}));
-        const flatMinVal = lootFlatValues.length ? Math.min(...lootFlatValues) : 0;
-        const flatMaxVal = lootFlatValues.length ? Math.max(...lootFlatValues) : 0;
+        const lootFlatValuesRaw = lootList.flatMap((l) => Object.values(l.baseAdds || {}));
+        const lootFlatValues = lootFlatValuesRaw.filter((v) => v > 0);
+        const flatMinSource = lootFlatValues.length ? Math.min(...lootFlatValues) : 0;
+        const flatMaxSource = lootFlatValues.length ? Math.max(...lootFlatValues) : 0;
+        const lootWeaponTotalsRaw = lootList.map((l) => Object.values(l.baseAdds || {}).reduce((sum, v) => sum + v, 0));
+        const lootWeaponTotals = lootWeaponTotalsRaw.filter((v) => v > 0);
+        const flatMinWeapon = lootWeaponTotals.length ? Math.min(...lootWeaponTotals) : 0;
+        const flatMaxWeapon = lootWeaponTotals.length ? Math.max(...lootWeaponTotals) : 0;
 
         const lootRows = lootList.map((l) => {
             const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
@@ -314,7 +324,7 @@ function compute() {
             ? Object.entries(baseResists).map(([k, v]) => `${k}: ${v}`).join(" | ")
             : "none";
 
-        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span><span class="summary-col loot"><span style="color:#ef4444">Flat dmg ~ ${flatMinVal}-${flatMaxVal}</span></span>`;
+        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span><span class="summary-col loot"><span style="color:#ef4444">Flat dmg: ${flatMinSource}-${flatMaxSource} (src) | ${flatMinWeapon}-${flatMaxWeapon} (weapon)</span></span>`;
 
     results.push(`
 <details class="compute-card" ${lvl === levels ? "open" : ""}>
@@ -322,7 +332,7 @@ function compute() {
   <div class="body">
     <div class="level-meta">
       <div>Distribution: ${distribution || "none"}</div>    
-      <div class="loot-meta">Flat dmg: ${flatMinVal}-${flatMaxVal} | Dmg mod: +0-0% | Resists: +0-0% | AS: +0%</div>
+      <div class="loot-meta">Loot Values : Flat dmg: ${flatMinSource}-${flatMaxSource} (src) | ${flatMinWeapon}-${flatMaxWeapon} (weapon) | Dmg mod: +0-0% | Resists: +0-0% | AS: +0%</div>
     </div>
     <div class="level-grid">
       <div class="level-col">

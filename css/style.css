@@ -55,6 +55,17 @@ p {
   text-align: left;
 }
 
+.config-alert {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fecdd3;
+  font-weight: 600;
+  display: none;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -310,7 +321,7 @@ a {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  background: rgba(56, 189, 248, 0.12);
+  background: rgb(2 23 33);
   border: 1px solid rgba(56, 189, 248, 0.3);
   border-radius: 10px;
 }
@@ -322,7 +333,7 @@ a {
 .compute-card {
   border: 1px solid rgba(226, 232, 240, 0.1);
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgb(0 59 77);
 }
 
 .compute-card .body {

@@ -46,6 +46,7 @@ const state = {
     flat_damage_max: 500,
     flat_damage_formula_progression: "dmg = (flat_damage_min + (flat_damage_max - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression) / flat_damage_equipement_slots_auto",
     flat_damage_jitter_pct: 0.2, // +/- jitter applied around median (0.2 = ±20%)
+    flat_damage_onehand_ratio: 0.75,
     flat_damage_equipement_slots_auto: 2,
     affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on flat dmg
     affix_growth_headroom: 5, // how many extra affixes unlock from lvl 1 to max
@@ -81,11 +82,11 @@ const state = {
     equipment_slots: [
         { name: "head", position: 1, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
         { name: "torso", position: 2, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
-        { name: "weapon_right", position: 3, allow_flat_damage: true, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
-        { name: "weapon_left", position: 4, allow_flat_damage: true, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
-        { name: "hands", position: 5, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
-        { name: "belt", position: 6, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
-        { name: "boots", position: 7, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true }
+        { name: "weapon_right", position: 3, allow_flat_damage: true, allow_two_handed: true, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "hand_left", position: 4, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: true, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "hands", position: 5, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "belt", position: 6, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "boots", position: 7, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true }
     ],
     damage_types: [
         {
@@ -275,6 +276,42 @@ const state = {
             "flat_damage_multiple_max_slice": 0.9,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+        },
+        {
+            "name": "great hammer",
+            "equipment_slot": "weapon_right",
+            "size": 4,
+            "affix_max": 6,
+            "flat_damage_sources": 2,
+            "flat_damage_sources_multi_chance": 0.9,
+            "flat_damage_multiple_max_slice": 0.9,
+            "two_handed": true,
+            "damage_modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+        },
+        {
+            "name": "greatsword",
+            "equipment_slot": "weapon_right",
+            "size": 4,
+            "affix_max": 6,
+            "flat_damage_sources": 2,
+            "flat_damage_sources_multi_chance": 0.9,
+            "flat_damage_multiple_max_slice": 0.9,
+            "two_handed": true,
+            "damage_modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+        },
+        {
+            "name": "great axe",
+            "equipment_slot": "weapon_right",
+            "size": 4,
+            "affix_max": 6,
+            "flat_damage_sources": 2,
+            "flat_damage_sources_multi_chance": 0.9,
+            "flat_damage_multiple_max_slice": 0.9,
+            "two_handed": true,
+            "damage_modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
         },
         {
             "name": "wooden shield",
