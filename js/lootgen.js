@@ -64,6 +64,9 @@ function compute() {
     const baseAttackSpeed = state.attack_speed_base || 0;
     const baseResists = {};
     if (state.base_physical_resistance) baseResists.Physical = state.base_physical_resistance;
+    const flatSlotsAllowed = (state.equipment_slots || []).filter((slot) => slot.allow_flat_damage !== false).length;
+    const flatSlotDivider = Math.max(1, flatSlotsAllowed || state.flat_damage_equipement_slots_auto || 1);
+    state.flat_damage_equipement_slots_auto = flatSlotsAllowed;
     const slotRules = new Map((state.equipment_slots || []).map((s) => [s.name, s]));
 
     const results = [];
@@ -80,13 +83,41 @@ function compute() {
         const power = Number(state.flat_damage_power_progression ?? 1);
         const denom = Math.max(1, (state.levels || levels) - 1);
         const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
-        return min + (median - min) * Math.pow(t, power);
+        const total = min + (median - min) * Math.pow(t, power);
+        return total / flatSlotDivider;
     };
     const applyJitter = (value, seed) => {
         const pct = Math.max(0, Number(state.flat_damage_jitter_pct ?? 0));
         if (pct === 0) return value;
         const offset = (pseudoRand(seed) * 2 - 1) * pct;
         return Math.max(0, value * (1 + offset));
+    };
+    const buildSlices = (count, maxSlice, seedBase) => {
+        if (count <= 1) return [1];
+        const cap = Math.min(1, Math.max(0, maxSlice));
+        let weights = Array.from({ length: count }, (_, idx) => Math.max(1e-6, pseudoRand(seedBase + idx + 1)));
+        let sum = weights.reduce((a, b) => a + b, 0) || 1;
+        weights = weights.map((w) => w / sum);
+        let safety = 0;
+        while (safety < 10) {
+            let idxMax = 0;
+            for (let i = 1; i < weights.length; i += 1) {
+                if (weights[i] > weights[idxMax]) idxMax = i;
+            }
+            if (weights[idxMax] <= cap) break;
+            const excess = weights[idxMax] - cap;
+            weights[idxMax] = cap;
+            const othersTotal = weights.reduce((s, w, i) => (i === idxMax ? s : s + w), 0);
+            if (othersTotal <= 0) {
+                const even = (1 - cap) / Math.max(1, (count - 1));
+                weights = weights.map((_, i) => (i === idxMax ? cap : even));
+                break;
+            }
+            weights = weights.map((w, i) => (i === idxMax ? w : w + (w / othersTotal) * excess));
+            safety += 1;
+        }
+        const sum2 = weights.reduce((a, b) => a + b, 0) || 1;
+        return weights.map((w) => w / sum2);
     };
     const formatTime = (sec) => {
         const minutes = sec / 60;
@@ -155,7 +186,14 @@ function compute() {
             const flatMax = state.flat_damage_types_per_item_max ?? 2;
             const sourceSlots = Math.max(0, item.flat_damage_sources || 0);
             const allowFlat = slotRules.get(slot)?.allow_flat_damage !== false;
-            const maxSources = allowFlat && sourceSlots > 0 ? Math.max(flatMin, Math.min(flatMax, sourceSlots)) : 0;
+            let maxSources = allowFlat && sourceSlots > 0 ? Math.max(flatMin, Math.min(flatMax, sourceSlots)) : 0;
+            if (maxSources > 1) {
+                const multiChance = Math.min(1, Math.max(0, item.flat_damage_sources_multi_chance ?? 0));
+                const rollMulti = pseudoRand((lvl + i + 101) * 0.37);
+                if (rollMulti > multiChance) {
+                    maxSources = 1;
+                }
+            }
             const growthRatio = levels > 1 ? (lvl - 1) / (levels - 1) : 0;
             const growthSlots = Math.round(affixHeadroom * growthRatio);
             const baseAffixes = Math.max(0, cat?.attributes ?? 0);
@@ -181,14 +219,23 @@ function compute() {
             const pickType = (seed) => typePoolFinal[Math.floor(pseudoRand(seed) * typePoolFinal.length) % typePoolFinal.length] || defaultDmgType;
 
             // flat damage sources (only if item allows)
-            for (let s = 0; s < maxSources; s += 1) {
-                const type = pickType((lvl + i + 101 + s) * (s + 1));
-                if (usedDamageTypes.has(type)) continue;
-                usedDamageTypes.add(type);
-                const roll = applyJitter(baseFlatDmg, (lvl + i + 101 + s) * 11);
-                const rolledValue = Math.round(roll);
-                baseAdds[type] = rolledValue;
-                bonuses.push(`+${rolledValue} ${type} flat dmg`);
+            if (maxSources > 0) {
+                const typePoolRemaining = typePoolFinal.filter((t) => !usedDamageTypes.has(t));
+                const availableTypes = typePoolRemaining.length || typePoolFinal.length;
+                const sourceCount = Math.max(1, Math.min(maxSources, availableTypes));
+                const totalBaseDmg = computeFlatDamageForLevel(lvl);
+                const maxSlice = Math.min(1, Math.max(0, item.flat_damage_multiple_max_slice ?? 0.9));
+                const weights = buildSlices(sourceCount, maxSlice, (lvl + i + 999));
+                for (let s = 0; s < sourceCount; s += 1) {
+                    const type = pickType((lvl + i + 101 + s) * (s + 1));
+                    if (usedDamageTypes.has(type)) continue;
+                    usedDamageTypes.add(type);
+                    const sliceBase = totalBaseDmg * (weights[s] ?? 0);
+                    const roll = applyJitter(sliceBase, (lvl + i + 101 + s) * 11);
+                    const rolledValue = Math.round(roll);
+                    baseAdds[type] = rolledValue;
+                    bonuses.push(`+${rolledValue} ${type} flat dmg`);
+                }
             }
 
             // affix slots (mod/res/AS) up to affixLimit

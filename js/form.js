@@ -95,8 +95,12 @@ $(function () {
             delete updated.flat_damage;
             delete updated.resist_affix_min_chance;
             delete updated.default_damage_resistance_factor;
-            if (typeof updated.flat_damage_sources_multi_chance === "undefined" && (updated.flat_damage_sources || 0) > 1) {
+            const sourcesCount = updated.flat_damage_sources || 0;
+            if (typeof updated.flat_damage_sources_multi_chance === "undefined" && sourcesCount > 1) {
                 updated.flat_damage_sources_multi_chance = 0.9;
+            }
+            if (typeof updated.flat_damage_multiple_max_slice === "undefined" && sourcesCount > 1) {
+                updated.flat_damage_multiple_max_slice = 0.9;
             }
             return updated;
         });
@@ -117,9 +121,7 @@ $(function () {
             };
         });
     }
-    if (typeof state.flat_damage_equipement_slots_auto === "undefined") {
-        state.flat_damage_equipement_slots_auto = (state.equipment_slots || []).filter((slot) => slot.allow_flat_damage !== false).length;
-    }
+    updateFlatDamageSlotsAutoCount();
 
     function openDamageForm() {
         const $overlay = $('<div class="modal-overlay"></div>').css({
@@ -944,6 +946,7 @@ $(function () {
         const $affixMax = $('<input type="number" placeholder="Affix max" step="1" min="1">').css(fieldStyle);
         const $sourceDamageSlots = $('<input type="number" placeholder="Flat dmg sources (count)" step="1" min="0">').css(fieldStyle);
         const $sourceMulti = $('<input type="number" placeholder="Chance of multiple sources (0-1)" step="0.01" min="0" max="1">').css(fieldStyle);
+        const $sourceMaxSlice = $('<input type="number" placeholder="Max slice per source (0-1)" step="0.01" min="0" max="1">').css(fieldStyle);
         const $modifierWrap = $('<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="modifier-flag" checked> Damage modifier (%)</label>');
 
         const dmgTypes = (state.damage_types || []).map((d) => d.name);
@@ -997,6 +1000,7 @@ $(function () {
             const affixMax = parseInt($affixMax.val(), 10);
             const sourceDamageSlots = parseInt($sourceDamageSlots.val(), 10);
             const sourceMulti = parseFloat($sourceMulti.val());
+            const sourceMaxSlice = parseFloat($sourceMaxSlice.val());
             const modifierFlag = $modifierWrap.find("input").is(":checked");
             const typeList = Array.from(selectedTypes);
 
@@ -1022,6 +1026,7 @@ $(function () {
                 affix_max: affixMax,
                 flat_damage_sources: Number.isNaN(sourceDamageSlots) ? 0 : sourceDamageSlots,
                 ...(Number.isNaN(sourceMulti) ? {} : { flat_damage_sources_multi_chance: sourceMulti }),
+                ...(Number.isNaN(sourceMaxSlice) ? {} : { flat_damage_multiple_max_slice: sourceMaxSlice }),
                 damage_modifier: modifierFlag,
                 damage_types: typeList
             });
@@ -1032,7 +1037,7 @@ $(function () {
         });
 
         $actions.append($cancel, $submit);
-        $form.append($name, $slot, $size, $affixMax, $sourceDamageSlots, $sourceMulti, $modifierWrap, $typesContainer, $actions);
+        $form.append($name, $slot, $size, $affixMax, $sourceDamageSlots, $sourceMulti, $sourceMaxSlice, $modifierWrap, $typesContainer, $actions);
         $modal.append($title, $form);
         $overlay.append($modal);
         $("body").append($overlay);
@@ -1068,6 +1073,7 @@ $(function () {
         const $size = $(`<p><strong>Size:</strong> ${item.size}</p>`).css({ margin: "0 0 14px" });
         const $source = $(`<p><strong>Flat dmg sources:</strong> ${item.flat_damage_sources ?? 0}</p>`).css({ margin: "0 0 8px" });
         const $sourceMulti = $(`<p><strong>Multi-source chance:</strong> ${typeof item.flat_damage_sources_multi_chance !== "undefined" ? item.flat_damage_sources_multi_chance : "-"}</p>`).css({ margin: "0 0 8px" });
+        const $sourceMaxSlice = $(`<p><strong>Max slice per source:</strong> ${typeof item.flat_damage_multiple_max_slice !== "undefined" ? item.flat_damage_multiple_max_slice : "-"}</p>`).css({ margin: "0 0 8px" });
         const $mod = $(`<p><strong>Dmg mod:</strong> ${item.damage_modifier ? "Yes" : "No"}</p>`).css({ margin: "0 0 8px" });
         const typeList = (item.damage_types && item.damage_types.length) ? item.damage_types.join(", ") : "-";
         const $types = $(`<p><strong>Damage types:</strong> ${typeList}</p>`).css({ margin: "0 0 14px" });
@@ -1084,7 +1090,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $slot, $size, $source, $sourceMulti, $mod, $types, $close);
+        $modal.append($title, $slot, $size, $source, $sourceMulti, $sourceMaxSlice, $mod, $types, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
@@ -1345,6 +1351,11 @@ $(function () {
             $tag.append($text, $remove);
             $container.append($tag);
         });
+
+        if (key === "equipment_slots") {
+            updateFlatDamageSlotsAutoCount();
+            renderFlatDamageChart();
+        }
     }
 
     function renderPreview() {
@@ -1623,6 +1634,14 @@ $(function () {
 
     function updateFlatDamageFormulaDisplay() {
         $flatDamageFormulaDisplay.text(state.flat_damage_formula_progression || "");
+    }
+
+    function updateFlatDamageSlotsAutoCount() {
+        const allowed = (state.equipment_slots || []).filter((slot) => slot.allow_flat_damage !== false).length;
+        state.flat_damage_equipement_slots_auto = allowed;
+        if ($flatDamageSlotsAuto.length) {
+            $flatDamageSlotsAuto.val(allowed);
+        }
     }
 
     function renderFlatDamageChart() {
