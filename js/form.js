@@ -30,6 +30,15 @@ $(function () {
     const $flatDamageSlotsAuto = $("#flat-damage-slots-auto");
     const $flatDamageOneHandRatio = $("#flat-damage-onehand-ratio");
     const $flatDamageChart = $("#flat-damage-chart");
+    const $modDamageMin = $("#mod-damage-min");
+    const $modDamageMax = $("#mod-damage-max");
+    const $modDamagePower = $("#mod-damage-power");
+    const $modDamageJitter = $("#mod-damage-jitter");
+    const $modDamageSlotsAuto = $("#mod-damage-slots-auto");
+    const $modDamageFormulaDisplay = $("#mod-damage-formula-display");
+    const $modDamageChart = $("#mod-damage-chart");
+    const $dpsPlanningChart = $("#dps-planning-chart");
+    const $dpsPlanningList = $("#dps-planning-list");
     const $affixCap = $("#affix-cap");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
     const $attrPerLevelFactor = $("#attr-per-level-factor"); 
@@ -1379,6 +1388,11 @@ $(function () {
         if (key === "equipment_slots") {
             updateFlatDamageSlotsAutoCount();
             renderFlatDamageChart();
+            updateAttackSpeedSlotsAutoCount();
+            renderAttackSpeedChart();
+            updateModDamageSlotsAutoCount();
+            renderModDamageChart();
+            renderDpsPlanningChart();
         }
     }
 
@@ -1498,10 +1512,25 @@ $(function () {
     $flatDamageJitter.val(state.flat_damage_jitter_pct ?? 0.2);
     $flatDamageSlotsAuto.val(state.flat_damage_equipement_slots_auto ?? 0);
     $flatDamageOneHandRatio.val(state.flat_damage_onehand_ratio ?? 0.75);
+    if (typeof state.mod_damage_min === "undefined") state.mod_damage_min = 10;
+    if (typeof state.mod_damage_max === "undefined") state.mod_damage_max = 250;
+    if (typeof state.mod_damage_power_progression === "undefined") state.mod_damage_power_progression = 1.2;
+    if (typeof state.mod_damage_jitter_pct === "undefined") state.mod_damage_jitter_pct = 0.05;
+    if (typeof state.mod_damage_slots_auto === "undefined") {
+        state.mod_damage_slots_auto = (state.equipment_slots || []).filter((slot) => slot.allow_damage_mod !== false).length;
+    }
+    $modDamageMin.val(state.mod_damage_min);
+    $modDamageMax.val(state.mod_damage_max);
+    $modDamagePower.val(state.mod_damage_power_progression);
+    $modDamageJitter.val(state.mod_damage_jitter_pct);
+    $modDamageSlotsAuto.val(state.mod_damage_slots_auto);
     updateFlatDamageFormulaDisplay();
     renderFlatDamageChart();
     updateAttackSpeedFormulaDisplay();
     renderAttackSpeedChart();
+    updateModDamageFormulaDisplay();
+    renderModDamageChart();
+    renderDpsPlanningChart();
     $affixCap.val(state.affix_cap);
     $attrPerLevelFactor.val(state.attr_per_level_factor);
     $rarityWeightGrowth.val(state.rarity_weight_growth);
@@ -1511,14 +1540,15 @@ $(function () {
     $xpGrowth.val(state.xp_growth);
     $xpMultiplier.val(state.xp_multiplier);
     renderTags("equipment_slots");
-    renderTags("damage_types");
-    renderTags("categories");
-    renderTags("items");
-    renderTags("skills");
-    updateAttackSpeedSlotsAutoCount();
-    renderAttackSpeedChart();
-    validateConfig();
-    renderPreview();
+        renderTags("damage_types");
+        renderTags("categories");
+        renderTags("items");
+        renderTags("skills");
+        updateModDamageSlotsAutoCount();
+        updateAttackSpeedSlotsAutoCount();
+        renderAttackSpeedChart();
+        validateConfig();
+        renderPreview();
 
     $levels.on("input", function () {
         const value = parseInt($(this).val(), 10);
@@ -1809,8 +1839,234 @@ $(function () {
         if ($attackSpeedSlotsAuto.length) {
             $attackSpeedSlotsAuto.val(allowed);
         }
+        renderAttackSpeedChart();
+        renderDpsPlanningChart();
     }
 
+    function updateModDamageFormulaDisplay() {
+        const modMin = state.mod_damage_min ?? 0;
+        const modMax = state.mod_damage_max ?? 0;
+        const modPow = state.mod_damage_power_progression ?? 1;
+        const slots = state.mod_damage_slots_auto ?? 1;
+        const formula = `dmg_mod = (min + (max - min) * ((level - 1) / max(1, levels - 1))^p) / ${slots}`;
+        $modDamageFormulaDisplay.text(formula.replace("min", modMin).replace("max", modMax).replace("p", modPow));
+    }
+
+    function updateModDamageSlotsAutoCount() {
+        const allowed = (state.equipment_slots || []).filter((slot) => slot.allow_damage_mod !== false).length;
+        state.mod_damage_slots_auto = allowed;
+        if ($modDamageSlotsAuto.length) {
+            $modDamageSlotsAuto.val(allowed);
+        }
+    }
+
+    function renderModDamageChart() {
+        if (!$modDamageChart.length) return;
+        const canvas = $modDamageChart[0];
+        const ctx = canvas.getContext("2d");
+        const width = canvas.clientWidth || 600;
+        const height = canvas.height || 240;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+
+        const lvlMax = Math.max(1, parseInt(state.levels, 10) || 1);
+        const lvlCount = Math.max(2, lvlMax);
+        const dmgMin = Number(state.mod_damage_min ?? 0);
+        const dmgMax = Number(state.mod_damage_max ?? dmgMin);
+        const power = Number(state.mod_damage_power_progression ?? 1);
+        const jitter = Math.max(0, Number(state.mod_damage_jitter_pct ?? 0));
+
+        const points = [];
+        const jitterPoints = [];
+        for (let lvl = 1; lvl <= lvlCount; lvl += 1) {
+            const t = Math.min(1, Math.max(0, (lvl - 1) / Math.max(1, lvlCount - 1)));
+            const val = dmgMin + (dmgMax - dmgMin) * Math.pow(t, power);
+            points.push({ lvl, val });
+            const j = val * jitter;
+            jitterPoints.push({ lvl, valLow: val - j, valHigh: val + j });
+        }
+
+        const lows = jitterPoints.map((p) => p.valLow);
+        const highs = jitterPoints.map((p) => p.valHigh);
+        const yMinRaw = Math.min(...points.map((p) => p.val), ...lows);
+        const yMaxRaw = Math.max(...points.map((p) => p.val), ...highs);
+        const yPadding = Math.max(1, (yMaxRaw - yMinRaw) * 0.1);
+        const yMin = yMinRaw - yPadding;
+        const yMax = yMaxRaw + yPadding;
+
+        const pad = 36;
+        const xScale = (width - pad * 2) / Math.max(1, lvlCount - 1);
+        const yScale = (height - pad * 2) / Math.max(1, yMax - yMin);
+
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, pad / 2);
+        ctx.lineTo(pad, height - pad);
+        ctx.lineTo(width - pad / 2, height - pad);
+        ctx.stroke();
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("Mod %", pad + 4, pad - 10);
+        ctx.fillText("Level", width - pad - 30, height - pad + 24);
+
+        ctx.strokeStyle = "#fbbf24";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.val - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(251, 191, 36, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        jitterPoints.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.valHigh - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        jitterPoints.slice().reverse().forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.valLow - yMin) * yScale;
+            if (idx === 0) ctx.lineTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = "rgba(251, 191, 36, 0.12)";
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#f8fafc";
+        points.forEach((p) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.val - yMin) * yScale;
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        updateModDamageFormulaDisplay();
+    }
+
+    function renderDpsPlanningChart() {
+        if (!$dpsPlanningChart.length) return;
+        const canvas = $dpsPlanningChart[0];
+        const ctx = canvas.getContext("2d");
+        const width = canvas.clientWidth || 600;
+        const height = canvas.height || 240;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+
+        const lvlMax = Math.max(1, parseInt(state.levels, 10) || 1);
+        const lvlCount = Math.max(2, lvlMax);
+        const fdMin = Number(state.flat_damage_min ?? 0);
+        const fdMax = Number(state.flat_damage_max ?? fdMin);
+        const fdPow = Number(state.flat_damage_power_progression ?? 1);
+        const modMin = Number(state.mod_damage_min ?? 0);
+        const modMax = Number(state.mod_damage_max ?? modMin);
+        const modPow = Number(state.mod_damage_power_progression ?? 1);
+        const asMin = Number(state.attack_speed_min ?? 0);
+        const asMax = Number(state.attack_speed_max ?? asMin);
+        const asPow = Number(state.attack_speed_power_progression ?? 1);
+
+        const points = [];
+        const jitterPoints = [];
+        const flatJ = Math.max(0, Number(state.flat_damage_jitter_pct ?? 0));
+        const modJ = Math.max(0, Number(state.mod_damage_jitter_pct ?? 0));
+        for (let lvl = 1; lvl <= lvlCount; lvl += 1) {
+            const t = Math.min(1, Math.max(0, (lvl - 1) / Math.max(1, lvlCount - 1)));
+            const flatVal = fdMin + (fdMax - fdMin) * Math.pow(t, fdPow);
+            const modVal = modMin + (modMax - modMin) * Math.pow(t, modPow);
+            const asVal = asMin + (asMax - asMin) * Math.pow(t, asPow);
+            const dps = flatVal * (1 + modVal / 100) * Math.max(0, asVal);
+            points.push({ lvl, dps });
+            const flatLow = flatVal * (1 - flatJ);
+            const flatHigh = flatVal * (1 + flatJ);
+            const modLow = modVal * (1 - modJ);
+            const modHigh = modVal * (1 + modJ);
+            const dpsLow = flatLow * (1 + modLow / 100) * Math.max(0, asVal);
+            const dpsHigh = flatHigh * (1 + modHigh / 100) * Math.max(0, asVal);
+            jitterPoints.push({ lvl, dpsLow, dpsHigh });
+        }
+
+        const lows = jitterPoints.map((p) => p.dpsLow);
+        const highs = jitterPoints.map((p) => p.dpsHigh);
+        const yMinRaw = Math.min(...points.map((p) => p.dps), ...lows);
+        const yMaxRaw = Math.max(...points.map((p) => p.dps), ...highs);
+        const yPadding = Math.max(1, (yMaxRaw - yMinRaw) * 0.1);
+        const yMin = yMinRaw - yPadding;
+        const yMax = yMaxRaw + yPadding;
+
+        const pad = 36;
+        const xScale = (width - pad * 2) / Math.max(1, lvlCount - 1);
+        const yScale = (height - pad * 2) / Math.max(1, yMax - yMin);
+
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, pad / 2);
+        ctx.lineTo(pad, height - pad);
+        ctx.lineTo(width - pad / 2, height - pad);
+        ctx.stroke();
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("DPS", pad + 4, pad - 10);
+        ctx.fillText("Level", width - pad - 30, height - pad + 24);
+
+        ctx.strokeStyle = "#a78bfa";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.dps - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(167, 139, 250, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        jitterPoints.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.dpsHigh - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        jitterPoints.slice().reverse().forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.dpsLow - yMin) * yScale;
+            if (idx === 0) ctx.lineTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = "rgba(167, 139, 250, 0.12)";
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#f8fafc";
+        points.forEach((p) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.dps - yMin) * yScale;
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        if ($dpsPlanningList.length) {
+            const lines = points.map((p) => `Lvl ${p.lvl}: ${Math.round(p.dps)}`);
+            $dpsPlanningList.text(lines.join("\n"));
+        }
+    }
     function renderAttackSpeedChart() {
         if (!$attackSpeedChart.length) return;
         const canvas = $attackSpeedChart[0];
@@ -1923,6 +2179,43 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.flat_damage_onehand_ratio = value;
+            renderPreview();
+        }
+    });
+
+    $modDamageMin.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.mod_damage_min = value;
+            renderModDamageChart();
+            renderDpsPlanningChart();
+            renderPreview();
+        }
+    });
+    $modDamageMax.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.mod_damage_max = value;
+            renderModDamageChart();
+            renderDpsPlanningChart();
+            renderPreview();
+        }
+    });
+    $modDamagePower.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.mod_damage_power_progression = value;
+            renderModDamageChart();
+            renderDpsPlanningChart();
+            renderPreview();
+        }
+    });
+    $modDamageJitter.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.mod_damage_jitter_pct = value;
+            renderModDamageChart();
+            renderDpsPlanningChart();
             renderPreview();
         }
     });

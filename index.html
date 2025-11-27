@@ -247,11 +247,13 @@
         <summary class="section-title">Attack Speed Progression</summary>
         <div class="field-grid">
           <div class="field full-span">
-            <label for="attack-speed-formula-display" title="Formula used for attack speed progression.">AS formula progression</label>
+            <label for="attack-speed-formula-display" title="Formula used for attack speed progression.">AS formula
+              progression</label>
             <div id="attack-speed-formula-display" class="formula-display"></div>
           </div>
           <div class="field full-span">
-            <div class="notice">Soft power curve from min to max attack speed across levels; divided by slots that allow attack speed.</div>
+            <div class="notice">Soft power curve from min to max attack speed across levels; divided by slots that allow
+              attack speed.</div>
           </div>
           <div class="field">
             <label for="attack-speed-min" title="Attacks per second at level 1 (base).">APS min (lvl 1)</label>
@@ -327,10 +329,68 @@
           </div>
 
           <div class="field">
-            <label for="flat-damage-onehand-ratio" title="Multiplier applied to flat dmg for one-handed weapons.">One hand ratio</label>
+            <label for="flat-damage-onehand-ratio" title="Multiplier applied to flat dmg for one-handed weapons.">One
+              hand ratio</label>
             <input type="number" id="flat-damage-onehand-ratio" name="flat_damage_onehand_ratio" min="0" step="0.01">
           </div>
 
+        </div>
+      </details>
+
+      <details class="form-section form-section-mod-dmg" open style="    background-color: #651212;">
+        <summary class="section-title">Mod DMG</summary>
+        <div class="field-grid">
+          <div class="field full-span">
+            <label for="mod-damage-formula-display" title="Formula used for damage modifier progression.">Dmg mod
+              formula progression</label>
+            <div id="mod-damage-formula-display" class="formula-display"></div>
+          </div>
+          <div class="field full-span">
+            <div class="notice">Soft power curve from min to max final damage over levels; slots that can carry dmg mod
+              divide the total when rolling per item.</div>
+          </div>
+          <div class="field">
+            <label for="mod-damage-min" title="Target final damage multiplier at level 1 (as % over baseline).">Final
+              dmg min (%)</label>
+            <input type="number" id="mod-damage-min" name="mod_damage_min" min="0" step="1">
+          </div>
+          <div class="field">
+            <label for="mod-damage-max" title="Target final damage multiplier at max level (as % over baseline).">Final
+              dmg max (%)</label>
+            <input type="number" id="mod-damage-max" name="mod_damage_max" min="0" step="1">
+          </div>
+          <div class="field">
+            <label for="mod-damage-power" title="Curve exponent; 1 = linear.">Final dmg curve</label>
+            <input type="number" id="mod-damage-power" name="mod_damage_power_progression" min="0" step="0.1">
+          </div>
+          <div class="field">
+            <label for="mod-damage-jitter"
+              title="Random jitter applied around the median final dmg (as a percent).">Final dmg jitter (%)</label>
+            <input type="number" id="mod-damage-jitter" name="mod_damage_jitter_pct" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label for="mod-damage-slots-auto">Slots using mods</label>
+            <input type="number" id="mod-damage-slots-auto" name="mod_damage_slots_auto" readonly>
+          </div>
+          <div class="field full-span">
+            <label for="mod-damage-chart" title="Damage mod progression across levels.">Dmg mod progression
+              curve</label>
+            <canvas id="mod-damage-chart" height="240"></canvas>
+          </div>
+        </div>
+      </details>
+
+      <details class="form-section form-section-dps-planning" open style="background-color: #312e81;">
+        <summary class="section-title">DPS planning</summary>
+        <details class="form-section" style="background-color: rgba(49,46,129,0.25);" >
+          <summary class="section-title">DPS per level (planned)</summary>
+          <div class="field full-span">
+            <div id="dps-planning-list" class="dps-planning-list"></div>
+          </div>
+        </details>
+        <div class="field full-span">
+          <label for="dps-planning-chart" title="Preview of DPS combining flat dmg, dmg mod, and attack speed curves.">DPS projection</label>
+          <canvas id="dps-planning-chart" height="720"></canvas>
         </div>
       </details>
       <details class="form-section form-section-sim" open>

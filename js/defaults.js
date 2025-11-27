@@ -47,6 +47,11 @@ const state = {
     flat_damage_jitter_pct: 0.2, // +/- jitter applied around median (0.2 = ±20%)
     flat_damage_onehand_ratio: 0.75,
     flat_damage_equipement_slots_auto: 2,
+    mod_damage_min: 10,
+    mod_damage_max: 250,
+    mod_damage_power_progression: 1.2,
+    mod_damage_jitter_pct: 0.05,
+    mod_damage_slots_auto: 2,
     affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on flat dmg
     affix_growth_headroom: 5, // how many extra affixes unlock from lvl 1 to max
     rarity_weight_growth: 0.05,
