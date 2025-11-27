@@ -362,6 +362,10 @@ a {
   border-radius: 10px;
 }
 
+.compute-card[open] summary {
+  background: rgb(0 59 77);
+}
+
 .compute-card summary::-webkit-details-marker {
   display: none;
 }
