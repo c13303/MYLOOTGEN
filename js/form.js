@@ -14,7 +14,6 @@ $(function () {
     const $unarmedPhysicalDamage = $("#unarmed-physical-damage");
     const $basePhysicalResistance = $("#base-physical-resistance");
     const $generatePercent = $("#generate-percent");
-    const $lootRandRange = $("#loot-rand-range");
     const $attackSpeedBase = $("#attack-speed-base");
     const $attackSpeedBonusMin = $("#attack-speed-bonus-min");
     const $attackSpeedBonusMax = $("#attack-speed-bonus-max");
@@ -24,7 +23,8 @@ $(function () {
     const $affixRarityScale = $("#affix-rarity-scale");
     const $flatDamagePower = $("#flat-damage-power");
     const $flatDamageMin = $("#flat-damage-min");
-    const $affixMinRatio = $("#affix-min-ratio");
+    const $flatDamageMedian = $("#flat-damage-median");
+    const $flatDamageFormulaDisplay = $("#flat-damage-formula-display");
     const $affixCap = $("#affix-cap");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
     const $attrPerLevelFactor = $("#attr-per-level-factor"); 
@@ -58,7 +58,6 @@ $(function () {
 
     migrateScalarKey("base_damage_power_progression", "flat_damage_power_progression");
     migrateScalarKey("base_damage_min", "flat_damage_min");
-    migrateScalarKey("base_damage_scale", "flat_damage_scale");
     migrateScalarKey("base_damage_jitter_pct", "flat_damage_jitter_pct");
     migrateScalarKey("base_damage_types_per_item_min", "flat_damage_types_per_item_min");
     migrateScalarKey("base_damage_types_per_item_max", "flat_damage_types_per_item_max");
@@ -1384,7 +1383,6 @@ $(function () {
     $unarmedPhysicalDamage.val(state.unarmed_physical_damage);
     $basePhysicalResistance.val(state.base_physical_resistance);
     $generatePercent.val(state.generate_percent);
-    $lootRandRange.val(state.loot_rand_range);
     $attackSpeedBase.val(state.attack_speed_base);
     $attackSpeedBonusMin.val(state.attack_speed_bonus_min ?? 10);
     $attackSpeedBonusMax.val(state.attack_speed_bonus_max ?? 20);
@@ -1392,9 +1390,19 @@ $(function () {
     $attackSpeedAffixRarityScale.val(state.attack_speed_affix_rarity_scale ?? 0.1);
     $attackSpeedCap.val(state.attack_speed_cap ?? 0);
     $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
-    $flatDamagePower.val(state.flat_damage_power_progression ?? 2);
+    if (typeof state.flat_damage_formula_progression === "undefined") {
+        state.flat_damage_formula_progression = "dmg = flat_damage_min + (flat_damage_median_at_max_level - flat_damage_min) * ((current_level - 1) / max(1, levels - 1))^flat_damage_power_progression";
+    }
+    if (typeof state.flat_damage_median_at_max_level === "undefined") {
+        state.flat_damage_median_at_max_level = 100;
+    }
+    if (typeof state.flat_damage_power_progression === "undefined") {
+        state.flat_damage_power_progression = 2;
+    }
+    $flatDamagePower.val(state.flat_damage_power_progression);
     $flatDamageMin.val(state.flat_damage_min ?? 2);
-    $affixMinRatio.val(state.affix_min_ratio ?? 0.6);
+    $flatDamageMedian.val(state.flat_damage_median_at_max_level);
+    updateFlatDamageFormulaDisplay();
     $affixCap.val(state.affix_cap);
     $attrPerLevelFactor.val(state.attr_per_level_factor);
     $rarityWeightGrowth.val(state.rarity_weight_growth);
@@ -1504,14 +1512,6 @@ $(function () {
         }
     });
 
-    $lootRandRange.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.loot_rand_range = value;
-            renderPreview();
-        }
-    });
-
     $attackSpeedBase.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
@@ -1564,12 +1564,19 @@ $(function () {
         }
     });
 
+    function updateFlatDamageFormulaDisplay() {
+        $flatDamageFormulaDisplay.text(state.flat_damage_formula_progression || "");
+    }
+
+    const setFlatDamagePower = (value) => {
+        if (Number.isNaN(value)) return;
+        state.flat_damage_power_progression = value;
+        $flatDamagePower.val(value);
+        renderPreview();
+    };
+
     $flatDamagePower.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.flat_damage_power_progression = value;
-            renderPreview();
-        }
+        setFlatDamagePower(parseFloat($(this).val()));
     });
 
     $flatDamageMin.on("input", function () {
@@ -1580,10 +1587,10 @@ $(function () {
         }
     });
 
-    $affixMinRatio.on("input", function () {
+    $flatDamageMedian.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.affix_min_ratio = value;
+            state.flat_damage_median_at_max_level = value;
             renderPreview();
         }
     });

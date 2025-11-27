@@ -86,6 +86,8 @@ p {
   font-weight: 800;
   letter-spacing: 0.3px;
   cursor: pointer;
+      color: #4c4c83;
+
 }
 
 .form-section[open]>summary.section-title {
@@ -138,6 +140,25 @@ p {
   margin-bottom: 6px;
   font-weight: 600;
   letter-spacing: 0.2px;
+}
+
+.formula-row {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 10px;
+  align-items: center;
+}
+
+.formula-display {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.18);
+  background: rgba(15, 23, 42, 0.55);
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  white-space: pre-wrap;
 }
 
 .field input[type="number"],

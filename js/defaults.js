@@ -25,7 +25,6 @@ const state = {
     level_time_multiplier: 1,
     rarity_growth_factor: 1,
     generate_percent: 15,
-    loot_rand_range: 2,
     unarmed_physical_damage: 1,
     base_physical_resistance: 0,
     attack_speed_base: 1.6,
@@ -43,11 +42,11 @@ const state = {
     damage_types_total_limit: 2,
     // scaling knobs (exposed in UI)
     // Loot scaling knobs
-    flat_damage_power_progression: 2, // exponent for flat dmg per level (lvl^power)
+    flat_damage_power_progression: 1.8, // exponent for flat dmg per level (lvl^power)
     flat_damage_min: 2, // floor to guarantee lvl 1 >= 2
-    flat_damage_scale: 1, // global scalar for flat dmg progression
+    flat_damage_median_at_max_level: 100,
+    flat_damage_formula_progression: "dmg = flat_damage_min + (flat_damage_median_at_max_level - flat_damage_min) * ((current_level - 1) / max(1, levels - 1))^flat_damage_power_progression",
     flat_damage_jitter_pct: 0.1, // +/- jitter applied around median (0.1 = ±10%)
-    affix_min_ratio: 0.55,
     affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on flat dmg
     affix_growth_headroom: 5, // how many extra affixes unlock from lvl 1 to max
     rarity_weight_growth: 0.05,
