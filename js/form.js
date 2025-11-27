@@ -24,7 +24,9 @@ $(function () {
     const $flatDamagePower = $("#flat-damage-power");
     const $flatDamageMin = $("#flat-damage-min");
     const $flatDamageMedian = $("#flat-damage-median");
+    const $flatDamageJitter = $("#flat-damage-jitter");
     const $flatDamageFormulaDisplay = $("#flat-damage-formula-display");
+    const $flatDamageSlotsAuto = $("#flat-damage-slots-auto");
     const $flatDamageChart = $("#flat-damage-chart");
     const $affixCap = $("#affix-cap");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
@@ -80,6 +82,43 @@ $(function () {
     }
     if (Array.isArray(state.items)) {
         state.items = state.items.map(migrateDamageValue);
+        state.items = state.items.map((item) => {
+            const updated = { ...item };
+            if (Object.prototype.hasOwnProperty.call(updated, "source_damage_slots") && typeof updated.flat_damage_sources === "undefined") {
+                updated.flat_damage_sources = updated.source_damage_slots;
+            }
+            delete updated.source_damage_slots;
+            if (Object.prototype.hasOwnProperty.call(updated, "modifier") && typeof updated.damage_modifier === "undefined") {
+                updated.damage_modifier = updated.modifier;
+            }
+            delete updated.modifier;
+            delete updated.flat_damage;
+            delete updated.resist_affix_min_chance;
+            delete updated.default_damage_resistance_factor;
+            if (typeof updated.flat_damage_sources_multi_chance === "undefined" && (updated.flat_damage_sources || 0) > 1) {
+                updated.flat_damage_sources_multi_chance = 0.9;
+            }
+            return updated;
+        });
+    }
+
+    if (Array.isArray(state.equipment_slots)) {
+        state.equipment_slots = state.equipment_slots.map((slot) => {
+            const name = slot?.name || "";
+            const defaultFlat = typeof slot.allow_flat_damage !== "undefined"
+                ? slot.allow_flat_damage
+                : name.toLowerCase().includes("weapon");
+            return {
+                allow_flat_damage: defaultFlat,
+                allow_damage_mod: typeof slot.allow_damage_mod === "undefined" ? true : slot.allow_damage_mod,
+                allow_attack_speed: typeof slot.allow_attack_speed === "undefined" ? true : slot.allow_attack_speed,
+                allow_resist: typeof slot.allow_resist === "undefined" ? true : slot.allow_resist,
+                ...slot
+            };
+        });
+    }
+    if (typeof state.flat_damage_equipement_slots_auto === "undefined") {
+        state.flat_damage_equipement_slots_auto = (state.equipment_slots || []).filter((slot) => slot.allow_flat_damage !== false).length;
     }
 
     function openDamageForm() {
@@ -459,6 +498,32 @@ $(function () {
 
         const $name = $('<input type="text" placeholder="Name">').css(fieldStyle);
         const $pos = $('<input type="number" placeholder="Position (order)" step="1" min="1">').css(fieldStyle);
+        const checkboxStyle = {
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            background: "rgba(15,23,42,0.7)",
+            border: "1px solid rgba(226,232,240,0.2)",
+            borderRadius: "8px",
+            padding: "8px 10px",
+            color: "#e2e8f0"
+        };
+        const $allowFlat = $('<label></label>').css(checkboxStyle).append(
+            $('<input type="checkbox">').css({ accentColor: "#38bdf8" }),
+            $("<span>Allow Flat dmg</span>")
+        );
+        const $allowMod = $('<label></label>').css(checkboxStyle).append(
+            $('<input type="checkbox" checked>').css({ accentColor: "#38bdf8" }),
+            $("<span>Allow dmg mod</span>")
+        );
+        const $allowAS = $('<label></label>').css(checkboxStyle).append(
+            $('<input type="checkbox" checked>').css({ accentColor: "#38bdf8" }),
+            $("<span>Allow AS</span>")
+        );
+        const $allowResist = $('<label></label>').css(checkboxStyle).append(
+            $('<input type="checkbox" checked>').css({ accentColor: "#38bdf8" }),
+            $("<span>Allow Resist</span>")
+        );
 
         const $actions = $('<div class="actions"></div>').css({
             display: "flex",
@@ -502,14 +567,21 @@ $(function () {
                 return;
             }
             state.equipment_slots = state.equipment_slots || [];
-            state.equipment_slots.push({ name, position: posVal });
+            state.equipment_slots.push({
+                name,
+                position: posVal,
+                allow_flat_damage: $allowFlat.find("input").prop("checked"),
+                allow_damage_mod: $allowMod.find("input").prop("checked"),
+                allow_attack_speed: $allowAS.find("input").prop("checked"),
+                allow_resist: $allowResist.find("input").prop("checked")
+            });
             renderTags("equipment_slots");
             renderPreview();
             $overlay.remove();
         });
 
         $actions.append($cancel, $submit);
-        $form.append($name, $pos, $actions);
+        $form.append($name, $pos, $allowFlat, $allowMod, $allowAS, $allowResist, $actions);
         $modal.append($title, $form);
         $overlay.append($modal);
         $("body").append($overlay);
@@ -541,6 +613,10 @@ $(function () {
             fontSize: "18px"
         });
         const $pos = $(`<p><strong>Position:</strong> ${slot.position ?? "-"}</p>`).css({ margin: "0 0 12px" });
+        const $allowFlat = $(`<p><strong>Allow Flat dmg:</strong> ${slot.allow_flat_damage ? "Yes" : "No"}</p>`).css({ margin: "0 0 6px" });
+        const $allowMod = $(`<p><strong>Allow dmg mod:</strong> ${slot.allow_damage_mod ? "Yes" : "No"}</p>`).css({ margin: "0 0 6px" });
+        const $allowAS = $(`<p><strong>Allow AS:</strong> ${slot.allow_attack_speed ? "Yes" : "No"}</p>`).css({ margin: "0 0 6px" });
+        const $allowRes = $(`<p><strong>Allow Resist:</strong> ${slot.allow_resist ? "Yes" : "No"}</p>`).css({ margin: "0 0 12px" });
 
         const $close = $('<button type="button">Close</button>').css({
             padding: "8px 12px",
@@ -554,7 +630,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $pos, $close);
+        $modal.append($title, $pos, $allowFlat, $allowMod, $allowAS, $allowRes, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
@@ -866,11 +942,9 @@ $(function () {
 
         const $size = $('<input type="number" placeholder="Size (grid cells)" step="1" min="1">').css(fieldStyle);
         const $affixMax = $('<input type="number" placeholder="Affix max" step="1" min="1">').css(fieldStyle);
-        const $sourceDamageSlots = $('<input type="number" placeholder="Damage sources (count)" step="1" min="0">').css(fieldStyle);
-        const $flatDamage = $('<input type="number" placeholder="Flat damage (points)" step="1" min="0">').css(fieldStyle);
-        const $resChance = $('<input type="number" placeholder="Resist min chance (0-1)" step="0.01" min="0" max="1">').css(fieldStyle);
-        const $defaultResFactor = $('<input type="number" placeholder="Default Damage Resistance Factor" step="0.1" min="0">').css(fieldStyle);
-        const $modifierWrap = $('<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="modifier-flag" checked> Modifier (%)</label>');
+        const $sourceDamageSlots = $('<input type="number" placeholder="Flat dmg sources (count)" step="1" min="0">').css(fieldStyle);
+        const $sourceMulti = $('<input type="number" placeholder="Chance of multiple sources (0-1)" step="0.01" min="0" max="1">').css(fieldStyle);
+        const $modifierWrap = $('<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="modifier-flag" checked> Damage modifier (%)</label>');
 
         const dmgTypes = (state.damage_types || []).map((d) => d.name);
         const $typesContainer = $('<div class="tag-list"></div>').css({ gap: "6px", flexWrap: "wrap" });
@@ -886,14 +960,6 @@ $(function () {
             $lbl.append($cb, $txt);
             $typesContainer.append($lbl);
         });
-
-        function toggleFlatDamage() {
-            const count = parseInt($sourceDamageSlots.val(), 10);
-            const on = !Number.isNaN(count) && count > 0;
-            $flatDamage.prop("disabled", !on);
-        }
-        toggleFlatDamage();
-        $sourceDamageSlots.on("input", toggleFlatDamage);
 
         const $actions = $('<div class="actions"></div>').css({
             display: "flex",
@@ -930,26 +996,16 @@ $(function () {
             const size = parseInt($size.val(), 10);
             const affixMax = parseInt($affixMax.val(), 10);
             const sourceDamageSlots = parseInt($sourceDamageSlots.val(), 10);
-            const flatDamageVal = parseInt($flatDamage.val(), 10);
+            const sourceMulti = parseFloat($sourceMulti.val());
             const modifierFlag = $modifierWrap.find("input").is(":checked");
             const typeList = Array.from(selectedTypes);
-            const resChanceVal = parseFloat($resChance.val());
-            const defaultResFactorVal = parseFloat($defaultResFactor.val());
 
             if (!name || !slot || Number.isNaN(size) || size < 1 || Number.isNaN(affixMax) || affixMax < 1) {
                 alert("Please fill every field correctly (size/affix max >= 1 and select a slot).");
                 return;
             }
-            if (!Number.isNaN(sourceDamageSlots) && sourceDamageSlots > 0 && (Number.isNaN(flatDamageVal) || flatDamageVal < 0)) {
-                alert("Flat damage must be >= 0 when damage sources > 0.");
-                return;
-            }
             if (typeList.length === 0) {
                 alert("Select at least one damage type.");
-                return;
-            }
-            if (Number.isNaN(defaultResFactorVal) || defaultResFactorVal < 0) {
-                alert("Default damage resistance factor must be >= 0.");
                 return;
             }
 
@@ -964,12 +1020,10 @@ $(function () {
                 equipment_slot: slot,
                 size,
                 affix_max: affixMax,
-                source_damage_slots: Number.isNaN(sourceDamageSlots) ? 0 : sourceDamageSlots,
-                flat_damage: (!Number.isNaN(sourceDamageSlots) && sourceDamageSlots > 0) ? flatDamageVal : 0,
-                modifier: modifierFlag,
-                damage_types: typeList,
-                ...(Number.isNaN(resChanceVal) ? {} : { resist_affix_min_chance: resChanceVal }),
-                default_damage_resistance_factor: defaultResFactorVal
+                flat_damage_sources: Number.isNaN(sourceDamageSlots) ? 0 : sourceDamageSlots,
+                ...(Number.isNaN(sourceMulti) ? {} : { flat_damage_sources_multi_chance: sourceMulti }),
+                damage_modifier: modifierFlag,
+                damage_types: typeList
             });
 
             renderTags("items");
@@ -978,7 +1032,7 @@ $(function () {
         });
 
         $actions.append($cancel, $submit);
-        $form.append($name, $slot, $size, $affixMax, $sourceDamageSlots, $flatDamage, $resChance, $defaultResFactor, $modifierWrap, $typesContainer, $actions);
+        $form.append($name, $slot, $size, $affixMax, $sourceDamageSlots, $sourceMulti, $modifierWrap, $typesContainer, $actions);
         $modal.append($title, $form);
         $overlay.append($modal);
         $("body").append($overlay);
@@ -1012,13 +1066,11 @@ $(function () {
 
         const $slot = $(`<p><strong>Slot:</strong> ${item.equipment_slot}</p>`).css({ margin: "0 0 8px" });
         const $size = $(`<p><strong>Size:</strong> ${item.size}</p>`).css({ margin: "0 0 14px" });
-        const $source = $(`<p><strong>Damage sources:</strong> ${item.source_damage_slots ?? 0}</p>`).css({ margin: "0 0 8px" });
-        const $base = $(`<p><strong>Flat damage:</strong> ${item.flat_damage ?? item.base_damage ?? 0}</p>`).css({ margin: "0 0 8px" });
-        const $mod = $(`<p><strong>Modifier:</strong> ${item.modifier ? "Yes" : "No"}</p>`).css({ margin: "0 0 8px" });
-        const $drf = $(`<p><strong>Default Damage Resistance Factor:</strong> ${item.default_damage_resistance_factor ?? 0}</p>`).css({ margin: "0 0 8px" });
+        const $source = $(`<p><strong>Flat dmg sources:</strong> ${item.flat_damage_sources ?? 0}</p>`).css({ margin: "0 0 8px" });
+        const $sourceMulti = $(`<p><strong>Multi-source chance:</strong> ${typeof item.flat_damage_sources_multi_chance !== "undefined" ? item.flat_damage_sources_multi_chance : "-"}</p>`).css({ margin: "0 0 8px" });
+        const $mod = $(`<p><strong>Dmg mod:</strong> ${item.damage_modifier ? "Yes" : "No"}</p>`).css({ margin: "0 0 8px" });
         const typeList = (item.damage_types && item.damage_types.length) ? item.damage_types.join(", ") : "-";
         const $types = $(`<p><strong>Damage types:</strong> ${typeList}</p>`).css({ margin: "0 0 14px" });
-        const $resChance = $(`<p><strong>Resist min chance:</strong> ${item.resist_affix_min_chance ?? "-"}</p>`).css({ margin: "0 0 14px" });
 
         const $close = $('<button type="button">Close</button>').css({
             padding: "8px 12px",
@@ -1032,7 +1084,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $slot, $size, $source, $base, $mod, $drf, $types, $resChance, $close);
+        $modal.append($title, $slot, $size, $source, $sourceMulti, $mod, $types, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
@@ -1244,13 +1296,13 @@ $(function () {
                 ? `${value.name}${value.default_damage_type ? " [default]" : ""}${value.is_over_time ? " (over time)" : ""}${value.attribute ? ` | ${value.attribute}${value.attribute_modifier ? ` x${value.attribute_modifier}` : ""}` : ""}`
                 : key === "categories"
                     ? value.name
-                    : key === "items"
+                : key === "items"
+                    ? value.name
+                    : key === "skills"
                         ? value.name
-                        : key === "skills"
-                            ? value.name
-                            : key === "equipment_slots"
-                                ? `${value.name} (pos ${value.position ?? "-"})`
-                                : value;
+                : key === "equipment_slots"
+                    ? value.name
+                    : value;
             const $tag = $('<span class="tag"></span>').attr("data-index", index);
             if (key === "damage_types" && value.color) {
                 $tag.css({ borderColor: value.color, color: value.color });
@@ -1392,17 +1444,19 @@ $(function () {
     $attackSpeedCap.val(state.attack_speed_cap ?? 0);
     $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
     if (typeof state.flat_damage_formula_progression === "undefined") {
-        state.flat_damage_formula_progression = "dmg = flat_damage_min + (flat_damage_median_at_max_level - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression";
+        state.flat_damage_formula_progression = "dmg = flat_damage_min + (flat_damage_max - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression";
     }
-    if (typeof state.flat_damage_median_at_max_level === "undefined") {
-        state.flat_damage_median_at_max_level = 100;
+    if (typeof state.flat_damage_max === "undefined") {
+        state.flat_damage_max = 100;
     }
     if (typeof state.flat_damage_power_progression === "undefined") {
         state.flat_damage_power_progression = 2;
     }
     $flatDamagePower.val(state.flat_damage_power_progression);
     $flatDamageMin.val(state.flat_damage_min ?? 2);
-    $flatDamageMedian.val(state.flat_damage_median_at_max_level);
+    $flatDamageMedian.val(state.flat_damage_max);
+    $flatDamageJitter.val(state.flat_damage_jitter_pct ?? 0.2);
+    $flatDamageSlotsAuto.val(state.flat_damage_equipement_slots_auto ?? 0);
     updateFlatDamageFormulaDisplay();
     renderFlatDamageChart();
     $affixCap.val(state.affix_cap);
@@ -1584,19 +1638,25 @@ $(function () {
         const lvlMax = Math.max(1, parseInt(state.levels, 10) || 1);
         const lvlCount = Math.max(2, lvlMax);
         const dmgMin = Number(state.flat_damage_min ?? 0);
-        const dmgMax = Number(state.flat_damage_median_at_max_level ?? dmgMin);
+        const dmgMax = Number(state.flat_damage_max ?? dmgMin);
         const power = Number(state.flat_damage_power_progression ?? 1);
+        const jitter = Math.max(0, Number(state.flat_damage_jitter_pct ?? 0));
 
         const points = [];
+        const jitterPoints = [];
         for (let lvl = 1; lvl <= lvlCount; lvl += 1) {
             const tRaw = (lvl - 1) / Math.max(1, lvlCount - 1);
             const t = Math.min(1, Math.max(0, tRaw));
             const dmg = dmgMin + (dmgMax - dmgMin) * Math.pow(t, power);
             points.push({ lvl, dmg });
+            const j = dmg * jitter;
+            jitterPoints.push({ lvl, dmgLow: dmg - j, dmgHigh: dmg + j });
         }
 
-        const yMinRaw = Math.min(...points.map((p) => p.dmg));
-        const yMaxRaw = Math.max(...points.map((p) => p.dmg));
+        const jitterLows = jitterPoints.map((p) => p.dmgLow);
+        const jitterHighs = jitterPoints.map((p) => p.dmgHigh);
+        const yMinRaw = Math.min(...points.map((p) => p.dmg), ...jitterLows);
+        const yMaxRaw = Math.max(...points.map((p) => p.dmg), ...jitterHighs);
         const yPadding = Math.max(1, (yMaxRaw - yMinRaw) * 0.1);
         const yMin = yMinRaw - yPadding;
         const yMax = yMaxRaw + yPadding;
@@ -1632,6 +1692,27 @@ $(function () {
         });
         ctx.stroke();
 
+        // jitter band (red)
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        jitterPoints.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.dmgHigh - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        jitterPoints.slice().reverse().forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.dmgLow - yMin) * yScale;
+            if (idx === 0) ctx.lineTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = "rgba(239, 68, 68, 0.12)";
+        ctx.fill();
+        ctx.stroke();
+
         // dots
         ctx.fillStyle = "#f8fafc";
         points.forEach((p) => {
@@ -1641,6 +1722,12 @@ $(function () {
             ctx.arc(x, y, 2.5, 0, Math.PI * 2);
             ctx.fill();
         });
+
+        const allowed = (state.equipment_slots || []).filter((slot) => slot.allow_flat_damage !== false).length;
+        state.flat_damage_equipement_slots_auto = allowed;
+        if ($flatDamageSlotsAuto.length) {
+            $flatDamageSlotsAuto.val(allowed);
+        }
     }
 
     const setFlatDamagePower = (value) => {
@@ -1667,7 +1754,16 @@ $(function () {
     $flatDamageMedian.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.flat_damage_median_at_max_level = value;
+            state.flat_damage_max = value;
+            renderFlatDamageChart();
+            renderPreview();
+        }
+    });
+
+    $flatDamageJitter.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.flat_damage_jitter_pct = value;
             renderFlatDamageChart();
             renderPreview();
         }

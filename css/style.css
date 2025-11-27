@@ -92,6 +92,38 @@ p {
 
 }
 
+.form-section-xp-config {
+  background-color: #2e183d;
+
+}
+
+.notice {
+  color: #78ef82;
+  background-color: #113b18;
+  padding: 20px;
+  border-radius: 10px;
+
+
+}
+
+a {
+  color: #38bdf8;
+}
+
+.form-section-build-config {
+  background-color: #071433;
+
+}
+
+.form-section-bases {
+  background-color: #483b51;
+
+}
+
+.field {
+  margin-top: 30px;
+}
+
 .form-section[open]>summary.section-title {
   margin-bottom: 8px;
 }
@@ -162,6 +194,7 @@ p {
   align-items: center;
   white-space: pre-wrap;
 }
+
 
 #flat-damage-chart {
   width: 100%;

@@ -35,7 +35,6 @@ const state = {
     attack_speed_cap: 3.5, // clamp final attack speed after bonuses (0/null to disable)
     affix_rarity_scale: 0.08, // scales affix min/max with category rarity
     common_decay: 0.08, // exponential decay applied to categories unlocked at level 1
-    resist_affix_min_chance: 0.25,
     flat_damage_types_per_item_min: 1,
     flat_damage_types_per_item_max: 2,
     damage_affix_types_limit: 1,
@@ -44,9 +43,10 @@ const state = {
     // Loot scaling knobs
     flat_damage_power_progression: 1.8, // exponent for flat dmg per level (lvl^power)
     flat_damage_min: 2, // floor to guarantee lvl 1 >= 2
-    flat_damage_median_at_max_level: 100,
-    flat_damage_formula_progression: "dmg = flat_damage_min + (flat_damage_median_at_max_level - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression",
-    flat_damage_jitter_pct: 0.1, // +/- jitter applied around median (0.1 = ±10%)
+    flat_damage_max: 500,
+    flat_damage_formula_progression: "dmg = (flat_damage_min + (flat_damage_max - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression) / flat_damage_equipement_slots_auto",
+    flat_damage_jitter_pct: 0.2, // +/- jitter applied around median (0.2 = ±20%)
+    flat_damage_equipement_slots_auto: 2,
     affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on flat dmg
     affix_growth_headroom: 5, // how many extra affixes unlock from lvl 1 to max
     rarity_weight_growth: 0.05,
@@ -79,13 +79,13 @@ const state = {
     rarity_unlock_window: 10,
     rarity_sigmoid_k: 0.4,
     equipment_slots: [
-        { name: "head", position: 1 },
-        { name: "torso", position: 2 },
-        { name: "weapon_right", position: 3 },
-        { name: "weapon_left", position: 4 },
-        { name: "hands", position: 5 },
-        { name: "belt", position: 6 },
-        { name: "boots", position: 7 }
+        { name: "head", position: 1, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "torso", position: 2, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "weapon_right", position: 3, allow_flat_damage: true, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "weapon_left", position: 4, allow_flat_damage: true, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "hands", position: 5, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "belt", position: 6, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "boots", position: 7, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true }
     ],
     damage_types: [
         {
@@ -95,7 +95,6 @@ const state = {
             "ranges": [
                 [0, 100, 0.5]
             ],
-            "flat_damage": 200,
             "color": "#d4d4d4",
             "attribute": "force",
             "attribute_modifier": 0.02
@@ -105,7 +104,6 @@ const state = {
             "default_damage_type": false,
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
-            "flat_damage": 200,
             "color": "#f97316",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
@@ -115,7 +113,6 @@ const state = {
             "default_damage_type": false,
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
-            "flat_damage": 200,
             "color": "#38bdf8",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
@@ -125,7 +122,6 @@ const state = {
             "default_damage_type": false,
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
-            "flat_damage": 200,
             "color": "#a855f7",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
@@ -135,7 +131,6 @@ const state = {
             "default_damage_type": false,
             "is_over_time": true,
             "ranges": [[0, 100, 0.5]],
-            "flat_damage": 200,
             "color": "#22c55e",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
@@ -145,7 +140,6 @@ const state = {
             "default_damage_type": false,
             "is_over_time": false,
             "ranges": [[0, 100, 0.5]],
-            "flat_damage": 200,
             "color": "#eab308",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
@@ -155,7 +149,6 @@ const state = {
             "default_damage_type": false,
             "is_over_time": true,
             "ranges": [[0, 100, 0.5]],
-            "flat_damage": 200,
             "color": "#fb7185",
             "attribute": "intelligence",
             "attribute_modifier": 0.02
@@ -221,180 +214,138 @@ const state = {
             "equipment_slot": "weapon_right",
             "size": 3, // nb of grid boxes
             "affix_max": 6,
-            "source_damage_slots": 1,
-            "flat_damage": 3,
-            "modifier": true,
-            "default_damage_resistance_factor": 0,
+            "flat_damage_sources": 1,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.15
         },
         {
             "name": "iron helm",
             "equipment_slot": "head",
             "size": 2,
             "affix_max": 3,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 1,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.5
         },
         {
             "name": "mage hood",
             "equipment_slot": "head",
             "size": 1,
             "affix_max": 3,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 1,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.5
         },
         {
             "name": "chainmail",
             "equipment_slot": "torso",
             "size": 4,
             "affix_max": 4,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 1,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.6
         },
         {
             "name": "leather armor",
             "equipment_slot": "torso",
             "size": 3,
             "affix_max": 3,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 1,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.6
         },
         {
             "name": "longsword",
             "equipment_slot": "weapon_right",
             "size": 3,
             "affix_max": 6,
-            "source_damage_slots": 1,
-            "flat_damage": 4,
-            "modifier": true,
-            "default_damage_resistance_factor": 0,
+            "flat_damage_sources": 1,
+            "flat_damage_sources_multi_chance": 0.9,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.15
         },
         {
             "name": "dagger",
             "equipment_slot": "weapon_right",
             "size": 1,
             "affix_max": 3,
-            "source_damage_slots": 1,
-            "flat_damage": 2,
-            "modifier": true,
-            "default_damage_resistance_factor": 0,
+            "flat_damage_sources": 1,
+            "flat_damage_sources_multi_chance": 0.9,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.15
         },
         {
             "name": "wooden shield",
             "equipment_slot": "weapon_left",
             "size": 2,
             "affix_max": 3,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 1,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.6
         },
         {
             "name": "spell tome",
             "equipment_slot": "weapon_left",
             "size": 2,
             "affix_max": 3,
-            "source_damage_slots": 1,
-            "flat_damage": 3,
-            "modifier": true,
-            "default_damage_resistance_factor": 0,
+            "flat_damage_sources": 1,
+            "flat_damage_sources_multi_chance": 0.9,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.25
         },
         {
             "name": "steel gauntlets",
             "equipment_slot": "hands",
             "size": 2,
             "affix_max": 3,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 1,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.45
         },
         {
             "name": "leather gloves",
             "equipment_slot": "hands",
             "size": 1,
             "affix_max": 2,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 1,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.45
         },
         {
             "name": "utility belt",
             "equipment_slot": "belt",
             "size": 2,
             "affix_max": 2,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 1,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.5
         },
         {
             "name": "potion bandolier",
             "equipment_slot": "belt",
             "size": 2,
             "affix_max": 2,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 1,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.5
         },
         {
             "name": "leather boots",
             "equipment_slot": "boots",
             "size": 2,
             "affix_max": 2,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 0.2,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.5
         },
         {
             "name": "steel greaves",
             "equipment_slot": "boots",
             "size": 3,
             "affix_max": 3,
-            "source_damage_slots": 0,
-            "flat_damage": 0,
-            "modifier": true,
-            "default_damage_resistance_factor": 0.2,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
-            "resist_affix_min_chance": 0.5
         }
 
     ],

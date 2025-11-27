@@ -15,12 +15,78 @@
 
 <body>
   <main class="page">
-    <h1>Fromage LootGen PerBuild</h1>
-    <p>This will generate a loot progression for one build only. Default is like basic fighter. </p>
+    <h1>Secret Sauce LootGen</h1>
+    <div style="text-align: center;">ARPG progression generator by <a href="https://chien-games.itch.io/"
+        target="_blank">Charles Torris</a>. Press compute to generate loot and build simulation.
+    </div>
     <button id="compute-btn-top" type="button" class="compute-btn">Compute</button>
 
     <form id="config-form" class="config-form" autocomplete="off">
-      <details class="form-section" open>
+      <details class="form-section form-section-build-config" open>
+        <summary class="section-title">Build Configuration</summary>
+        <div class="field">
+          <label title="Slots available for items; affects which items can be rolled and equipped.">Equipment
+            slots</label>
+          <div class="tag-list" data-tags="equipment_slots"></div>
+          <div class="tag-input">
+            <button type="button" data-target="equipment_slots">Add</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label title="Damage and resistance types used for affixes and scaling.">Damage/resistances types</label>
+          <div class="tag-list" data-tags="damage_types"></div>
+          <div class="tag-input">
+            <button type="button" data-target="damage_types">Add</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label title="Rarity categories with unlock levels and affix counts.">Categories</label>
+          <div class="tag-list" data-tags="categories"></div>
+          <div class="tag-input">
+            <button type="button" data-target="categories">Add</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label title="Item definitions (slot, size, affix cap, damage source flags).">Items</label>
+          <div class="tag-list" data-tags="items"></div>
+          <div class="tag-input">
+            <button type="button" data-target="items">Add</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label title="Skills available for the build; used for display only here.">Skills</label>
+          <div class="tag-list" data-tags="skills"></div>
+          <div class="tag-input">
+            <button type="button" data-target="skills">Add</button>
+          </div>
+        </div>
+      </details>
+
+
+      <details class="form-section form-section-xp-config" open>
+        <summary class="section-title">XP Configuration</summary>
+        <div class="field-grid">
+          <div class="field">
+            <label for="xp-base" title="Base XP needed at level 1 before growth and multiplier.">XP base per
+              level</label>
+            <input type="number" id="xp-base" name="xp_base" min="1" step="1">
+          </div>
+          <div class="field">
+            <label for="xp-growth"
+              title="Exponent applied to level for XP requirement; >1 increases curve steepness.">XP growth</label>
+            <input type="number" id="xp-growth" name="xp_growth" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label for="xp-multiplier" title="Global multiplier on XP required per level.">XP multiplier</label>
+            <input type="number" id="xp-multiplier" name="xp_multiplier" min="0" step="0.1">
+          </div>
+        </div>
+      </details>
+      <details class="form-section form-section-bases" open>
         <summary class="section-title">Bases</summary>
         <div class="field-grid">
           <div class="field">
@@ -89,7 +155,7 @@
         </div>
       </details>
 
-      <details class="form-section" open>
+      <details class="form-section form-section-time-loot" open style="background-color: #2e2e39;">
         <summary class="section-title">Time & Loot Quantity Progression</summary>
         <div class="field-grid inline-four">
           <div class="field">
@@ -100,7 +166,8 @@
           </div>
           <div class="field">
             <label for="median-time-per-loot"
-              title="Average seconds to obtain one loot; lower = more drops per level.">Median time per loot (s)</label>
+              title="Average seconds to obtain one loot; lower = more drops per level.">Median time per loot
+              (s)</label>
             <input type="number" id="median-time-per-loot" name="median_time_per_loot" min="1" step="1">
           </div>
           <div class="field">
@@ -132,7 +199,8 @@
 
           <div class="field">
             <label for="rarity-weight-growth"
-              title="Adds weight to higher rarities per level; affects loot distribution.">Rarity weight growth</label>
+              title="Adds weight to higher rarities per level; affects loot distribution.">Rarity weight
+              growth</label>
             <input type="number" id="rarity-weight-growth" name="rarity_weight_growth" min="0" step="0.001">
           </div>
 
@@ -144,7 +212,7 @@
         </div>
       </details>
 
-      <details class="form-section" open style="background-color: #245528;">
+      <details class="form-section form-section-base-stats" open style="background-color: #245528;">
         <summary class="section-title">Base Stat Progression</summary>
         <div class="field-grid">
           <div class="field">
@@ -161,7 +229,8 @@
 
           <div class="field">
             <label for="gain-per-level"
-              title="Flat stat gain per level applied to the selected stat progression model.">Base attributes gain per
+              title="Flat stat gain per level applied to the selected stat progression model.">Base attributes gain
+              per
               level</label>
             <input type="number" id="gain-per-level" name="gain_per_level" min="0" step="0.1">
           </div>
@@ -174,7 +243,7 @@
         </div>
       </details>
 
-      <details class="form-section" open style="background-color: #0f4b3c;">
+      <details class="form-section form-section-attack-speed" open style="background-color: #0f4b3c;">
         <summary class="section-title">Attack Speed Progression</summary>
         <div class="field-grid">
           <div class="field">
@@ -208,7 +277,7 @@
         </div>
       </details>
 
-      <details class="form-section" open style="    background-color: #ab3a11">
+      <details class="form-section form-section-flat-dmg" open style="    background-color: #ab3a11">
         <summary class="section-title">Flat DMG</summary>
         <div class="field-grid">
           <div class="field full-span">
@@ -216,7 +285,11 @@
               dmg formula progression</label>
             <div id="flat-damage-formula-display" class="formula-display"></div>
           </div>
-
+          <div class="field full-span">
+            <div class="notice">Soft power curve that aim target min/max flat damage over the level progression, then
+              divide that total by the number of equipment
+              slots that can carry flat damage.</div>
+          </div>
           <div class="field">
             <label for="flat-damage-min"
               title="Minimum flat damage floor at level 1 (keeps early levels granular).">Flat dmg min (lvl 1
@@ -227,7 +300,7 @@
           <div class="field">
             <label for="flat-damage-median" title="Target flat damage at max level used inside the formula.">Flat dmg
               max (lvl max)</label>
-            <input type="number" id="flat-damage-median" name="flat_damage_median_at_max_level" min="0" step="1">
+            <input type="number" id="flat-damage-median" name="flat_damage_max" min="0" step="1">
           </div>
 
           <div class="field">
@@ -236,86 +309,38 @@
             <input type="number" id="flat-damage-power" name="flat_damage_power_progression" min="0" step="0.1">
           </div>
 
+          <div class="field">
+            <label for="flat-damage-jitter"
+              title="Random jitter applied around the median flat damage (as a percent).">Flat dmg jitter (%)</label>
+            <input type="number" id="flat-damage-jitter" name="flat_damage_jitter_pct" min="0" step="0.01">
+          </div>
+
+          <div class="field">
+            <label for="flat-damage-slots-auto">Slots using flat dmg</label>
+            <input type="number" id="flat-damage-slots-auto" name="flat_damage_equipement_slots_auto" readonly>
+          </div>
+
           <div class="field full-span">
-            <label for="flat-damage-chart" title="Courbe de progression des dégâts plats sur tous les niveaux.">Flat dmg
+            <label for="flat-damage-chart" title="Courbe de progression des dégâts plats sur tous les niveaux.">Flat
+              dmg
               progression curve</label>
             <canvas id="flat-damage-chart" height="240"></canvas>
           </div>
 
         </div>
       </details>
-
-      <details class="form-section" open>
+      <details class="form-section form-section-sim" open>
         <summary class="section-title">Simulation Parameters</summary>
         <div class="field-grid">
           <div class="field">
             <label for="generate-percent"
-              title="Percent of theoretical loot actually rolled each level (sampling rate).">Loot Gen % in Sim</label>
+              title="Percent of theoretical loot actually rolled each level (sampling rate).">Loot Gen % in
+              Sim</label>
             <input type="number" id="generate-percent" name="generate_percent" min="1" max="100" step="1">
           </div>
         </div>
       </details>
 
-      <details class="form-section" open>
-        <summary class="section-title">XP & Damage System Configuration</summary>
-        <div class="field-grid">
-          <div class="field">
-            <label for="xp-base" title="Base XP needed at level 1 before growth and multiplier.">XP base per
-              level</label>
-            <input type="number" id="xp-base" name="xp_base" min="1" step="1">
-          </div>
-          <div class="field">
-            <label for="xp-growth"
-              title="Exponent applied to level for XP requirement; >1 increases curve steepness.">XP growth</label>
-            <input type="number" id="xp-growth" name="xp_growth" min="0" step="0.01">
-          </div>
-          <div class="field">
-            <label for="xp-multiplier" title="Global multiplier on XP required per level.">XP multiplier</label>
-            <input type="number" id="xp-multiplier" name="xp_multiplier" min="0" step="0.1">
-          </div>
-        </div>
-        <div class="field">
-          <label title="Slots available for items; affects which items can be rolled and equipped.">Equipment
-            slots</label>
-          <div class="tag-list" data-tags="equipment_slots"></div>
-          <div class="tag-input">
-            <input type="text" placeholder="Add slot" data-target="equipment_slots">
-            <button type="button" data-target="equipment_slots">Add</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label title="Damage and resistance types used for affixes and scaling.">Damage/resistances types</label>
-          <div class="tag-list" data-tags="damage_types"></div>
-          <div class="tag-input">
-            <button type="button" data-target="damage_types">Add</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label title="Rarity categories with unlock levels and affix counts.">Categories</label>
-          <div class="tag-list" data-tags="categories"></div>
-          <div class="tag-input">
-            <button type="button" data-target="categories">Add</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label title="Item definitions (slot, size, affix cap, damage source flags).">Items</label>
-          <div class="tag-list" data-tags="items"></div>
-          <div class="tag-input">
-            <button type="button" data-target="items">Add</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label title="Skills available for the build; used for display only here.">Skills</label>
-          <div class="tag-list" data-tags="skills"></div>
-          <div class="tag-input">
-            <button type="button" data-target="skills">Add</button>
-          </div>
-        </div>
-      </details>
     </form>
     <button id="compute-btn" type="button" class="compute-btn">Compute</button>
     <pre id="config-preview" class="config-preview"></pre>

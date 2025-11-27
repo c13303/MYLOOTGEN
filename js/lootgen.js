@@ -64,6 +64,7 @@ function compute() {
     const baseAttackSpeed = state.attack_speed_base || 0;
     const baseResists = {};
     if (state.base_physical_resistance) baseResists.Physical = state.base_physical_resistance;
+    const slotRules = new Map((state.equipment_slots || []).map((s) => [s.name, s]));
 
     const results = [];
     const jsonData = [];
@@ -72,6 +73,20 @@ function compute() {
     const pseudoRand = (seed) => {
         const x = Math.sin(seed + runSeed) * 10000;
         return x - Math.floor(x);
+    };
+    const computeFlatDamageForLevel = (lvl) => {
+        const min = Number(state.flat_damage_min ?? 0);
+        const median = Number(state.flat_damage_max ?? min);
+        const power = Number(state.flat_damage_power_progression ?? 1);
+        const denom = Math.max(1, (state.levels || levels) - 1);
+        const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
+        return min + (median - min) * Math.pow(t, power);
+    };
+    const applyJitter = (value, seed) => {
+        const pct = Math.max(0, Number(state.flat_damage_jitter_pct ?? 0));
+        if (pct === 0) return value;
+        const offset = (pseudoRand(seed) * 2 - 1) * pct;
+        return Math.max(0, value * (1 + offset));
     };
     const formatTime = (sec) => {
         const minutes = sec / 60;
@@ -128,6 +143,7 @@ function compute() {
             if (lvl < unlock) return `${cat.name}: 0%`;
             return `${cat.name}: ${Math.round((percents[idx] || 0) * 10) / 10}%`;
         }).join(", ");
+        const baseFlatDmg = computeFlatDamageForLevel(lvl);
         const lootList = [];
         for (let i = 0; i < rolledLootCount; i += 1) {
             const cat = pickCategory(lvl + i + 1, lvl);
@@ -137,8 +153,9 @@ function compute() {
             const item = pickItem(slot, lvl + i + 13);
             const flatMin = state.flat_damage_types_per_item_min ?? 1;
             const flatMax = state.flat_damage_types_per_item_max ?? 2;
-            const sourceSlots = Math.max(0, item.source_damage_slots || 0);
-            const maxSources = sourceSlots > 0 ? Math.max(flatMin, Math.min(flatMax, sourceSlots)) : 0;
+            const sourceSlots = Math.max(0, item.flat_damage_sources || 0);
+            const allowFlat = slotRules.get(slot)?.allow_flat_damage !== false;
+            const maxSources = allowFlat && sourceSlots > 0 ? Math.max(flatMin, Math.min(flatMax, sourceSlots)) : 0;
             const growthRatio = levels > 1 ? (lvl - 1) / (levels - 1) : 0;
             const growthSlots = Math.round(affixHeadroom * growthRatio);
             const baseAffixes = Math.max(0, cat?.attributes ?? 0);
@@ -168,8 +185,10 @@ function compute() {
                 const type = pickType((lvl + i + 101 + s) * (s + 1));
                 if (usedDamageTypes.has(type)) continue;
                 usedDamageTypes.add(type);
-                baseAdds[type] = 0;
-                bonuses.push(`+0 ${type} flat dmg`);
+                const roll = applyJitter(baseFlatDmg, (lvl + i + 101 + s) * 11);
+                const rolledValue = Math.round(roll);
+                baseAdds[type] = rolledValue;
+                bonuses.push(`+${rolledValue} ${type} flat dmg`);
             }
 
             // affix slots (mod/res/AS) up to affixLimit
@@ -179,7 +198,7 @@ function compute() {
                 if (cat?.allow_attack_speed_mod && roll > 0.85 && !bonuses.includes("+0% Attack Speed")) {
                     atkBonus = 0;
                     bonuses.push("+0% Attack Speed");
-                } else if (item.modifier !== false && roll > 0.35) {
+                } else if (item.damage_modifier !== false && roll > 0.35) {
                     const type = pickType((lvl + i + a * 23) * 1.3);
                     const key = type;
                     if (!dmgMods[key]) dmgMods[key] = 0;
@@ -204,6 +223,10 @@ function compute() {
                 atkBonus
             });
         }
+
+        const lootFlatValues = lootList.flatMap((l) => Object.values(l.baseAdds || {}));
+        const flatMinVal = lootFlatValues.length ? Math.min(...lootFlatValues) : 0;
+        const flatMaxVal = lootFlatValues.length ? Math.max(...lootFlatValues) : 0;
 
         const lootRows = lootList.map((l) => {
             const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
@@ -244,15 +267,15 @@ function compute() {
             ? Object.entries(baseResists).map(([k, v]) => `${k}: ${v}`).join(" | ")
             : "none";
 
-        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span><span class="summary-col loot"><span style="color:#ef4444">Nice Loot Found: 0</span></span>`;
+        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span><span class="summary-col loot"><span style="color:#ef4444">Flat dmg ~ ${flatMinVal}-${flatMaxVal}</span></span>`;
 
-        results.push(`
+    results.push(`
 <details class="compute-card" ${lvl === levels ? "open" : ""}>
   <summary>${summaryText}</summary>
   <div class="body">
     <div class="level-meta">
       <div>Distribution: ${distribution || "none"}</div>    
-      <div class="loot-meta">Flat dmg: 0-0 | Dmg mod: +0-0% | Resists: +0-0% | AS: +0%</div>
+      <div class="loot-meta">Flat dmg: ${flatMinVal}-${flatMaxVal} | Dmg mod: +0-0% | Resists: +0-0% | AS: +0%</div>
     </div>
     <div class="level-grid">
       <div class="level-col">
