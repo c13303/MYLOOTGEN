@@ -28,6 +28,7 @@ $(function () {
     const $flatDamageJitter = $("#flat-damage-jitter");
     const $flatDamageFormulaDisplay = $("#flat-damage-formula-display");
     const $flatDamageSlotsAuto = $("#flat-damage-slots-auto");
+    const $flatDamageSlotsMeta = $("#flat-damage-slots-meta");
     const $flatDamageOneHandRatio = $("#flat-damage-onehand-ratio");
     const $flatDamageChart = $("#flat-damage-chart");
     const $modDamageMin = $("#mod-damage-min");
@@ -40,7 +41,6 @@ $(function () {
     const $dpsPlanningChart = $("#dps-planning-chart");
     const $dpsPlanningList = $("#dps-planning-list");
     const $attackSpeedSlotsMeta = $("#attack-speed-slots-meta");
-    const $affixCap = $("#affix-cap");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
     const $attrPerLevelFactor = $("#attr-per-level-factor"); 
     const $additionalLootFactor = $("#additional-loot-factor");
@@ -48,6 +48,8 @@ $(function () {
     const $xpBase = $("#xp-base");
     const $xpGrowth = $("#xp-growth");
     const $xpMultiplier = $("#xp-multiplier");
+    const $xpCurve = $("#xp-curve");
+    const $xpLevels = $("#xp-levels");
     const $configAlert = $("#config-alert");
     const $preview = $("#config-preview");
     const attrNames = ["force", "intelligence", "dexterity"];
@@ -1532,7 +1534,7 @@ $(function () {
     updateModDamageFormulaDisplay();
     renderModDamageChart();
     renderDpsPlanningChart();
-    $affixCap.val(state.affix_cap);
+    renderXpCurve();
     $attrPerLevelFactor.val(state.attr_per_level_factor);
     $rarityWeightGrowth.val(state.rarity_weight_growth);
     $additionalLootFactor.val(state.additional_loot_factor);
@@ -1556,6 +1558,7 @@ $(function () {
         if (!Number.isNaN(value)) {
             state.levels = value;
             renderFlatDamageChart();
+            renderXpCurve();
             renderPreview();
         }
     });
@@ -1698,6 +1701,9 @@ $(function () {
         state.flat_damage_equipement_slots_auto = allowed;
         if ($flatDamageSlotsAuto.length) {
             $flatDamageSlotsAuto.val(allowed);
+        }
+        if ($flatDamageSlotsMeta.length) {
+            $flatDamageSlotsMeta.text(`${allowed}`);
         }
     }
 
@@ -2070,10 +2076,88 @@ $(function () {
             ctx.fill();
         });
 
-        if ($dpsPlanningList.length) {
-            const lines = points.map((p) => `Lvl ${p.lvl}: ${Math.round(p.dps)}`);
-            $dpsPlanningList.text(lines.join("\n"));
+        renderDpsLevels(points);
+    }
+    function renderDpsLevels(points) {
+        if (!$dpsPlanningList.length) return;
+        const rows = points.map((p) => `
+            <div class="dps-row">
+                <span class="dps-label">Lvl ${p.lvl}</span>
+                <span class="dps-value">${Math.round(p.dps)}</span>
+            </div>`);
+        $dpsPlanningList.html(rows.join(""));
+    }
+    function renderXpCurve() {
+        if (!$xpCurve.length) return;
+        const canvas = $xpCurve[0];
+        const ctx = canvas.getContext("2d");
+        const width = canvas.clientWidth || 600;
+        const height = canvas.height || 240;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+
+        const lvlMax = Math.max(1, parseInt(state.levels, 10) || 1);
+        const lvlCount = Math.max(2, lvlMax);
+        const base = Number(state.xp_base ?? 500);
+        const growth = Number(state.xp_growth ?? 1.15);
+        const mult = Number(state.xp_multiplier ?? 1);
+
+        const points = [];
+        for (let lvl = 1; lvl <= lvlCount; lvl += 1) {
+            const xp = base * Math.pow(lvl, growth) * mult;
+            points.push({ lvl, xp });
         }
+
+        const yMinRaw = Math.min(...points.map((p) => p.xp));
+        const yMaxRaw = Math.max(...points.map((p) => p.xp));
+        const yPadding = Math.max(1, (yMaxRaw - yMinRaw) * 0.1);
+        const yMin = yMinRaw - yPadding;
+        const yMax = yMaxRaw + yPadding;
+
+        const pad = 36;
+        const xScale = (width - pad * 2) / Math.max(1, lvlCount - 1);
+        const yScale = (height - pad * 2) / Math.max(1, yMax - yMin);
+
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, pad / 2);
+        ctx.lineTo(pad, height - pad);
+        ctx.lineTo(width - pad / 2, height - pad);
+        ctx.stroke();
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("XP", pad + 1, pad - 10);
+        ctx.fillText("Level", width - pad - 30, height - pad + 24);
+
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.xp - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        ctx.fillStyle = "#f8fafc";
+        points.forEach((p) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.xp - yMin) * yScale;
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        renderXpLevels(points);
+    }
+
+    function renderXpLevels(points) {
+        if (!$xpLevels.length) return;
+        const rows = points.map((p) => `<div class="xp-row"><span>Lvl ${p.lvl}</span><span>${Math.round(p.xp).toLocaleString()} XP</span></div>`);
+        $xpLevels.html(rows.join(""));
     }
     function renderAttackSpeedChart() {
         if (!$attackSpeedChart.length) return;
@@ -2230,14 +2314,6 @@ $(function () {
         }
     });
 
-    $affixCap.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.affix_cap = value;
-            renderPreview();
-        }
-    });
-
     $rarityWeightGrowth.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
@@ -2275,6 +2351,7 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.xp_base = value;
+            renderXpCurve();
             renderPreview();
         }
     });
@@ -2283,6 +2360,7 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.xp_growth = value;
+            renderXpCurve();
             renderPreview();
         }
     });
@@ -2291,6 +2369,7 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.xp_multiplier = value;
+            renderXpCurve();
             renderPreview();
         }
     });

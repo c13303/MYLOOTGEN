@@ -52,7 +52,6 @@ const state = {
     mod_damage_power_progression: 1.2,
     mod_damage_jitter_pct: 0.05,
     mod_damage_slots_auto: 2,
-    affix_cap: 0, // 0/undefined disables cap; avoids late-level clamping on flat dmg
     affix_growth_headroom: 5, // how many extra affixes unlock from lvl 1 to max
     rarity_weight_growth: 0.05,
     attr_per_level_factor: 0.04,

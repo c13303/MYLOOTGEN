@@ -29,7 +29,7 @@
       <div class="config-columns">
         <div class="config-column">
           <details class="form-section form-section-build-config">
-            <summary class="section-title">Build Configuration</summary>
+            <summary class="section-title">Game Configuration</summary>
             <div class="field">
               <label title="Slots available for items; affects which items can be rolled and equipped.">Equipment
                 slots</label>
@@ -73,25 +73,6 @@
           </details>
 
 
-          <details class="form-section form-section-xp-config">
-            <summary class="section-title">XP Configuration</summary>
-            <div class="field-grid">
-              <div class="field">
-                <label for="xp-base" title="Base XP needed at level 1 before growth and multiplier.">XP base per
-                  level</label>
-                <input type="number" id="xp-base" name="xp_base" min="1" step="1">
-              </div>
-              <div class="field">
-                <label for="xp-growth"
-                  title="Exponent applied to level for XP requirement; >1 increases curve steepness.">XP growth</label>
-                <input type="number" id="xp-growth" name="xp_growth" min="0" step="0.01">
-              </div>
-              <div class="field">
-                <label for="xp-multiplier" title="Global multiplier on XP required per level.">XP multiplier</label>
-                <input type="number" id="xp-multiplier" name="xp_multiplier" min="0" step="0.1">
-              </div>
-            </div>
-          </details>
           <details class="form-section form-section-bases">
             <summary class="section-title">Bases</summary>
             <div class="field-grid">
@@ -202,12 +183,6 @@
                 <input type="number" id="affix-rarity-scale" name="affix_rarity_scale" min="0" step="0.01">
               </div>
 
-              <div class="field">
-                <label for="affix-cap" title="Hard cap applied to all affix rolls (dmg/res/etc.).">Affix cap (%)</label>
-                <input type="number" id="affix-cap" name="affix_cap" min="1" step="1">
-              </div>
-
-              <div class="field">
                 <label for="rarity-weight-growth"
                   title="Adds weight to higher rarities per level; affects loot distribution.">Rarity weight
                   growth</label>
@@ -253,22 +228,11 @@
             </div>
           </details>
 
-          <details class="form-section form-section-sim" open>
-            <summary class="section-title">Simulation Parameters</summary>
-            <div class="field-grid">
-              <div class="field">
-                <label for="generate-percent"
-                  title="Percent of theoretical loot actually rolled each level (sampling rate).">Loot Gen % in
-                  Sim</label>
-                <input type="number" id="generate-percent" name="generate_percent" min="1" max="100" step="1">
-              </div>
-            </div>
-          </details>
-
         </div>
       </div>
       <div class="chart-sections-row">
-        <details class="form-section form-section-attack-speed" open style="background-color: #0f4b3c;">
+        <details class="form-section form-section-attack-speed" open style="background-color: #0f4b3c;"
+          data-chart-group="core">
           <summary class="section-title">Attack Per Second (APS)</summary>
           <div class="field-grid">
             <div class="field full-span chart-field">
@@ -291,25 +255,27 @@
               <input type="number" id="attack-speed-power" name="attack_speed_power_progression" min="0" step="0.1">
             </div>
             <div class="field">
-              <input type="number" id="attack-speed-slots-auto" name="attack_speed_slots_auto" readonly class="hidden-input">
+              <input type="number" id="attack-speed-slots-auto" name="attack_speed_slots_auto" readonly
+                class="hidden-input">
               <div>
-                Character can equip up to <span id="attack-speed-slots-meta" style="color:red"></span> APS modifiers
+                Character can equip up to <span id="attack-speed-slots-meta" class="red"></span> APS modifiers
               </div>
             </div>
           </div>
         </details>
 
-        <details class="form-section form-section-flat-dmg" open style="    background-color: #ab3a11">
+        <details class="form-section form-section-flat-dmg" open style="    background-color: #ab3a11"
+          data-chart-group="core">
           <summary class="section-title">Flat DMG</summary>
           <div class="field-grid">
             <div class="field full-span chart-field">
-             
+
               <canvas id="flat-damage-chart" height="240"></canvas>
             </div>
-           
+
             <div class="field range-field">
               <div class="range-pair">
-                <span>FDMG from</span>
+                <span>FlatDmg from</span>
                 <input type="number" id="flat-damage-min" name="flat_damage_min" min="0" step="1"
                   class="range-limit no-fader">
                 <span>to</span>
@@ -320,44 +286,51 @@
             <div class="field-grid">
               <div class="field">
                 <label for="flat-damage-power"
-                  title="Exponent applied to level for flat dmg progression (lvl^power).">Flat
-                  dmg power progression</label>
+                  title="Exponent applied to level for flat dmg progression (lvl^power).">Flat dmg curve</label>
                 <input type="number" id="flat-damage-power" name="flat_damage_power_progression" min="0" step="0.1">
               </div>
               <div class="field">
                 <label for="flat-damage-jitter"
-                  title="Random jitter applied around the median flat damage (as a percent).">Flat dmg jitter (%)</label>
+                  title="Random jitter applied around the median flat damage (as a percent).">Flat dmg jitter
+                  (%)</label>
                 <input type="number" id="flat-damage-jitter" name="flat_damage_jitter_pct" min="0" max="1" step="0.01">
               </div>
+
               <div class="field">
-                <label for="flat-damage-slots-auto">Slots using flat dmg</label>
-                <input type="number" id="flat-damage-slots-auto" name="flat_damage_equipement_slots_auto" readonly>
+                <label for="flat-damage-onehand-ratio"
+                  title="Multiplier applied to flat dmg for one-handed weapons.">One
+                  hand ratio</label>
+                <input type="number" id="flat-damage-onehand-ratio" name="flat_damage_onehand_ratio" min="0" max="1"
+                  step="0.01">
               </div>
               <div class="field">
-                <label for="flat-damage-onehand-ratio" title="Multiplier applied to flat dmg for one-handed weapons.">One
-                  hand ratio</label>
-                <input type="number" id="flat-damage-onehand-ratio" name="flat_damage_onehand_ratio" min="0" max="1" step="0.01">
+                <input type="number" id="flat-damage-slots-auto" name="flat_damage_equipement_slots_auto" readonly
+                  class="hidden-input">
+                <div>
+                  Character can equip up to <span id="flat-damage-slots-meta" class="red"></span> items that source flat dmg
+                </div>
               </div>
             </div>
 
           </div>
         </details>
 
-        <details class="form-section form-section-mod-dmg" open style="    background-color: #651212;">
-          <summary class="section-title">Mod DMG</summary>
+        <details class="form-section form-section-mod-dmg" open style="    background-color: #651212;"
+          data-chart-group="core">
+          <summary class="section-title">DMG modifiers</summary>
           <div class="field-grid">
             <div class="field full-span chart-field">
-             
+
               <canvas id="mod-damage-chart" height="240"></canvas>
             </div>
-           
+
 
             <div class="field range-field">
               <div class="range-pair">
-                <span >Dmg mod from</span>
+                <span>Dmg mod from</span>
                 <input type="number" id="mod-damage-min" name="mod_damage_min" min="0" step="1"
                   class="range-limit no-fader">
-                <span >to</span>
+                <span>to</span>
                 <input type="number" id="mod-damage-max" name="mod_damage_max" min="0" step="1"
                   class="range-limit no-fader">
               </div>
@@ -380,21 +353,73 @@
           </div>
         </details>
 
-        <details class="form-section form-section-dps-planning" open style="background-color: #312e81;">
-          <summary class="section-title">DPS planning</summary>
+        <details class="form-section form-section-dps-planning" open style="background-color: #312e81;"
+          data-chart-group="core">
+          <summary class="section-title">Damage Per Second (DPS)</summary>
           <div class="field-grid">
-            <div class="field full-span chart-field">
-              <label for="dps-planning-chart"
-                title="Preview of DPS combining flat dmg, dmg mod, and attack speed curves.">DPS projection</label>
+            <div class="field full-span chart-field">             
               <canvas id="dps-planning-chart" height="240"></canvas>
             </div>
             <div class="field full-span">
-              <details class="form-section" style="background-color: rgba(49,46,129,0.25);">
-                <summary class="section-title">DPS per level (planned)</summary>
+              <details class="form-section" style="background-color: rgba(49,46,129,0.25);" open>
+                <summary class="section-title">see DPS per level</summary>
                 <div class="field full-span">
                   <div id="dps-planning-list" class="dps-planning-list"></div>
                 </div>
               </details>
+            </div>
+          </div>
+        </details>
+        </details>
+      </div>
+      <div class="chart-sections-row future-row">
+        <details class="form-section" style="background-color: #1c3d50;" data-chart-group="future" open>
+          <summary class="section-title">XP Configuration</summary>
+          <div class="field-grid">
+            <div class="field full-span chart-field">
+             
+              <canvas id="xp-curve" height="240"></canvas>
+            </div>
+            <div class="field range-field">
+              <div class="range-pair">
+                <span> XP base</span>
+                <input type="number" id="xp-base" name="xp_base" min="1" step="1" class="range-limit no-fader">
+                <span>multiplier</span>
+                <input type="number" id="xp-multiplier" name="xp_multiplier" min="0" step="0.1"
+                  class="range-limit no-fader">
+              </div>
+            </div>
+            <div class="field">
+              <label for="xp-growth" title="Exponent applied to level for XP requirement.">XP growth</label>
+              <input type="number" id="xp-growth" name="xp_growth" min="0" step="0.01">
+            </div>
+          </div>
+          <details class="form-section xp-table">
+            <summary class="section-title">see XP per level</summary>
+            <div class="xp-levels" id="xp-levels"></div>
+          </details>
+        </details>
+        <details class="form-section" style="background-color: #1f3c4e;" data-chart-group="future" open>
+          <summary class="section-title">Loot Trends</summary>
+          <div class="field-grid">
+            <div class="field">
+              <div class="notice">Empty slot for future UI content.</div>
+            </div>
+          </div>
+        </details>
+        <details class="form-section" style="background-color: #2a2b57;" data-chart-group="future" open>
+          <summary class="section-title">Damage Sources</summary>
+          <div class="field-grid">
+            <div class="field">
+              <div class="notice">Empty slot for future UI content.</div>
+            </div>
+          </div>
+        </details>
+        <details class="form-section" style="background-color: #3b1f38;" data-chart-group="future" open>
+          <summary class="section-title">Resist Balance</summary>
+          <div class="field-grid">
+            <div class="field">
+              <div class="notice">Empty slot for future UI content.</div>
             </div>
           </div>
         </details>
@@ -403,6 +428,12 @@
     <section class="compute-panel">
       <div class="compute-panel-inner">
         <div class="panel-label">Loot compute</div>
+        <div class="compute-panel-controls">
+          <label for="generate-percent">
+            How much loot is generated (%)
+          </label>
+          <input type="number" id="generate-percent" name="generate_percent" min="1" max="100" step="1" class="compute-input">
+        </div>
         <button id="compute-btn" type="button" class="compute-btn">Compute all levels</button>
       </div>
     </section>

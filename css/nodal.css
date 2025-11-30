@@ -23,6 +23,10 @@ body {
   color: var(--text);
 }
 
+.red {
+  color: rgb(20, 175, 0);
+}
+
 a {
   color: #7dd3fc;
 }
@@ -217,7 +221,8 @@ button:focus {
 }
 
 .range-limit {
-  width: 90px;
+  width: 70px;
+
   font-size: 0.9rem;
   padding: 6px 8px;
 }
@@ -235,6 +240,66 @@ button:focus {
   color: var(--muted);
   letter-spacing: 0.2em;
   text-transform: uppercase;
+}
+
+.xp-table .xp-levels {
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.35);
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.xp-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+}
+
+.xp-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dps-planning-list {
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.35);
+  display: grid;
+  gap: 4px;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.dps-row {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 0;
+}
+
+.dps-row:last-child {
+  border-bottom: none;
+}
+
+.dps-row .dps-label {
+  color: #cbd5f5;
+  opacity: 0.8;
+}
+
+.dps-row .dps-value {
+  font-weight: 700;
+  color: #fef3c7;
 }
 
 .notice {
@@ -269,6 +334,15 @@ canvas {
   position: relative;
   margin: 12px 0 20px;
   align-items: start;
+}
+
+.chart-sections-row.future-row {
+  margin-top: 24px;
+}
+
+.chart-sections-row.future-row details.form-section {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(15, 23, 42, 0.8));
 }
 
 .chart-sections-row::before {
@@ -388,6 +462,28 @@ canvas {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.compute-panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compute-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.compute-input {
+  width: 150px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
 }
 
 .panel-label {

@@ -87,4 +87,14 @@ $(function () {
         bindFader($(this));
       });
   }, 0);
+
+  // Clicking a chart summary toggles every detail in the same group.
+  $(document).on("click", ".chart-sections-row details.form-section summary", function (event) {
+    const $detail = $(this).parent();
+    const group = $detail.data("chart-group");
+    if (!group) return;
+    event.preventDefault();
+    const shouldOpen = !$detail.prop("open");
+    $(`#config-form details.form-section[data-chart-group="${group}"]`).prop("open", shouldOpen);
+  });
 });
