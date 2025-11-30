@@ -77,11 +77,12 @@ $(function () {
     });
   };
 
-  // Wait a tick to let form.js populate defaults, then bind sliders.
+  // Wait a tick to let form.js populate defaults, then bind sliders only for chart sections.
   setTimeout(() => {
-    $("#config-form input[type='number']")
+    $("#config-form .chart-sections-row input[type='number']")
       .not("[readonly]")
       .not("[disabled]")
+      .not(".no-fader")
       .each(function () {
         bindFader($(this));
       });

@@ -39,6 +39,7 @@ $(function () {
     const $modDamageChart = $("#mod-damage-chart");
     const $dpsPlanningChart = $("#dps-planning-chart");
     const $dpsPlanningList = $("#dps-planning-list");
+    const $attackSpeedSlotsMeta = $("#attack-speed-slots-meta");
     const $affixCap = $("#affix-cap");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
     const $attrPerLevelFactor = $("#attr-per-level-factor"); 
@@ -1658,6 +1659,7 @@ $(function () {
         if (!Number.isNaN(value)) {
             state.attack_speed_min = value;
             renderAttackSpeedChart();
+            renderDpsPlanningChart();
             renderPreview();
         }
     });
@@ -1666,6 +1668,7 @@ $(function () {
         if (!Number.isNaN(value)) {
             state.attack_speed_max = value;
             renderAttackSpeedChart();
+            renderDpsPlanningChart();
             renderPreview();
         }
     });
@@ -1674,6 +1677,7 @@ $(function () {
         if (!Number.isNaN(value)) {
             state.attack_speed_power_progression = value;
             renderAttackSpeedChart();
+            renderDpsPlanningChart();
             renderPreview();
         }
     });
@@ -1839,6 +1843,9 @@ $(function () {
         if ($attackSpeedSlotsAuto.length) {
             $attackSpeedSlotsAuto.val(allowed);
         }
+        if ($attackSpeedSlotsMeta.length) {
+            $attackSpeedSlotsMeta.text(`${allowed}`);
+        }
         renderAttackSpeedChart();
         renderDpsPlanningChart();
     }
@@ -1976,6 +1983,7 @@ $(function () {
         const asMin = Number(state.attack_speed_min ?? 0);
         const asMax = Number(state.attack_speed_max ?? asMin);
         const asPow = Number(state.attack_speed_power_progression ?? 1);
+        console.log("renderDpsPlanningChart", { flatPow: fdPow, modPow, asPow });
 
         const points = [];
         const jitterPoints = [];
@@ -2141,6 +2149,7 @@ $(function () {
         state.flat_damage_power_progression = value;
         $flatDamagePower.val(value);
         renderFlatDamageChart();
+        renderDpsPlanningChart();
         renderPreview();
     };
 
@@ -2171,6 +2180,7 @@ $(function () {
         if (!Number.isNaN(value)) {
             state.flat_damage_jitter_pct = value;
             renderFlatDamageChart();
+            renderDpsPlanningChart();
             renderPreview();
         }
     });
