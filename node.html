@@ -183,52 +183,52 @@
                 <input type="number" id="affix-rarity-scale" name="affix_rarity_scale" min="0" step="0.01">
               </div>
 
-                <label for="rarity-weight-growth"
-                  title="Adds weight to higher rarities per level; affects loot distribution.">Rarity weight
-                  growth</label>
-                <input type="number" id="rarity-weight-growth" name="rarity_weight_growth" min="0" step="0.001">
-              </div>
-
-              <div class="field">
-                <label for="attr-per-level-factor"
-                  title="Extra affix count scaling with level for each category.">Attributes per level factor</label>
-                <input type="number" id="attr-per-level-factor" name="attr_per_level_factor" min="0" step="0.001">
-              </div>
+              <label for="rarity-weight-growth"
+                title="Adds weight to higher rarities per level; affects loot distribution.">Rarity weight
+                growth</label>
+              <input type="number" id="rarity-weight-growth" name="rarity_weight_growth" min="0" step="0.001">
             </div>
-          </details>
 
-          <details class="form-section form-section-base-stats" style="background-color: #245528;">
-            <summary class="section-title">Base Stat Progression</summary>
-            <div class="field-grid">
-              <div class="field">
-                <label for="stats-progression-model"
-                  title="How stat gains are distributed per level (balanced or favoring one stat).">Stats progression
-                  model</label>
-                <select id="stats-progression-model" name="stats_progression_model">
-                  <option value="balanced">Balanced (random spread)</option>
-                  <option value="favorite_force">Favorite Force</option>
-                  <option value="favorite_intelligence">Favorite Intelligence</option>
-                  <option value="favorite_dexterity">Favorite Dexterity</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label for="gain-per-level"
-                  title="Flat stat gain per level applied to the selected stat progression model.">Base attributes gain
-                  per
-                  level</label>
-                <input type="number" id="gain-per-level" name="gain_per_level" min="0" step="0.1">
-              </div>
-
-              <div class="field">
-                <label for="unarmed-growth" title="Percent growth of unarmed damage per level.">Unarmed growth per
-                  level</label>
-                <input type="number" id="unarmed-growth" name="unarmed_growth" min="0" step="0.001">
-              </div>
+            <div class="field">
+              <label for="attr-per-level-factor"
+                title="Extra affix count scaling with level for each category.">Attributes per level factor</label>
+              <input type="number" id="attr-per-level-factor" name="attr_per_level_factor" min="0" step="0.001">
             </div>
-          </details>
-
         </div>
+        </details>
+
+        <details class="form-section form-section-base-stats" style="background-color: #245528;">
+          <summary class="section-title">Base Stat Progression</summary>
+          <div class="field-grid">
+            <div class="field">
+              <label for="stats-progression-model"
+                title="How stat gains are distributed per level (balanced or favoring one stat).">Stats progression
+                model</label>
+              <select id="stats-progression-model" name="stats_progression_model">
+                <option value="balanced">Balanced (random spread)</option>
+                <option value="favorite_force">Favorite Force</option>
+                <option value="favorite_intelligence">Favorite Intelligence</option>
+                <option value="favorite_dexterity">Favorite Dexterity</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="gain-per-level"
+                title="Flat stat gain per level applied to the selected stat progression model.">Base attributes gain
+                per
+                level</label>
+              <input type="number" id="gain-per-level" name="gain_per_level" min="0" step="0.1">
+            </div>
+
+            <div class="field">
+              <label for="unarmed-growth" title="Percent growth of unarmed damage per level.">Unarmed growth per
+                level</label>
+              <input type="number" id="unarmed-growth" name="unarmed_growth" min="0" step="0.001">
+            </div>
+          </div>
+        </details>
+
+      </div>
       </div>
       <div class="chart-sections-row">
         <details class="form-section form-section-attack-speed" open style="background-color: #0f4b3c;"
@@ -307,7 +307,8 @@
                 <input type="number" id="flat-damage-slots-auto" name="flat_damage_equipement_slots_auto" readonly
                   class="hidden-input">
                 <div>
-                  Character can equip up to <span id="flat-damage-slots-meta" class="red"></span> items that source flat dmg
+                  Character can equip up to <span id="flat-damage-slots-meta" class="red"></span> items that source flat
+                  dmg
                 </div>
               </div>
             </div>
@@ -357,7 +358,7 @@
           data-chart-group="core">
           <summary class="section-title">Damage Per Second (DPS)</summary>
           <div class="field-grid">
-            <div class="field full-span chart-field">             
+            <div class="field full-span chart-field">
               <canvas id="dps-planning-chart" height="240"></canvas>
             </div>
             <div class="field full-span">
@@ -377,7 +378,7 @@
           <summary class="section-title">XP Configuration</summary>
           <div class="field-grid">
             <div class="field full-span chart-field">
-             
+
               <canvas id="xp-curve" height="240"></canvas>
             </div>
             <div class="field range-field">
@@ -427,12 +428,13 @@
     </form>
     <section class="compute-panel">
       <div class="compute-panel-inner">
-        <div class="panel-label">Loot compute</div>
+        <div class="panel-label">Simulation</div>
         <div class="compute-panel-controls">
           <label for="generate-percent">
             How much loot is generated (%)
           </label>
-          <input type="number" id="generate-percent" name="generate_percent" min="1" max="100" step="1" class="compute-input">
+          <input type="number" id="generate-percent" name="generate_percent" min="1" max="100" step="1"
+            class="compute-input">
         </div>
         <button id="compute-btn" type="button" class="compute-btn">Compute all levels</button>
       </div>
