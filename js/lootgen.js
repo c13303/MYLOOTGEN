@@ -120,6 +120,17 @@ function compute() {
         const total = min + (median - min) * Math.pow(t, power);
         return total / flatSlotDivider;
     };
+    const resistSlotsAllowed = (state.equipment_slots || []).filter((slot) => slot.allow_resist !== false).length;
+    state.resistance_slots_auto = resistSlotsAllowed;
+    const computeResistanceForLevel = (lvl) => {
+        const resistMin = Number(state.resistance_affix_min ?? 0);
+        const resistMax = Number(state.resistance_affix_max ?? resistMin);
+        const power = Number(state.resistance_curve ?? 1);
+        const denom = Math.max(1, (state.levels || levels) - 1);
+        const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
+        const total = resistMin + (resistMax - resistMin) * Math.pow(t, power);
+        return total; // No division by slots - each resist affix gets full value
+    };
     const applyJitter = (value, seed) => {
         const pct = Math.max(0, Number(state.flat_damage_jitter_pct ?? 0));
         if (pct === 0) return value;
@@ -212,6 +223,7 @@ function compute() {
         const lootList = [];
         const asBonuses = [];
         const modBonuses = [];
+        const resBonuses = [];
         for (let i = 0; i < rolledLootCount; i += 1) {
             const cat = pickCategory(lvl + i + 1, lvl);
             const slot = slots.length
@@ -250,6 +262,7 @@ function compute() {
             const dmgMods = {};
             const resAdds = {};
             let atkBonus = 0;
+            let damageModType = null; // track single damage type for all damage mods on this item
 
             const usedDamageTypes = new Set();
             const pickType = (seed) => typePoolFinal[Math.floor(pseudoRand(seed) * typePoolFinal.length) % typePoolFinal.length] || defaultDmgType;
@@ -288,7 +301,11 @@ function compute() {
                     if (atkBonus > 0) asBonuses.push(atkBonus);
                     bonuses.push(`+${atkBonus}% Attack Speed`);
                 } else if (item.damage_modifier !== false && roll > 0.35) {
-                    const type = pickType((lvl + i + a * 23) * 1.3);
+                    // All damage mods on an item must be the same type
+                    if (!damageModType) {
+                        damageModType = pickType((lvl + i + a * 23) * 1.3);
+                    }
+                    const type = damageModType;
                     const key = type;
                     const baseMod = computeDamageModForLevel(lvl);
                     const jittered = applyPctJitter(baseMod, Number(state.mod_damage_jitter_pct ?? 0), (lvl + i + a * 23) * 5.7);
@@ -300,8 +317,15 @@ function compute() {
                 } else {
                     const type = pickType((lvl + i + a * 31) * 1.7);
                     const key = type;
+                    const baseRes = computeResistanceForLevel(lvl);
+                    const jittered = applyPctJitter(baseRes, Number(state.resistance_jitter ?? 0), (lvl + i + a * 31) * 6.3);
+                    const resistCap = Number(state.resistance_cap ?? 100);
+                    const cappedRes = Math.min(jittered * 100, resistCap); // convert to percentage and apply cap
+                    const rolledRes = Math.round(cappedRes);
                     if (!resAdds[key]) resAdds[key] = 0;
-                    bonuses.push(`+0% ${type} res`);
+                    resAdds[key] += rolledRes;
+                    if (rolledRes > 0) resBonuses.push(rolledRes);
+                    bonuses.push(`+${rolledRes}% ${type} res`);
                 }
             }
 
@@ -330,6 +354,8 @@ function compute() {
         const asMax = asBonuses.length ? Math.max(...asBonuses) : 0;
         const modMin = modBonuses.length ? Math.min(...modBonuses) : 0;
         const modMax = modBonuses.length ? Math.max(...modBonuses) : 0;
+        const resMin = resBonuses.length ? Math.min(...resBonuses) : 0;
+        const resMax = resBonuses.length ? Math.max(...resBonuses) : 0;
 
         const lootRows = lootList.map((l) => {
             const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
@@ -378,7 +404,7 @@ function compute() {
   <div class="body">
     <div class="level-meta">
       <div>Distribution: ${distribution || "none"}</div>    
-      <div class="loot-meta">Loot Values : Flat dmg: ${flatMinSource}-${flatMaxSource} (src) | ${flatMinWeapon}-${flatMaxWeapon} (weapon) | Dmg mod: +${modMin}% - +${modMax}% | Resists: +0-0% | AS: +${asMin}% - +${asMax}%</div>
+      <div class="loot-meta">Loot Values : Flat dmg: ${flatMinSource}-${flatMaxSource} (src) | ${flatMinWeapon}-${flatMaxWeapon} (weapon) | Dmg mod: +${modMin}% - +${modMax}% | Resists: +${resMin}% - +${resMax}% | AS: +${asMin}% - +${asMax}%</div>
     </div>
     <div class="level-grid">
       <div class="level-col">

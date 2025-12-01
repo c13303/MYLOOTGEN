@@ -74,7 +74,7 @@
 
 
           <details class="form-section form-section-bases">
-            <summary class="section-title">Bases</summary>
+            <summary class="section-title">Character</summary>
             <div class="field-grid">
               <div class="field">
                 <label for="levels" title="Maximum character level simulated. Increases loops/loot generations.">Level
@@ -92,7 +92,7 @@
               <div class="field full-span">
                 <label title="Starting min/max bounds for each attribute; impact starting stats and growth caps.">Base
                   stats</label>
-                <table class="attr-table">
+                <table class="attr-table" style="width:200px">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -103,20 +103,24 @@
                   <tbody>
                     <tr data-attr="force">
                       <td>Force</td>
-                      <td><input type="number" min="10" max="200" step="1" data-attr="force" data-kind="min"></td>
-                      <td><input type="number" min="10" max="200" step="1" data-attr="force" data-kind="max"></td>
+                      <td><input type="number" min="10" max="200" step="1" class="attr-number" data-attr="force"
+                          data-kind="min" placeholder="Min"></td>
+                      <td><input type="number" min="10" max="200" step="1" class="attr-number" data-attr="force"
+                          data-kind="max" placeholder="Max"></td>
                     </tr>
                     <tr data-attr="intelligence">
                       <td>Intelligence</td>
-                      <td><input type="number" min="10" max="200" step="1" data-attr="intelligence" data-kind="min">
-                      </td>
-                      <td><input type="number" min="10" max="200" step="1" data-attr="intelligence" data-kind="max">
-                      </td>
+                      <td><input type="number" min="10" max="200" step="1" class="attr-number" data-attr="intelligence"
+                          data-kind="min" placeholder="Min"></td>
+                      <td><input type="number" min="10" max="200" step="1" class="attr-number" data-attr="intelligence"
+                          data-kind="max" placeholder="Max"></td>
                     </tr>
                     <tr data-attr="dexterity">
                       <td>Dexterity</td>
-                      <td><input type="number" min="10" max="200" step="1" data-attr="dexterity" data-kind="min"></td>
-                      <td><input type="number" min="10" max="200" step="1" data-attr="dexterity" data-kind="max"></td>
+                      <td><input type="number" min="10" max="200" step="1" class="attr-number" data-attr="dexterity"
+                          data-kind="min" placeholder="Min"></td>
+                      <td><input type="number" min="10" max="200" step="1" class="attr-number" data-attr="dexterity"
+                          data-kind="max" placeholder="Max"></td>
                     </tr>
                   </tbody>
                 </table>
@@ -130,11 +134,8 @@
                 <input type="number" id="unarmed-physical-damage" name="unarmed_physical_damage" min="0" step="1">
               </div>
 
-              <div class="field">
-                <label for="base-physical-resistance" title="Starting physical resistance before gear.">Base physical
-                  resistance</label>
-                <input type="number" id="base-physical-resistance" name="base_physical_resistance" min="0" step="1">
-              </div>
+            
+              
 
               <div class="field">
                 <label for="attack-speed-base" title="Attacks per second before any attack speed bonuses.">Base attack
@@ -346,7 +347,7 @@
               <input type="number" id="xp-growth" name="xp_growth" min="0" step="0.01">
             </div>
           </div>
-          <details class="form-section xp-table">
+          <details class="form-section xp-table" open>
             <summary class="section-title">see XP per level</summary>
             <div class="xp-levels" id="xp-levels"></div>
           </details>
