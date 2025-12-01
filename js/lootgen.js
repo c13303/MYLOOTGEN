@@ -956,52 +956,84 @@ function compute() {
         const copyBuildBtn = document.getElementById("copy-build");
         if (copyBuildBtn) {
             copyBuildBtn.onclick = () => {
+                // Compact format: abbreviate keys and remove whitespace
                 const buildProgression = jsonData.map((entry) => {
-                    return {
-                        level: entry.level,
-                        time: entry.time_readable,
+                    const build = {
+                        lvl: entry.level,
                         dps: Math.round(entry.totals.dps_total),
-                        attack_speed: entry.totals.attack_speed.toFixed(2),
-                        stats: entry.stats,
-                        resistances: entry.totals.resists,
-                        score: Math.round(entry.totals.score),
-                        gear: (entry.gear || []).map((g) => ({
-                            slot: g.slot,
-                            name: g.name,
-                            category: g.category,
-                            itemLevel: g.itemLevel,
-                            bonuses: g.bonuses
-                        })),
-                        damage_breakdown: entry.totals.damage
+                        as: entry.totals.attack_speed.toFixed(2),
+                        res: entry.totals.resists,
+                        scr: Math.round(entry.totals.score)
                     };
+                    // Only include stats if non-empty
+                    if (entry.stats && Object.keys(entry.stats).length > 0) {
+                        build.st = entry.stats;
+                    }
+                    // Compact gear array
+                    if (entry.gear && entry.gear.length > 0) {
+                        build.g = entry.gear.map((g) => ({
+                            s: g.slot,
+                            n: g.name,
+                            c: g.category,
+                            iL: g.itemLevel
+                        }));
+                    }
+                    // Compact damage breakdown
+                    if (entry.totals.damage && Object.keys(entry.totals.damage).length > 0) {
+                        build.dmg = entry.totals.damage;
+                    }
+                    return build;
                 });
-                copyText(JSON.stringify(buildProgression, null, 2));
+                copyText(JSON.stringify(buildProgression));
             };
         }
 
         const copyLootBtn = document.getElementById("copy-loot");
         if (copyLootBtn) {
             copyLootBtn.onclick = () => {
+                // Compact format: abbreviate keys and remove empty values
                 const lootProgression = jsonData.map((entry) => {
                     return {
-                        level: entry.level,
-                        time: entry.time_readable,
-                        loot_count: entry.loot_count,
-                        loot: (entry.all_loot || []).map((loot) => ({
-                            slot: loot.slot,
-                            name: loot.name,
-                            category: loot.category,
-                            itemLevel: loot.itemLevel,
-                            equipped: loot.equippedStatus === 'Equipped',
-                            bonuses: loot.bonuses,
-                            flat_damage: loot.baseAdds,
-                            damage_mods: loot.dmgMods,
-                            resistances: loot.resAdds,
-                            attack_speed_bonus: loot.atkBonus
-                        }))
+                        lvl: entry.level,
+                        t: entry.time_readable,
+                        cnt: entry.loot_count,
+                        loot: (entry.all_loot || []).map((loot) => {
+                            const item = {
+                                s: loot.slot,
+                                n: loot.name,
+                                c: loot.category,
+                                iL: loot.itemLevel
+                            };
+                            // Only include equipped if true
+                            if (loot.equippedStatus === 'Equipped') item.eq = 1;
+                            // Flatten flat damage into single values if only one type
+                            const flatKeys = Object.keys(loot.baseAdds || {});
+                            if (flatKeys.length === 1) {
+                                item.fd = `${flatKeys[0]}:${loot.baseAdds[flatKeys[0]]}`;
+                            } else if (flatKeys.length > 1) {
+                                item.fd = flatKeys.map(k => `${k}:${loot.baseAdds[k]}`).join(',');
+                            }
+                            // Same for damage mods
+                            const modKeys = Object.keys(loot.dmgMods || {});
+                            if (modKeys.length === 1) {
+                                item.dm = `${modKeys[0]}:${loot.dmgMods[modKeys[0]]}`;
+                            } else if (modKeys.length > 1) {
+                                item.dm = modKeys.map(k => `${k}:${loot.dmgMods[k]}`).join(',');
+                            }
+                            // Same for resistances
+                            const resKeys = Object.keys(loot.resAdds || {});
+                            if (resKeys.length === 1) {
+                                item.res = `${resKeys[0]}:${loot.resAdds[resKeys[0]]}`;
+                            } else if (resKeys.length > 1) {
+                                item.res = resKeys.map(k => `${k}:${loot.resAdds[k]}`).join(',');
+                            }
+                            // Attack speed only if present
+                            if (loot.atkBonus) item.as = loot.atkBonus;
+                            return item;
+                        })
                     };
                 });
-                copyText(JSON.stringify(lootProgression, null, 2));
+                copyText(JSON.stringify(lootProgression));
             };
         }
 
