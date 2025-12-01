@@ -81,7 +81,7 @@ function compute() {
         currentStats[target] = Math.min(bounds.max ?? (currentStats[target] + gainPerLevel), currentStats[target] + gainPerLevel);
     };
     const affixHeadroom = state.affix_growth_headroom ?? 5; // extra affixes unlocked by max level
-    const baseAttackSpeed = state.unarmed_speed || 0;
+    const baseAttackSpeed = Number(state.attack_speed_min ?? 0);
     const baseResists = {};
     if (state.base_physical_resistance) baseResists.Physical = state.base_physical_resistance;
     const asSlotsAllowed = (state.equipment_slots || []).filter((slot) => slot.allow_attack_speed !== false).length;
@@ -121,15 +121,15 @@ function compute() {
         const offset = (pseudoRand(seed) * 2 - 1) * spread;
         return Math.max(0, value * (1 + offset));
     };
-    const computeAttackSpeedBonusForLevel = (lvl) => {
-        const asMin = Number(state.attack_speed_min ?? 0);
-        const asMax = Number(state.attack_speed_max ?? asMin);
-        const power = Number(state.attack_speed_power_progression ?? 1);
-        const denom = Math.max(1, (state.levels || levels) - 1);
-        const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
-        const aps = asMin + (asMax - asMin) * Math.pow(t, power); // target APS for the build
-        const baseAps = Number(state.unarmed_speed ?? 1);
-        const delta = Math.max(0, aps - baseAps);
+        const computeAttackSpeedBonusForLevel = (lvl) => {
+            const asMin = Number(state.attack_speed_min ?? 0);
+            const asMax = Number(state.attack_speed_max ?? asMin);
+            const power = Number(state.attack_speed_power_progression ?? 1);
+            const denom = Math.max(1, (state.levels || levels) - 1);
+            const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
+            const aps = asMin + (asMax - asMin) * Math.pow(t, power); // target APS for the build
+            const baseAps = Number(state.attack_speed_min ?? 1);
+            const delta = Math.max(0, aps - baseAps);
         const pctTotal = baseAps > 0 ? (delta / baseAps) * 100 : 0;
         const pctPerSlot = pctTotal / asSlotDivider;
         return pctPerSlot;

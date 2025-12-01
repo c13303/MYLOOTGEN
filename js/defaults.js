@@ -28,9 +28,8 @@ const state = {
     generate_percent: 15,
     unarmed_physical_damage: 1,
     base_physical_resistance: 0,
-    unarmed_speed: 1.6,
-    attack_speed_min: 5,
-    attack_speed_max: 20,
+    attack_speed_min: 1,
+    attack_speed_max: 3,
     attack_speed_power_progression: 1.2,
     attack_speed_slots_auto: 2,
     affix_rarity_scale: 0.08, // scales affix min/max with category rarity

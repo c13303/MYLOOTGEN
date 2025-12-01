@@ -17,7 +17,6 @@ $(function () {
     const $unarmedPhysicalDamage = $("#unarmed-physical-damage");
     const $basePhysicalResistance = $("#base-physical-resistance");
     const $generatePercent = $("#generate-percent");
-    const $attackSpeedBase = $("#attack-speed-base");
     const $attackSpeedMin = $("#attack-speed-min");
     const $attackSpeedMax = $("#attack-speed-max");
     const $attackSpeedPower = $("#attack-speed-power");
@@ -1506,9 +1505,8 @@ $(function () {
     $unarmedPhysicalDamage.val(state.unarmed_physical_damage);
     $basePhysicalResistance.val(state.base_physical_resistance);
     $generatePercent.val(state.generate_percent);
-    $attackSpeedBase.val(state.unarmed_speed);
-    if (typeof state.attack_speed_min === "undefined") state.attack_speed_min = 5;
-    if (typeof state.attack_speed_max === "undefined") state.attack_speed_max = 20;
+    if (typeof state.attack_speed_min === "undefined") state.attack_speed_min = 1;
+    if (typeof state.attack_speed_max === "undefined") state.attack_speed_max = 3;
     if (typeof state.attack_speed_power_progression === "undefined") state.attack_speed_power_progression = 1.2;
     if (typeof state.attack_speed_slots_auto === "undefined") {
         state.attack_speed_slots_auto = (state.equipment_slots || []).filter((slot) => slot.allow_attack_speed !== false).length;
@@ -1692,14 +1690,6 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.generate_percent = value;
-            renderPreview();
-        }
-    });
-
-    $attackSpeedBase.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.unarmed_speed = value;
             renderPreview();
         }
     });
