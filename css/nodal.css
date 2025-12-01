@@ -258,6 +258,47 @@ button:focus {
   font-size: 0.8rem;
 }
 
+.compute-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+  width: 100%;
+
+}
+
+.compute-panel-header {
+  grid-column: 1 / -1;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #f8fafc;
+}
+
+.compute-panel-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.compute-panel-column-label {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.compute-panel-column .compute-btn {
+  width: 100%;
+}
+
+.compute-panel-button-row {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
 .range-field .range-prefix,
 .range-field .range-sep {
   font-size: 0.7rem;
@@ -695,7 +736,7 @@ canvas {
 
 #stats-progression-model {
   color: black;
-  background:white;
+  background: white;
 }
 
 .build-line {

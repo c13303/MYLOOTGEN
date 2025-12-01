@@ -466,17 +466,21 @@ function compute() {
         };
 
         const summarizeItemImpact = (gearItem) => {
-            if (!gearItem) return { flat: {}, mod: {}, atk: 0 };
+            if (!gearItem) return { flat: {}, mod: {}, atk: 0, res: {} };
             const flatStats = {};
             const modStats = {};
+            const resStats = {};
             Object.entries(gearItem.baseAdds || {}).forEach(([type, value]) => {
                 flatStats[type] = value || 0;
             });
             Object.entries(gearItem.dmgMods || {}).forEach(([type, value]) => {
                 modStats[type] = value || 0;
             });
+            Object.entries(gearItem.resAdds || {}).forEach(([type, value]) => {
+                resStats[type] = value || 0;
+            });
             const atk = gearItem.atkBonus || 0;
-            return { flat: flatStats, mod: modStats, atk };
+            return { flat: flatStats, mod: modStats, atk, res: resStats };
         };
 
         const computeTypeDeltas = (prevMap, nextMap) => {
@@ -506,6 +510,7 @@ function compute() {
             const newStats = summarizeItemImpact(candidate);
             const flatDeltas = computeTypeDeltas(prevStats.flat, newStats.flat);
             const modDeltas = computeTypeDeltas(prevStats.mod, newStats.mod);
+            const resDeltas = computeTypeDeltas(prevStats.res, newStats.res);
             const bestFlat = findBestTypeDelta(flatDeltas);
             const bestMod = findBestTypeDelta(modDeltas);
             const atkDelta = newStats.atk - prevStats.atk;
@@ -529,8 +534,17 @@ function compute() {
                 description = `<span style="color:${colorForType(typeName)}">${statDescription}</span>`;
             }
 
+            const dpsDelta = Math.round(newDPS - prevDPS);
+            const dpsLine = `<div class="swap-reason-detail">DPS${formatValue(dpsDelta)}</div>`;
+
+            const resistEntries = Object.entries(resDeltas).filter(([, delta]) => delta !== 0);
+            const formatResistDelta = (type, value) => `<span class="resisttext" style="color:${colorForType(type)}">${type} ${formatValue(value)}%</span>`;
+            const resistLine = resistEntries.length
+                ? `<div class="swap-reason-detail">Resistances : ${resistEntries.map(([type, delta]) => formatResistDelta(type, delta)).join(", ")}</div>`
+                : "";
+
             return {
-                text: `${description}`, // (DPS ${Math.round(prevDPS)} → ${Math.round(newDPS)})
+                text: `<div class="swap-reason-main">${description}</div>${dpsLine}${resistLine}`,
                 param: best.name,
             };
         };

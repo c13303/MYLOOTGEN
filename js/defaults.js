@@ -26,6 +26,7 @@ const state = {
     time_level_curve: 1.5,
     rarity_growth_factor: 1,
     generate_percent: 15,
+    desired_resistance: 60,
     unarmed_physical_damage: 1,
     base_physical_resistance: 0,
     attack_speed_min: 1,

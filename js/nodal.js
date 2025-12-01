@@ -95,13 +95,16 @@ $(function () {
 
   // Wait a tick to let form.js populate defaults, then bind sliders only for chart sections.
   setTimeout(() => {
-    $("#config-form .chart-sections-row input[type='number']")
+    const chartInputs = $("#config-form .chart-sections-row input[type='number']");
+    const forcedInputs = $("input[type='number'][data-fader]");
+    const inputsToBind = chartInputs.add(forcedInputs)
       .not("[readonly]")
       .not("[disabled]")
-      .not(".no-fader")
-      .each(function () {
-        bindFader($(this));
-      });
+      .not(".no-fader");
+    inputsToBind.each(function () {
+      bindFader($(this));
+    });
+    $(document).trigger("nodal:faderBound");
   }, 0);
 
   // Clicking a summary toggles every detail in the same group.

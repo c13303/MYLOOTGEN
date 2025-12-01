@@ -17,6 +17,7 @@ $(function () {
     const $unarmedPhysicalDamage = $("#unarmed-physical-damage");
     const $basePhysicalResistance = $("#base-physical-resistance");
     const $generatePercent = $("#generate-percent");
+    const $desiredResistance = $("#desired-resistance");
     const $attackSpeedMin = $("#attack-speed-min");
     const $attackSpeedMax = $("#attack-speed-max");
     const $attackSpeedPower = $("#attack-speed-power");
@@ -62,6 +63,29 @@ $(function () {
     const $configAlert = $("#config-alert");
     const $preview = $("#config-preview");
     const attrNames = ["force", "intelligence", "dexterity"];
+    const clampDesiredResistanceValue = (value, cap = state.resistance_cap ?? 0) => {
+        const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+        const maxCap = Math.max(0, Number.isFinite(Number(cap)) ? Number(cap) : 0);
+        return Math.min(maxCap, Math.max(0, numericValue));
+    };
+    const updateDesiredResistanceBounds = () => {
+        if (!$desiredResistance.length) return;
+        const safeCap = Math.max(0, Number.isFinite(Number(state.resistance_cap)) ? Number(state.resistance_cap) : 0);
+        $desiredResistance.attr({ min: 0, max: safeCap });
+        const clampValue = clampDesiredResistanceValue(state.desired_resistance ?? 0, safeCap);
+        state.desired_resistance = clampValue;
+        $desiredResistance.val(clampValue);
+        const $wrapper = $desiredResistance.closest(".fader");
+        if (!$wrapper.length) return;
+        const $range = $wrapper.find(".fader-range");
+        const $value = $wrapper.find(".fader-value");
+        [$range, $value].forEach(($el) => {
+            if (!$el.length) return;
+            $el.attr({ min: 0, max: safeCap });
+            $el.val(clampValue);
+        });
+    };
+    $(document).on("nodal:faderBound", updateDesiredResistanceBounds);
 
     const annotateInputTooltips = () => {
         $("input[name]").each((_, elem) => {
@@ -89,6 +113,9 @@ $(function () {
     }
     if (state.stats_progression_model === "favorite_physical") state.stats_progression_model = "favorite_force";
     if (state.stats_progression_model === "favorite_energy") state.stats_progression_model = "favorite_intelligence";
+    if (typeof state.desired_resistance === "undefined") {
+        state.desired_resistance = 60;
+    }
 
     const migrateScalarKey = (oldKey, newKey) => {
         if (Object.prototype.hasOwnProperty.call(state, oldKey)) {
@@ -1516,6 +1543,8 @@ $(function () {
     $unarmedPhysicalDamage.val(state.unarmed_physical_damage);
     $basePhysicalResistance.val(state.base_physical_resistance);
     $generatePercent.val(state.generate_percent);
+    $desiredResistance.val(state.desired_resistance);
+    $desiredResistance.attr({ min: 0, max: state.resistance_cap ?? 0 });
     $attackSpeedMin.val(state.attack_speed_min);
     $attackSpeedMax.val(state.attack_speed_max);
     $attackSpeedPower.val(state.attack_speed_power_progression);
@@ -1669,6 +1698,18 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.generate_percent = value;
+            renderPreview();
+        }
+    });
+
+    $desiredResistance.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            const clamped = clampDesiredResistanceValue(value);
+            if (clamped !== value) {
+                $(this).val(clamped);
+            }
+            state.desired_resistance = clamped;
             renderPreview();
         }
     });
@@ -2567,6 +2608,7 @@ $(function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.resistance_cap = value;
+            updateDesiredResistanceBounds();
             renderPreview();
         }
     });
