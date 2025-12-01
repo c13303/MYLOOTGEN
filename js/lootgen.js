@@ -521,11 +521,12 @@ function compute() {
 
             let description = "";
             if (best.name === "atk") {
-                description = `Attack Speed ${formatValue(best.value)}%`;
+                description = `AS ${formatValue(best.value)}%`;
             } else {
-                const statLabel = best.name === "flat" ? "flat dmg" : "dmg mod";
-                const coloredType = colorizeTypeLabel(best.type || defaultDmgType);
-                description = `${coloredType} ${statLabel} ${formatValue(best.value)}`;
+                const statLabel = best.name === "flat" ? "flat" : "mod";
+                const typeName = best.type || defaultDmgType;
+                const statDescription = `${typeName} ${statLabel} ${formatValue(best.value)}`;
+                description = `<span style="color:${colorForType(typeName)}">${statDescription}</span>`;
             }
 
             return {

@@ -48,7 +48,7 @@ const state = {
     flat_damage_onehand_ratio: 0.75,
     flat_damage_equipement_slots_auto: 2,
     mod_damage_min: 10,
-    mod_damage_max: 250,
+    mod_damage_max: 1000,
     mod_damage_power_progression: 1.2,
     mod_damage_jitter_pct: 0.05,
     mod_damage_slots_auto: 2,
