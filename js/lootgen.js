@@ -94,6 +94,16 @@ function compute() {
     const flatSlotDivider = Math.max(1, flatSlotsAllowed || state.flat_damage_equipement_slots_auto || 1);
     state.flat_damage_equipement_slots_auto = flatSlotsAllowed;
     const slotRules = new Map((state.equipment_slots || []).map((s) => [s.name, s]));
+    const slotPositionMap = new Map();
+    (state.equipment_slots || []).forEach((slot, idx) => {
+        const pos = Number.isFinite(slot.position) ? slot.position : idx;
+        slotPositionMap.set(slot.name, pos);
+    });
+    const getSlotPriority = (slotName) => {
+        if (!slotName) return Number.MAX_SAFE_INTEGER;
+        if (slotPositionMap.has(slotName)) return slotPositionMap.get(slotName);
+        return slotPositionMap.size + 1;
+    };
     let persistedGear = {};
     const offHandSlotName = (state.equipment_slots || []).find((slot) => slot.allow_off_hand)?.name;
 
@@ -436,6 +446,75 @@ function compute() {
             return totalDPS;
         };
 
+        const summarizeItemImpact = (gearItem) => {
+            if (!gearItem) return { flat: {}, mod: {}, atk: 0 };
+            const flatStats = {};
+            const modStats = {};
+            Object.entries(gearItem.baseAdds || {}).forEach(([type, value]) => {
+                flatStats[type] = value || 0;
+            });
+            Object.entries(gearItem.dmgMods || {}).forEach(([type, value]) => {
+                modStats[type] = value || 0;
+            });
+            const atk = gearItem.atkBonus || 0;
+            return { flat: flatStats, mod: modStats, atk };
+        };
+
+        const computeTypeDeltas = (prevMap, nextMap) => {
+            const deltas = {};
+            const types = new Set([...Object.keys(prevMap || {}), ...Object.keys(nextMap || {})]);
+            types.forEach((type) => {
+                deltas[type] = (nextMap[type] || 0) - (prevMap[type] || 0);
+            });
+            return deltas;
+        };
+
+        const findBestTypeDelta = (deltas) => {
+            let best = { type: null, value: Number.NEGATIVE_INFINITY };
+            Object.entries(deltas).forEach(([type, value]) => {
+                if (value > best.value) {
+                    best = { type, value };
+                }
+            });
+            if (best.value === Number.NEGATIVE_INFINITY) {
+                return { type: null, value: 0 };
+            }
+            return best;
+        };
+
+        const describeSwapReason = (prevItem, candidate, prevDPS, newDPS) => {
+            const prevStats = summarizeItemImpact(prevItem);
+            const newStats = summarizeItemImpact(candidate);
+            const flatDeltas = computeTypeDeltas(prevStats.flat, newStats.flat);
+            const modDeltas = computeTypeDeltas(prevStats.mod, newStats.mod);
+            const bestFlat = findBestTypeDelta(flatDeltas);
+            const bestMod = findBestTypeDelta(modDeltas);
+            const atkDelta = newStats.atk - prevStats.atk;
+
+            const candidates = [
+                { name: "flat", value: bestFlat.value, type: bestFlat.type || defaultDmgType },
+                { name: "mod", value: bestMod.value, type: bestMod.type || defaultDmgType },
+                { name: "atk", value: atkDelta, type: null }
+            ];
+            const best = candidates.reduce((acc, curr) => (curr.value > acc.value ? curr : acc), { name: "flat", value: Number.NEGATIVE_INFINITY, type: defaultDmgType });
+
+            const formatValue = (val) => `${val >= 0 ? "+" : ""}${Math.round(val)}`;
+
+            let description = "";
+            if (best.name === "atk") {
+                description = `Attack Speed ${formatValue(best.value)}%`;
+            } else {
+                const statLabel = best.name === "flat" ? "flat dmg" : "dmg mod";
+                const coloredType = colorizeTypeLabel(best.type || defaultDmgType);
+                description = `${coloredType} ${statLabel} ${formatValue(best.value)}`;
+            }
+
+            return {
+                text: `${description} (DPS ${Math.round(prevDPS)} → ${Math.round(newDPS)})`,
+                param: best.name,
+            };
+        };
+
         let bestGear = { ...persistedGear };
         Object.values(bestGear).forEach((item) => {
             if (item) item.foundThisLevel = false;
@@ -456,12 +535,15 @@ function compute() {
             const shouldEquip = !bestGear[slotName] || tempDPS > bestDPS;
 
             if (shouldEquip) {
+                const prevItem = bestGear[slotName];
+                const prevDPS = bestDPS;
+                item.swapReason = describeSwapReason(prevItem, item, prevDPS, tempDPS);
                 bestGear = tempGear;
                 bestDPS = tempDPS;
             }
         });
 
-        const equippedGearList = Object.values(bestGear).filter(Boolean);
+        const equippedGearList = Object.values(bestGear).filter(Boolean).sort((a, b) => getSlotPriority(a.slot) - getSlotPriority(b.slot));
         const equippedItems = new Set(equippedGearList);
         lootList.forEach((l) => {
             const isEquipped = equippedItems.has(l);
@@ -510,13 +592,14 @@ function compute() {
             });
             const bonusText = (sortedBonuses && sortedBonuses.length) ? sortedBonuses.map((b) => colorizeBonus(b)).join("<br>") : "None";
             const foundBadge = l.foundThisLevel ? `<span class="found-indicator">found in this level</span>` : '&mdash;';
+            const swapReasonHtml = (l.foundThisLevel && l.swapReason) ? `<div class="swap-reason">${l.swapReason.text}</div>` : "";
             return `
                 <tr>
                     <td><span style="color:#facc15">${l.slot}</span></td>
                     <td><span style="color:${catColor}">${l.name}</span></td>
                     <td><span style="color:${catColor}">${l.category}</span></td>
                     <td>${bonusText}</td>
-                    <td>${foundBadge}</td>
+                    <td>${foundBadge}${swapReasonHtml}</td>
                 </tr>`;
         }).join("");
 
@@ -590,7 +673,7 @@ function compute() {
         const totalDPSDisplay = Math.round(totalDPS);
         const breakdownSummaryChips = breakdownEntries.map(([type, data]) => {
             const percent = totalDPS ? Math.round((data.dps / totalDPS) * 100) : 0;
-            if (percent <= 0) return "";
+            if (percent <= 15) return "";
             const color = colorForType(type);
             return `<span class="summary-dps-chip" style="border-color:${color}; background:${toRgba(color, 0.22)}; color:${color};">[${type} ${percent}%]</span>`;
         }).filter(Boolean);
