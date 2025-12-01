@@ -8,17 +8,21 @@ function compute() {
     const rarityBaseWeights = state.rarity_base_weights || {};
     const rarityWeightGrowth = state.rarity_weight_growth || 0;
     const damageTypes = state.damage_types || [];
-    const defaultDmgType = (damageTypes.find((dt) => dt.default_damage_type) || damageTypes[0] || { name: "Physical" }).name;
+    const normalizeTypeName = (name) => (typeof name === "string" ? name.trim() : name);
+    const defaultDamageTypeEntry = damageTypes.find((dt) => dt.default_damage_type) || damageTypes[0] || { name: "Physical" };
+    const defaultDmgType = normalizeTypeName(defaultDamageTypeEntry.name);
     const colorMap = damageTypes.reduce((map, dt) => {
-        map[dt.name] = dt.color || "#e2e8f0";
+        const key = normalizeTypeName(dt.name);
+        map[key] = dt.color || "#e2e8f0";
         return map;
     }, {});
     const damageTypeMap = damageTypes.reduce((map, dt) => {
-        map[dt.name] = dt;
+        const key = normalizeTypeName(dt.name);
+        map[key] = dt;
         return map;
     }, {});
     const getRarityPower = (cat) => Math.max(0, Number(cat?.rarity_power ?? 1));
-    const colorForType = (type) => colorMap[type] || "#e2e8f0";
+    const colorForType = (type) => colorMap[normalizeTypeName(type)] || "#e2e8f0";
     const toRgba = (hex, alpha = 0.2) => {
         if (!hex) return `rgba(255, 255, 255, ${alpha})`;
         let sanitized = hex.replace("#", "").trim();
@@ -421,9 +425,6 @@ function compute() {
         const resMax = resBonuses.length ? Math.max(...resBonuses) : 0;
 
         const safeResistanceCap = Math.max(0, Number(state.resistance_cap ?? 0));
-        const desiredResistanceTarget = Math.min(safeResistanceCap, Math.max(0, Number(state.desired_resistance ?? 0)));
-        const resistanceTypeNames = damageTypes.length ? [...new Set(damageTypes.map((dt) => dt.name))] : [defaultDmgType];
-
         const clampResistMap = (resists) => {
             const result = {};
             Object.entries(resists || {}).forEach(([type, value]) => {
@@ -433,21 +434,12 @@ function compute() {
             return result;
         };
 
-        const evaluateResistanceProfile = (resists) => {
-            const shortages = resistanceTypeNames.map((type) => Math.max(0, desiredResistanceTarget - (resists[type] || 0)));
-            const deficiencyCount = shortages.filter((value) => value > 0).length;
-            const shortfallSum = shortages.reduce((sum, value) => sum + value, 0);
-            return { deficiencyCount, shortfallSum };
-        };
-
-        const compareResistanceProfiles = (candidateProfile, currentProfile) => {
-            if (candidateProfile.deficiencyCount !== currentProfile.deficiencyCount) {
-                return candidateProfile.deficiencyCount < currentProfile.deficiencyCount;
-            }
-            if (candidateProfile.shortfallSum !== currentProfile.shortfallSum) {
-                return candidateProfile.shortfallSum < currentProfile.shortfallSum;
-            }
-            return null;
+        const resistanceScoreWeight = Number(state.resistance_score_weight ?? 0.1);
+        const computeBuildScore = (evaluation) => {
+            const base = evaluation?.dps ?? 0;
+            if (!resistanceScoreWeight) return base;
+            const totalResists = Object.values(evaluation.resists || {}).reduce((sum, value) => sum + Math.max(0, value), 0);
+            return base + totalResists * resistanceScoreWeight;
         };
 
         const evaluateGear = (equippedGear, stats, baseAPS, unarmedDamage, currentLvl) => {
@@ -557,26 +549,34 @@ function compute() {
             const best = candidates.reduce((acc, curr) => (curr.value > acc.value ? curr : acc), { name: "flat", value: Number.NEGATIVE_INFINITY, type: defaultDmgType });
 
             const formatValue = (val) => `${val >= 0 ? "+" : ""}${Math.round(val)}`;
-
-            let description = "";
-            if (best.name === "atk") {
-                description = `AS ${formatValue(best.value)}%`;
-            } else {
-                const statLabel = best.name === "flat" ? "flat" : "mod";
-                const typeName = best.type || defaultDmgType;
-                const statDescription = `${typeName} ${statLabel} ${formatValue(best.value)}`;
-                description = `<span style="color:${colorForType(typeName)}">${statDescription}</span>`;
-            }
-
             const dpsDelta = Math.round(newDPS - prevDPS);
-            const dpsLine = `<div class="swap-reason-detail">DPS ${formatValue(dpsDelta)}</div>`;
-            if (dpsDelta < 1) disLine = "";
             const resistEntries = Object.entries(resDeltas).filter(([, delta]) => delta !== 0);
             const formatResistDelta = (type, value) => `<span class="resisttext" style="color:${colorForType(type)}">${type} ${formatValue(value)}%</span>`;
             const resistLine = resistEntries.length
                 ? `<div class="swap-reason-detail">Resistances : ${resistEntries.map(([type, delta]) => formatResistDelta(type, delta)).join(", ")}</div>`
                 : "";
 
+            const showDpsLine = dpsDelta !== 0;
+            const roundedBestValue = Math.round(best.value);
+            const showDescription = roundedBestValue !== 0;
+
+            let description = "";
+            if (showDescription) {
+                if (best.name === "atk") {
+                    description = `AS ${formatValue(best.value)}%`;
+                } else {
+                    const statLabel = best.name === "flat" ? "flat" : "mod";
+                    const typeName = best.type || defaultDmgType;
+                    const statDescription = `${typeName} ${statLabel} ${formatValue(best.value)}`;
+                    description = `<span style="color:${colorForType(typeName)}">${statDescription}</span>`;
+                }
+            }
+
+            if (!showDpsLine && !showDescription && !resistLine) {
+                return null;
+            }
+
+            const dpsLine = showDpsLine ? `<div class="swap-reason-detail">DPS ${formatValue(dpsDelta)}</div>` : "";
             return {
                 text: `${dpsLine}${description}${resistLine}`,
                 param: best.name,
@@ -587,36 +587,48 @@ function compute() {
         Object.values(bestGear).forEach((item) => {
             if (item) item.foundThisLevel = false;
         });
-        let bestEvaluation = evaluateGear(bestGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, lvl);
-        let bestDPS = bestEvaluation.dps;
-        let bestResistanceProfile = evaluateResistanceProfile(bestEvaluation.resists);
-
-        // Evaluate each drop by simulating the swap and keep it if DPS improves (empty slot always accepts)
-        lootList.forEach((item) => {
-            const slotName = item.slot;
-            if (!slotName) return;
-
-            const tempGear = { ...bestGear, [slotName]: item };
-            if (item.two_handed && offHandSlotName && offHandSlotName !== slotName) {
-                tempGear[offHandSlotName] = undefined;
+        const unarmedDamage = state.unarmed_physical_damage || 0;
+        let bestEvaluation = evaluateGear(bestGear, currentStats, baseAttackSpeed, unarmedDamage, lvl);
+        let bestScore = computeBuildScore(bestEvaluation);
+        const iterationLimit = Math.max(1, (lootList.length || 1) * 2);
+        let iterations = 0;
+        while (iterations < iterationLimit) {
+            let bestSwap = null;
+            lootList.forEach((item) => {
+                const slotName = item.slot;
+                if (!slotName || bestGear[slotName] === item) return;
+                const tempGear = { ...bestGear, [slotName]: item };
+                if (item.two_handed && offHandSlotName && offHandSlotName !== slotName) {
+                    tempGear[offHandSlotName] = undefined;
+                }
+                const tempEvaluation = evaluateGear(tempGear, currentStats, baseAttackSpeed, unarmedDamage, lvl);
+                const tempScore = computeBuildScore(tempEvaluation);
+                const delta = tempScore - bestScore;
+                if (!bestSwap || delta > bestSwap.delta) {
+                    bestSwap = {
+                        delta,
+                        slotName,
+                        item,
+                        tempGear,
+                        evaluation: tempEvaluation,
+                        score: tempScore,
+                        prevItem: bestGear[slotName]
+                    };
+                }
+            });
+            if (!bestSwap || bestSwap.delta <= 0) break;
+            const prevDps = bestEvaluation.dps;
+            const swapReason = describeSwapReason(bestSwap.prevItem, bestSwap.item, prevDps, bestSwap.evaluation.dps);
+            if (swapReason) {
+                bestSwap.item.swapReason = swapReason;
             }
+            bestGear = bestSwap.tempGear;
+            bestEvaluation = bestSwap.evaluation;
+            bestScore = bestSwap.score;
+            iterations += 1;
+        }
 
-            const tempEvaluation = evaluateGear(tempGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, lvl);
-            const tempDPS = tempEvaluation.dps;
-            const tempResistanceProfile = evaluateResistanceProfile(tempEvaluation.resists);
-            const resComparison = compareResistanceProfiles(tempResistanceProfile, bestResistanceProfile);
-            const shouldEquip = !bestGear[slotName] || resComparison === true || (resComparison === null && tempDPS > bestDPS);
-
-            if (shouldEquip) {
-                const prevItem = bestGear[slotName];
-                const prevDPS = bestDPS;
-                item.swapReason = describeSwapReason(prevItem, item, prevDPS, tempDPS);
-                bestGear = tempGear;
-                bestDPS = tempDPS;
-                bestEvaluation = tempEvaluation;
-                bestResistanceProfile = tempResistanceProfile;
-            }
-        });
+        const finalScore = Math.max(0, bestScore);
 
         const equippedGearList = Object.values(bestGear).filter(Boolean).sort((a, b) => getSlotPriority(a.slot) - getSlotPriority(b.slot));
         const equippedItems = new Set(equippedGearList);
@@ -666,7 +678,7 @@ function compute() {
                 return getOrder(a) - getOrder(b);
             });
             const bonusText = (sortedBonuses && sortedBonuses.length) ? sortedBonuses.map((b) => colorizeBonus(b)).join("<br>") : "None";
-            const foundBadge = l.foundThisLevel ? `<span class="found-indicator">found in this level</span>` : '&mdash;';
+            /*             const foundBadge = l.foundThisLevel ? `<span class="found-indicator">found in this level</span>` : '&mdash;'; */
             const swapReasonHtml = (l.foundThisLevel && l.swapReason) ? `<div class="swap-reason">${l.swapReason.text}</div>` : "";
             return `
                 <tr>
@@ -674,13 +686,15 @@ function compute() {
                     <td><span style="color:${catColor}">${l.name}</span></td>
                     <td><span style="color:${catColor}">${l.category}</span></td>
                     <td>${bonusText}</td>
-                    <td>${foundBadge}${swapReasonHtml}</td>
+                    <td>${swapReasonHtml}</td>
                 </tr>`;
         }).join("");
 
-        const gearTableHtml = equippedItems.size > 0 ?
-            `<div class="gear-table"><table><thead><tr><th>Slot</th><th>Item</th><th>Cat.</th><th>Bonuses</th><th>Found this lvl</th></tr></thead><tbody>${equippedGearRows}</tbody></table></div>` :
-            '<div class="gear-table empty">No gear</div>';
+        const gearScoreHtml = `<div class="gear-score">Score estimé : ${Math.round(finalScore)}</div>`;
+        const gearTableWithData = `<div class="gear-table"><table><thead><tr><th>Slot</th><th>Item</th><th>Cat.</th><th>Bonuses</th><th>Found this lvl</th></tr></thead><tbody>${equippedGearRows}</tbody></table></div>`;
+        const gearTableHtml = equippedItems.size > 0
+            ? `${gearScoreHtml}${gearTableWithData}`
+            : `<div class="gear-table empty">${gearScoreHtml}<div>No gear</div></div>`;
 
         const finalTotals = { flat: {}, mods: {}, resists: { ...baseResists }, atkBonus: 0 };
         equippedItems.forEach(item => {
@@ -756,9 +770,10 @@ function compute() {
         const equippedNotice = newItemsEquipped
             ? `<span class="summary-gear-notice">${newItemsEquipped} item${newItemsEquipped === 1 ? "" : "s"} equipped </span>`
             : `<span class="summary-gear-notice summary-gear-empty">no items equipped !</span>`;
+        const scoreBadge = `<span class="summary-score-chip">Score ${Math.round(finalScore)}</span>`;
         const mixSegment = breakdownSummaryChips.length
-            ? `<span class="summary-mix-line"><span class="summary-dps-total">${totalDPSDisplay} DPS</span> ${breakdownSummaryChips.join(" ")} ${equippedNotice}</span>`
-            : `<span class="summary-mix-line">${equippedNotice}</span>`;
+            ? `<span class="summary-mix-line"><span class="summary-dps-total">${totalDPSDisplay} DPS</span> ${breakdownSummaryChips.join(" ")} ${scoreBadge} ${equippedNotice}</span>`
+            : `<span class="summary-mix-line">${scoreBadge} ${equippedNotice}</span>`;
         const baseSummaryParts = [
             `Lvl ${lvl}`,
             `<span class="dim-blue">${readable}</span>`,
@@ -831,7 +846,8 @@ function compute() {
                 damage: damageBreakdown,
                 resists: finalTotals.resists,
                 attack_speed: finalAPS,
-                dps_total: totalDPS
+                dps_total: totalDPS,
+                score: finalScore
             }
         });
     }
