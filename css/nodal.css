@@ -19,6 +19,57 @@
   padding: 40px;
 }
 
+.formula-grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  margin-top: 24px;
+}
+
+.formula-section {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.formula-section h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #cbd5f5;
+}
+
+.formula-section ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.formula-section li {
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.formula-item + .formula-item {
+  margin-top: 14px;
+}
+
+.formula-item p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.formula-item p strong {
+  color: var(--text);
+}
+
+.formula-actions {
+  margin-top: 24px;
+}
+
 .form-section-build-config .field {
   padding: 20px;
 }
