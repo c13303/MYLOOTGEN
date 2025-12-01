@@ -286,14 +286,14 @@
 
         <details class="form-section form-section-dps-planning" open style="background-color: #312e81;"
           data-chart-group="core">
-          <summary class="section-title">Damage Per Second (DPS)</summary>
+          <summary class="section-title">DPS projection</summary>
           <div class="field-grid">
             <div class="field full-span chart-field">
               <canvas id="dps-planning-chart" height="240"></canvas>
             </div>
             <div class="field full-span">
               <details class="form-section" style="background-color: rgba(49,46,129,0.25);" open>
-                <summary class="section-title">see DPS per level</summary>
+                <summary class="section-title">see DPS projection per level</summary>
                 <div class="field full-span">
                   <div id="dps-planning-list" class="dps-planning-list"></div>
                 </div>
@@ -456,7 +456,8 @@
 
           <div class="compute-panel-column">
             <label for="desired-resistance"
-              title="Target resistance percentage; capped by the resistance cap value.">Min Desired Resistances %</label>
+              title="Target resistance percentage; capped by the resistance cap value.">Min Desired Resistances
+              %</label>
             <input type="number" id="desired-resistance" name="desired_resistance" min="0" max="75" step="1"
               class="compute-input" data-fader="true">
           </div>
