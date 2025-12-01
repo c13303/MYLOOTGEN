@@ -693,6 +693,11 @@ canvas {
   letter-spacing: 0.2em;
 }
 
+#stats-progression-model {
+  color: black;
+  background:white;
+}
+
 .build-line {
   display: flex;
   flex-wrap: wrap;

@@ -45,9 +45,7 @@ $(function () {
     const $dpsPlanningList = $("#dps-planning-list");
     const $attackSpeedSlotsMeta = $("#attack-speed-slots-meta");
     const $rarityWeightGrowth = $("#rarity-weight-growth");
-    const $attrPerLevelFactor = $("#attr-per-level-factor"); 
     const $additionalLootFactor = $("#additional-loot-factor");
-    const $unarmedGrowth = $("#unarmed-growth");
     const $xpBase = $("#xp-base");
     const $xpGrowth = $("#xp-growth");
     const $xpMultiplier = $("#xp-multiplier");
@@ -64,6 +62,22 @@ $(function () {
     const $configAlert = $("#config-alert");
     const $preview = $("#config-preview");
     const attrNames = ["force", "intelligence", "dexterity"];
+
+    const annotateInputTooltips = () => {
+        $("input[name]").each((_, elem) => {
+            const $elem = $(elem);
+            const nameAttr = $elem.attr("name");
+            if (!nameAttr) return;
+            const baseTitle = $elem.attr("title");
+            const tooltip = `defaults.js → state.${nameAttr}`;
+            if (baseTitle) {
+                $elem.attr("title", `${baseTitle} · ${tooltip}`);
+            } else {
+                $elem.attr("title", tooltip);
+            }
+        });
+    };
+    annotateInputTooltips();
 
     if (state.attributes?.physical && !state.attributes.force) {
         state.attributes.force = state.attributes.physical;
@@ -837,7 +851,7 @@ $(function () {
                 return;
             }
 
-            const exists = state.categories.some((cat) => cat.name.toLowerCase() === name.toLowerCase());
+            const exists = state.rarities.some((cat) => cat.name.toLowerCase() === name.toLowerCase());
             if (exists) {
                 alert("Category name already exists.");
                 return;
@@ -856,8 +870,8 @@ $(function () {
                 newCat.skill_mod = skillVal;
             }
 
-            state.categories.push(newCat);
-            renderTags("categories");
+            state.rarities.push(newCat);
+            renderTags("rarities");
             renderPreview();
             $overlay.remove();
         });
@@ -1347,7 +1361,7 @@ $(function () {
         items.forEach((value, index) => {
             const label = key === "damage_types"
                 ? `${value.name}${value.default_damage_type ? " [default]" : ""}${value.is_over_time ? " (over time)" : ""}${value.attribute ? ` | ${value.attribute}${value.attribute_modifier ? ` x${value.attribute_modifier}` : ""}` : ""}`
-                : key === "categories"
+                : key === "rarities"
                     ? value.name
                 : key === "items"
                     ? value.name
@@ -1360,7 +1374,7 @@ $(function () {
             if (key === "damage_types" && value.color) {
                 $tag.css({ borderColor: value.color, color: value.color });
             }
-            if (key === "categories" && value.color) {
+            if (key === "rarities" && value.color) {
                 $tag.css({ borderColor: value.color, color: value.color });
             }
             const $text = $('<span class="tag-label"></span>').text(label);
@@ -1382,7 +1396,7 @@ $(function () {
             if (key === "damage_types") {
                 $tag.on("click", () => openDamageSummary(value));
             }
-            if (key === "categories") {
+            if (key === "rarities") {
                 $tag.on("click", () => openCategorySummary(value));
             }
             if (key === "items") {
@@ -1461,7 +1475,7 @@ $(function () {
             }
             return;
         }
-        if (key === "categories") {
+        if (key === "rarities") {
             openCategoryForm();
             if ($input && $input.length) {
                 $input.val("");
@@ -1495,9 +1509,6 @@ $(function () {
     $gainPerLevel.val(state.gain_per_level);
     $statsProgressionModel.val(state.stats_progression_model || "balanced");
     $medianTimePerLoot.val(state.median_time_per_loot);
-    if (typeof state.time_level_min === "undefined") state.time_level_min = 60;
-    if (typeof state.time_level_max === "undefined") state.time_level_max = 7200;
-    if (typeof state.time_level_curve === "undefined") state.time_level_curve = 1.5;
     $timeLevelMin.val(state.time_level_min);
     $timeLevelMax.val(state.time_level_max);
     $timeLevelCurve.val(state.time_level_curve);
@@ -1505,52 +1516,22 @@ $(function () {
     $unarmedPhysicalDamage.val(state.unarmed_physical_damage);
     $basePhysicalResistance.val(state.base_physical_resistance);
     $generatePercent.val(state.generate_percent);
-    if (typeof state.attack_speed_min === "undefined") state.attack_speed_min = 1;
-    if (typeof state.attack_speed_max === "undefined") state.attack_speed_max = 3;
-    if (typeof state.attack_speed_power_progression === "undefined") state.attack_speed_power_progression = 1.2;
-    if (typeof state.attack_speed_slots_auto === "undefined") {
-        state.attack_speed_slots_auto = (state.equipment_slots || []).filter((slot) => slot.allow_attack_speed !== false).length;
-    }
     $attackSpeedMin.val(state.attack_speed_min);
     $attackSpeedMax.val(state.attack_speed_max);
     $attackSpeedPower.val(state.attack_speed_power_progression);
     $attackSpeedSlotsAuto.val(state.attack_speed_slots_auto);
     $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
-    if (typeof state.flat_damage_formula_progression === "undefined") {
-        state.flat_damage_formula_progression = "dmg = flat_damage_min + (flat_damage_max - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression";
-    }
-    if (typeof state.flat_damage_max === "undefined") {
-        state.flat_damage_max = 100;
-    }
-    if (typeof state.flat_damage_power_progression === "undefined") {
-        state.flat_damage_power_progression = 2;
-    }
     $flatDamagePower.val(state.flat_damage_power_progression);
     $flatDamageMin.val(state.flat_damage_min ?? 2);
     $flatDamageMedian.val(state.flat_damage_max);
     $flatDamageJitter.val(state.flat_damage_jitter_pct ?? 0.2);
     $flatDamageSlotsAuto.val(state.flat_damage_equipement_slots_auto ?? 0);
     $flatDamageOneHandRatio.val(state.flat_damage_onehand_ratio ?? 0.75);
-    if (typeof state.mod_damage_min === "undefined") state.mod_damage_min = 10;
-    if (typeof state.mod_damage_max === "undefined") state.mod_damage_max = 250;
-    if (typeof state.mod_damage_power_progression === "undefined") state.mod_damage_power_progression = 1.2;
-    if (typeof state.mod_damage_jitter_pct === "undefined") state.mod_damage_jitter_pct = 0.05;
-    if (typeof state.mod_damage_slots_auto === "undefined") {
-        state.mod_damage_slots_auto = (state.equipment_slots || []).filter((slot) => slot.allow_damage_mod !== false).length;
-    }
     $modDamageMin.val(state.mod_damage_min);
     $modDamageMax.val(state.mod_damage_max);
     $modDamagePower.val(state.mod_damage_power_progression);
     $modDamageJitter.val(state.mod_damage_jitter_pct);
     $modDamageSlotsAuto.val(state.mod_damage_slots_auto);
-    if (typeof state.resistance_affix_min === "undefined") state.resistance_affix_min = 0.4;
-    if (typeof state.resistance_affix_max === "undefined") state.resistance_affix_max = 0.77;
-    if (typeof state.resistance_curve === "undefined") state.resistance_curve = 1.5;
-    if (typeof state.resistance_jitter === "undefined") state.resistance_jitter = 0.77;
-    if (typeof state.resistance_cap === "undefined") state.resistance_cap = 75;
-    if (typeof state.resistance_slots_auto === "undefined") {
-        state.resistance_slots_auto = (state.equipment_slots || []).filter((slot) => slot.allow_resist !== false).length;
-    }
     $resistanceAffixMin.val(state.resistance_affix_min);
     $resistanceAffixMax.val(state.resistance_affix_max);
     $resistanceCurve.val(state.resistance_curve);
@@ -1568,16 +1549,14 @@ $(function () {
     renderLevelTimeChart();
     renderDpsPlanningChart();
     renderXpCurve();
-    $attrPerLevelFactor.val(state.attr_per_level_factor);
     $rarityWeightGrowth.val(state.rarity_weight_growth);
     $additionalLootFactor.val(state.additional_loot_factor);
-    $unarmedGrowth.val(state.unarmed_growth);
     $xpBase.val(state.xp_base);
     $xpGrowth.val(state.xp_growth);
     $xpMultiplier.val(state.xp_multiplier);
     renderTags("equipment_slots");
         renderTags("damage_types");
-        renderTags("categories");
+        renderTags("rarities");
         renderTags("items");
         renderTags("skills");
         updateModDamageSlotsAutoCount();
@@ -2600,26 +2579,10 @@ $(function () {
         }
     });
 
-    $attrPerLevelFactor.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.attr_per_level_factor = value;
-            renderPreview();
-        }
-    });
-
     $additionalLootFactor.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
             state.additional_loot_factor = value;
-            renderPreview();
-        }
-    });
-
-    $unarmedGrowth.on("input", function () {
-        const value = parseFloat($(this).val());
-        if (!Number.isNaN(value)) {
-            state.unarmed_growth = value;
             renderPreview();
         }
     });

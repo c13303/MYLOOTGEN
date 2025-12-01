@@ -16,7 +16,7 @@ const state = {
     attributes: {
         force: { min: 1, max: 120 },
         intelligence: { min: 1, max: 120 },
-        dexterity: { min: 1, max: 60 }
+        dexterity: { min: 1, max: 120 }
     },
     stats_progression_model: "balanced",
     gain_per_level: 2,
@@ -60,10 +60,8 @@ const state = {
     resistance_slots_auto: 2,
     affix_growth_headroom: 5, // how many extra affixes unlock from lvl 1 to max
     rarity_weight_growth: 0.05,
-    attr_per_level_factor: 0.04,
     attribute_modifier_default: 0.02,
     additional_loot_factor: 1.2,
-    unarmed_growth: 0.03,
     xp_base: 500,
     xp_growth: 1.15,
     xp_multiplier: 1,
@@ -97,6 +95,7 @@ const state = {
         { name: "belt", position: 6, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
         { name: "boots", position: 7, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true }
     ],
+    rarities: [],
     damage_types: [
         {
             "name": "Physical",
@@ -168,6 +167,7 @@ const state = {
         {
             "name": "common",
             "rarity": 1,
+            "rarity_power": 0.5,
             "attributes": 1,
             "attribute_types": ["Physical"],
             "allow_attack_speed_mod": false,
@@ -178,6 +178,7 @@ const state = {
         {
             "name": "rare",
             "rarity": 0.5,
+            "rarity_power": 0.7,
             "attributes": 2,
             "attribute_types": ["Physical", "Fire", "Ice", "Shock"],
             "allow_attack_speed_mod": true,
@@ -188,6 +189,7 @@ const state = {
         {
             "name": "magic",
             "rarity": 0.5,
+            "rarity_power": 0.85,
             "attributes": 3,
             "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn"],
             "allow_attack_speed_mod": true,
@@ -198,6 +200,7 @@ const state = {
         {
             "name": "legendary",
             "rarity": 0.2,
+            "rarity_power": 0.95,
             "attributes": 4,
             "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "allow_attack_speed_mod": true,
@@ -209,6 +212,7 @@ const state = {
         {
             "name": "unique",
             "rarity": 0.1,
+            "rarity_power": 1,
             "attributes": 5,
             "attribute_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
             "allow_attack_speed_mod": true,
@@ -466,3 +470,4 @@ const state = {
         }
     ]
 };
+state.rarities = state.categories;

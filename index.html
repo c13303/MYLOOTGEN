@@ -54,10 +54,10 @@
             </div>
 
             <div class="field">
-              <label title="Rarity categories with unlock levels and affix counts.">Categories</label>
-              <div class="tag-list" data-tags="categories"></div>
+              <label title="Rarity rarities with unlock levels and affix counts.">rarities</label>
+              <div class="tag-list" data-tags="rarities"></div>
               <div class="tag-input">
-                <button type="button" data-target="categories">Add</button>
+                <button type="button" data-target="rarities">Add</button>
               </div>
             </div>
 
@@ -144,15 +144,8 @@
 
               <div class="field">
                 <label for="gain-per-level"
-                  title="Flat stat gain per level applied to the selected stat progression model.">Base attributes gain
-                  per
-                  level</label>
+                  title="Flat stat gain per level applied to the selected stat progression model.">Stats Points given per level</label>
                 <input type="number" id="gain-per-level" name="gain_per_level" min="0" step="0.1">
-              </div>
-              <div class="field">
-                <label for="unarmed-growth" title="Percent growth of unarmed damage per level.">Unarmed growth per
-                  level</label>
-                <input type="number" id="unarmed-growth" name="unarmed_growth" min="0" step="0.001">
               </div>
             </div>
           </details>
@@ -345,7 +338,7 @@
 
             <div class="field range-field">
               <div class="range-pair">
-                <span>(s) level time from</span>
+                <span>level length (s)</span>
                 <input type="number" id="time-level-min" name="time_level_min" min="1" step="1"
                   class="range-limit no-fader">
                 <span>to</span>
@@ -395,11 +388,6 @@
               <input type="number" id="rarity-weight-growth" name="rarity_weight_growth" min="0" step="0.001">
             </div>
 
-            <div class="field">
-              <label for="attr-per-level-factor"
-                title="Extra affix count scaling with level for each category.">Attributes per level factor</label>
-              <input type="number" id="attr-per-level-factor" name="attr_per_level_factor" min="0" step="0.001">
-            </div>
           </div>
         </details>
         <details class="form-section" style="background-color: #3b1f38;" data-chart-group="future" open>

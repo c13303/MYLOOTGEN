@@ -2,7 +2,7 @@ function compute() {
     if (typeof state === "undefined") return;
 
     const levels = state.levels || 1;
-    const categories = state.categories || [];
+    const rarities = state.rarities || [];
     const items = state.items || [];
     const slots = (state.equipment_slots || []).map((s) => s.name);
     const rarityBaseWeights = state.rarity_base_weights || {};
@@ -13,6 +13,11 @@ function compute() {
         map[dt.name] = dt.color || "#e2e8f0";
         return map;
     }, {});
+    const damageTypeMap = damageTypes.reduce((map, dt) => {
+        map[dt.name] = dt;
+        return map;
+    }, {});
+    const getRarityPower = (cat) => Math.max(0, Number(cat?.rarity_power ?? 1));
     const colorForType = (type) => colorMap[type] || "#e2e8f0";
     const toRgba = (hex, alpha = 0.2) => {
         if (!hex) return `rgba(255, 255, 255, ${alpha})`;
@@ -121,15 +126,15 @@ function compute() {
         const offset = (pseudoRand(seed) * 2 - 1) * spread;
         return Math.max(0, value * (1 + offset));
     };
-        const computeAttackSpeedBonusForLevel = (lvl) => {
-            const asMin = Number(state.attack_speed_min ?? 0);
-            const asMax = Number(state.attack_speed_max ?? asMin);
-            const power = Number(state.attack_speed_power_progression ?? 1);
-            const denom = Math.max(1, (state.levels || levels) - 1);
-            const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
-            const aps = asMin + (asMax - asMin) * Math.pow(t, power); // target APS for the build
-            const baseAps = Number(state.attack_speed_min ?? 1);
-            const delta = Math.max(0, aps - baseAps);
+    const computeAttackSpeedBonusForLevel = (lvl) => {
+        const asMin = Number(state.attack_speed_min ?? 0);
+        const asMax = Number(state.attack_speed_max ?? asMin);
+        const power = Number(state.attack_speed_power_progression ?? 1);
+        const denom = Math.max(1, (state.levels || levels) - 1);
+        const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
+        const aps = asMin + (asMax - asMin) * Math.pow(t, power); // target APS for the build
+        const baseAps = Number(state.attack_speed_min ?? 1);
+        const delta = Math.max(0, aps - baseAps);
         const pctTotal = baseAps > 0 ? (delta / baseAps) * 100 : 0;
         const pctPerSlot = pctTotal / asSlotDivider;
         return pctPerSlot;
@@ -205,7 +210,7 @@ function compute() {
     };
 
     const pickCategory = (seed, currentLevel) => {
-        const eligible = categories.filter((cat) => (cat.unlock_level || 1) <= currentLevel);
+        const eligible = rarities.filter((cat) => (cat.unlock_level || 1) <= currentLevel);
         if (!eligible.length) return { name: "none" };
         const weights = eligible.map((cat) => {
             const baseWeight = rarityBaseWeights[cat.name] ?? cat.rarity ?? 0;
@@ -238,7 +243,7 @@ function compute() {
         const rolledLootCount = Math.max(0, Math.floor(lootCount * generatePercent / 100));
         const readable = formatTime(levelTime);
         const readableTotal = formatTime(totalTimeCumulated);
-        const weights = categories.map((cat) => {
+        const weights = rarities.map((cat) => {
             const unlock = cat.unlock_level || 1;
             if (lvl < unlock) return 0;
             const baseWeight = rarityBaseWeights[cat.name] ?? cat.rarity ?? 0;
@@ -247,8 +252,8 @@ function compute() {
         const weightSum = weights.reduce((sum, w) => sum + w, 0);
         const percents = weightSum > 0
             ? weights.map((w) => (w / weightSum) * 100)
-            : categories.map(() => 0);
-        const distribution = categories.map((cat, idx) => {
+            : rarities.map(() => 0);
+        const distribution = rarities.map((cat, idx) => {
             const unlock = cat.unlock_level || 1;
             if (lvl < unlock) return `${cat.name}: 0%`;
             return `${cat.name}: ${Math.round((percents[idx] || 0) * 10) / 10}%`;
@@ -291,6 +296,7 @@ function compute() {
             if (cat?.name === "common") {
                 affixLimit = Math.min(1, affixLimit); // commons: single affix
             }
+            const rarityFactor = getRarityPower(cat);
             const bonuses = [];
             const baseAdds = {};
             const dmgAdds = {};
@@ -322,7 +328,7 @@ function compute() {
                     usedDamageTypes.add(type);
                     const sliceBase = totalBaseDmg * (weights[s] ?? 0);
                     const roll = applyJitter(sliceBase, (lvl + i + 101 + s) * 11);
-                    const rolledValue = Math.round(roll);
+                    const rolledValue = Math.max(1, Math.round(roll * rarityFactor));
                     baseAdds[type] = rolledValue;
                     bonuses.push(`+${rolledValue} ${type} flat dmg`);
                 }
@@ -333,9 +339,13 @@ function compute() {
                 const roll = pseudoRand(lvl + i + a * 17);
                 // prioritize mod/res, add AS if allowed and rolled
                 if (cat?.allow_attack_speed_mod && roll > 0.85 && !bonuses.some((b) => b.includes("Attack Speed"))) {
-                    atkBonus = Math.max(1, Math.round(computeAttackSpeedBonusForLevel(lvl)));
-                    if (atkBonus > 0) asBonuses.push(atkBonus);
-                    bonuses.push(`+${atkBonus}% Attack Speed`);
+                    const baseAtk = Math.round(computeAttackSpeedBonusForLevel(lvl));
+                    const scaledAtk = baseAtk > 0 ? Math.max(1, Math.round(baseAtk * rarityFactor)) : 0;
+                    atkBonus = scaledAtk;
+                    if (atkBonus > 0) {
+                        asBonuses.push(atkBonus);
+                        bonuses.push(`+${atkBonus}% Attack Speed`);
+                    }
                 } else if (item.damage_modifier !== false && roll > 0.35) {
                     // All damage mods on an item must be the same type, and only ONE damage mod affix per item
                     if (!damageModType) {
@@ -344,11 +354,13 @@ function compute() {
                         const key = type;
                         const baseMod = computeDamageModForLevel(lvl);
                         const jittered = applyPctJitter(baseMod, Number(state.mod_damage_jitter_pct ?? 0), (lvl + i + a * 23) * 5.7);
-                        const rolledMod = Math.round(jittered);
-                        if (!dmgMods[key]) dmgMods[key] = 0;
-                        dmgMods[key] += rolledMod;
-                        if (rolledMod > 0) modBonuses.push(rolledMod);
-                        bonuses.push(`+${rolledMod}% ${type} dmg mod`);
+                        const rolledMod = Math.round(jittered * rarityFactor);
+                        if (rolledMod > 0) {
+                            if (!dmgMods[key]) dmgMods[key] = 0;
+                            dmgMods[key] += rolledMod;
+                            modBonuses.push(rolledMod);
+                            bonuses.push(`+${rolledMod}% ${type} dmg mod`);
+                        }
                     }
                     // If damageModType already exists, skip this affix slot (no duplicate dmg mods)
                 } else {
@@ -366,12 +378,14 @@ function compute() {
                         const baseRes = computeResistanceForLevel(lvl);
                         const jittered = applyPctJitter(baseRes, Number(state.resistance_jitter ?? 0), (lvl + i + a * 31) * 6.3);
                         const resistCap = Number(state.resistance_cap ?? 100);
-                        const cappedRes = Math.min(jittered * 100, resistCap); // convert to percentage and apply cap
+                        const cappedRes = Math.min(jittered * rarityFactor * 100, resistCap); // convert to percentage and apply cap
                         const rolledRes = Math.round(cappedRes);
-                        if (!resAdds[key]) resAdds[key] = 0;
-                        resAdds[key] += rolledRes;
-                        if (rolledRes > 0) resBonuses.push(rolledRes);
-                        bonuses.push(`+${rolledRes}% ${type} res`);
+                        if (rolledRes > 0) {
+                            if (!resAdds[key]) resAdds[key] = 0;
+                            resAdds[key] += rolledRes;
+                            resBonuses.push(rolledRes);
+                            bonuses.push(`+${rolledRes}% ${type} res`);
+                        }
                     }
                 }
             }
@@ -406,7 +420,7 @@ function compute() {
         const resMin = resBonuses.length ? Math.min(...resBonuses) : 0;
         const resMax = resBonuses.length ? Math.max(...resBonuses) : 0;
 
-        const calculateDPS = (equippedGear, stats, baseAPS, unarmedDamage, unarmedGrowth, currentLvl) => {
+        const calculateDPS = (equippedGear, stats, baseAPS, unarmedDamage, currentLvl) => {
             const totals = {
                 flat: {},
                 mods: {},
@@ -425,7 +439,7 @@ function compute() {
             });
 
             const finalAPS = baseAPS * (1 + totals.atkBonus / 100);
-            const finalUnarmed = unarmedDamage * Math.pow(1 + unarmedGrowth, currentLvl - 1);
+            const finalUnarmed = unarmedDamage;
 
             let totalDPS = 0;
 
@@ -440,7 +454,12 @@ function compute() {
             allDmgTypes.forEach(type => {
                 const flat = totals.flat[type] || 0;
                 const mod = totals.mods[type] || 0;
-                totalDPS += flat * (1 + mod / 100) * finalAPS;
+                const dtConfig = damageTypeMap[type];
+                const attributeKey = normalizeAttrKey(dtConfig?.attribute ?? defaultDmgType);
+                const attrValue = stats[attributeKey] ?? 0;
+                const modifier = Number(dtConfig?.attribute_modifier ?? state.attribute_modifier_default ?? 0);
+                const attrMultiplier = Math.max(0, 1 + modifier * attrValue);
+                totalDPS += flat * (1 + mod / 100) * finalAPS * attrMultiplier;
             });
 
             return totalDPS;
@@ -510,7 +529,7 @@ function compute() {
             }
 
             return {
-                text: `${description} (DPS ${Math.round(prevDPS)} → ${Math.round(newDPS)})`,
+                text: `${description}`, // (DPS ${Math.round(prevDPS)} → ${Math.round(newDPS)})
                 param: best.name,
             };
         };
@@ -519,7 +538,7 @@ function compute() {
         Object.values(bestGear).forEach((item) => {
             if (item) item.foundThisLevel = false;
         });
-        let bestDPS = calculateDPS(bestGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, state.unarmed_growth || 0, lvl);
+        let bestDPS = calculateDPS(bestGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, lvl);
 
         // Evaluate each drop by simulating the swap and keep it if DPS improves (empty slot always accepts)
         lootList.forEach((item) => {
@@ -531,7 +550,7 @@ function compute() {
                 tempGear[offHandSlotName] = undefined;
             }
 
-            const tempDPS = calculateDPS(tempGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, state.unarmed_growth || 0, lvl);
+            const tempDPS = calculateDPS(tempGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, lvl);
             const shouldEquip = !bestGear[slotName] || tempDPS > bestDPS;
 
             if (shouldEquip) {
@@ -553,7 +572,7 @@ function compute() {
         const newItemsEquipped = equippedGearList.filter((item) => item.foundThisLevel).length;
 
         const lootRows = lootList.map((l) => {
-            const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
+            const catColor = (rarities.find((c) => c.name === l.category)?.color) || "#e2e8f0";
             const sortedBonuses = (l.bonuses || []).slice().sort((a, b) => {
                 const getOrder = (bonus) => {
                     if (bonus.includes("flat dmg")) return 0;
@@ -579,7 +598,7 @@ function compute() {
         const allLootHtml = lootList.length ? `<div class="loot-table"><table>...</table></div>` : '<div class="loot-table empty">No loot</div>'; // Simplified for brevity
 
         const equippedGearRows = equippedGearList.map((l) => {
-            const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
+            const catColor = (rarities.find((c) => c.name === l.category)?.color) || "#e2e8f0";
             const sortedBonuses = (l.bonuses || []).slice().sort((a, b) => {
                 const getOrder = (bonus) => {
                     if (bonus.includes("flat dmg")) return 0;
@@ -616,7 +635,7 @@ function compute() {
         });
 
         const finalAPS = baseAttackSpeed * (1 + finalTotals.atkBonus / 100);
-        const finalUnarmed = (state.unarmed_physical_damage || 0) * Math.pow(1 + (state.unarmed_growth || 0), lvl - 1);
+        const finalUnarmed = (state.unarmed_physical_damage || 0);
         if (Object.keys(finalTotals.flat).length === 0) {
             finalTotals.flat[defaultDmgType] = finalUnarmed;
         } else {
@@ -665,7 +684,7 @@ function compute() {
         const formatResistBadge = ([type, value]) => {
             const color = colorForType(type);
             const background = toRgba(color, 0.18);
-            return `<span class="resist-pill" style="border-color:${color}; background:${background}; color:${color};">${type}: ${value}%</span>`;
+            return `<span class="resisttext" style=" color:${color};">${type}: ${value}%</span> <br/>`;
         };
         const resLinePretty = resistEntries.length
             ? resistEntries.map(formatResistBadge).join(" ")
@@ -675,7 +694,7 @@ function compute() {
             const percent = totalDPS ? Math.round((data.dps / totalDPS) * 100) : 0;
             if (percent <= 15) return "";
             const color = colorForType(type);
-            return `<span class="summary-dps-chip" style="border-color:${color}; background:${toRgba(color, 0.22)}; color:${color};">[${type} ${percent}%]</span>`;
+            return `<span class="summary-dps-chip" style="border-color:${color}; background:${toRgba(color, 0.22)}; color:${color};">${type} ${percent}%</span> <br/>`;
         }).filter(Boolean);
         const equippedNotice = newItemsEquipped
             ? `<span class="summary-gear-notice">${newItemsEquipped} item${newItemsEquipped === 1 ? "" : "s"} equipped </span>`
