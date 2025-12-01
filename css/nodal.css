@@ -15,6 +15,10 @@
   --radius: 14px;
 }
 
+.formula-note {
+  padding: 40px;
+}
+
 .form-section-build-config .field {
   padding: 20px;
 }

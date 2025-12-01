@@ -488,6 +488,44 @@
       <div id="compute-result" class="compute-result"></div>
     </div>
     <pre id="config-preview" class="config-preview"></pre>
+    <details class="form-section" id="formulas-section">
+      <summary class="section-title">Show formulas</summary>
+      <div class="formula-note">
+        <p>This notice explains the configuration parameters (<code>state</code>) needed to reproduce the loot compute logic outside of JavaScript, plus the core mathematical steps for level-based item generation.</p>
+        <pre>// Parameters explained
+// state.levels: total number of levels the game simulates (denominator for normalized progression).
+// state.flat_damage_min / flat_damage_max: floor and ceiling for flat damage curves.
+// state.flat_damage_power_progression: exponent that makes the flat damage curve concave/convex.
+// state.flat_damage_equipement_slots_auto: computed count of slots that accept flat damage (acts as a divisor).
+// state.attack_speed_min / attack_speed_max: gated APS range used to calculate bonuses per level.
+// state.attack_speed_power_progression: curve exponent for attack speed interpolation.
+// state.attack_speed_slots_auto: number of slots contributing attack speed (per-slot bonus divider).
+// state.mod_damage_min / mod_damage_max / mod_damage_power_progression / mod_damage_slots_auto: same pattern for percentage damage modifiers.
+// state.resistance_affix_min / max / curve: base, ceiling and exponent for resistances, assigned per affix.
+// state.generate_percent: percentage of loot generation to scale roll density.
+// state.rarity_base_weights + rarity_weight_growth: base weights per rarity and how they grow with time/level.
+// state.damage_types: metadata for each damage type (name, color, attribute linking, over-time flag).
+// state.equipment_slots: slot permissions (flat damage, mod damage, AS, resist) that define how many modifiers are distributed.</pre>
+        <pre>// Core formulas (per level L)
+// normalizedProgress(L) = ((L - 1) / max(1, levels - 1)) clamped between 0 and 1.
+// flat damage per slot:
+flatDamage(L) = (flat_damage_min + (flat_damage_max - flat_damage_min) * normalizedProgress(L)^flat_damage_power_progression) / flat_damage_equipement_slots_auto
+// damage modifier per slot:
+damageMod(L) = (mod_damage_min + (mod_damage_max - mod_damage_min) * normalizedProgress(L)^mod_damage_power_progression) / mod_damage_slots_auto
+// attack speed bonus per slot:
+targetAPS(L) = attack_speed_min + (attack_speed_max - attack_speed_min) * normalizedProgress(L)^attack_speed_power_progression
+attackSpeedBonus(L) = ((targetAPS(L) - attack_speed_min) / attack_speed_min * 100) / attack_speed_slots_auto
+// resistance per affix:
+resistance(L) = resistance_affix_min + (resistance_affix_max - resistance_affix_min) * normalizedProgress(L)^resistance_curve
+// jitter applied to flat damage rolls:
+applyJitter(value, seed) = value * (1 + offset) where offset ∈ [−flat_damage_jitter_pct, +flat_damage_jitter_pct] driven by deterministic per-level pseudo-random.
+// rarity weight adjustment per drop:
+rarityWeight(rarity) = (baseWeight + rarity_weight_growth * level) * rarity_power_multiplier (from the matching category/rarity entry).
+// final loot roll:
+combination of flatDamage, damageMod, attackSpeedBonus, resistance per affix, and rarityWeight to shape the drop pool; equip slots and category attributes limit which bonuses are valid.</pre>
+        <p>Translate these steps into your engine of choice by feeding the same <code>state</code> values (from <code>js/defaults.js</code>) into matching curve evaluators and slot filters.</p>
+      </div>
+    </details>
   </main>
 
 </body>
