@@ -8,8 +8,11 @@ $(function () {
     const $gainPerLevel = $("#gain-per-level");
     const $statsProgressionModel = $("#stats-progression-model");
     const $medianTimePerLoot = $("#median-time-per-loot");
-    const $medianTimePerLevel = $("#median-time-per-level");
-    const $levelTimeMultiplier = $("#level-time-multiplier");
+    const $timeLevelMin = $("#time-level-min");
+    const $timeLevelMax = $("#time-level-max");
+    const $timeLevelCurve = $("#time-level-curve");
+    const $levelTimeChart = $("#level-time-chart");
+    const $totalTimeMeta = $("#total-time-meta");
     const $rarityGrowthFactor = $("#rarity-growth-factor");
     const $unarmedPhysicalDamage = $("#unarmed-physical-damage");
     const $basePhysicalResistance = $("#base-physical-resistance");
@@ -1493,8 +1496,12 @@ $(function () {
     $gainPerLevel.val(state.gain_per_level);
     $statsProgressionModel.val(state.stats_progression_model || "balanced");
     $medianTimePerLoot.val(state.median_time_per_loot);
-    $medianTimePerLevel.val(state.median_time_per_level);
-    $levelTimeMultiplier.val(state.level_time_multiplier);
+    if (typeof state.time_level_min === "undefined") state.time_level_min = 60;
+    if (typeof state.time_level_max === "undefined") state.time_level_max = 7200;
+    if (typeof state.time_level_curve === "undefined") state.time_level_curve = 1.5;
+    $timeLevelMin.val(state.time_level_min);
+    $timeLevelMax.val(state.time_level_max);
+    $timeLevelCurve.val(state.time_level_curve);
     $rarityGrowthFactor.val(state.rarity_growth_factor);
     $unarmedPhysicalDamage.val(state.unarmed_physical_damage);
     $basePhysicalResistance.val(state.base_physical_resistance);
@@ -1560,6 +1567,7 @@ $(function () {
     renderModDamageChart();
     updateResistanceSlotsAutoCount();
     renderResistanceChart();
+    renderLevelTimeChart();
     renderDpsPlanningChart();
     renderXpCurve();
     $attrPerLevelFactor.val(state.attr_per_level_factor);
@@ -1585,6 +1593,7 @@ $(function () {
         if (!Number.isNaN(value)) {
             state.levels = value;
             renderFlatDamageChart();
+            renderLevelTimeChart();
             renderXpCurve();
             renderPreview();
         }
@@ -1628,18 +1637,29 @@ $(function () {
         }
     });
 
-    $medianTimePerLevel.on("input", function () {
+    $timeLevelMin.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.median_time_per_level = value;
+            state.time_level_min = value;
+            renderLevelTimeChart();
             renderPreview();
         }
     });
 
-    $levelTimeMultiplier.on("input", function () {
+    $timeLevelMax.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.level_time_multiplier = value;
+            state.time_level_max = value;
+            renderLevelTimeChart();
+            renderPreview();
+        }
+    });
+
+    $timeLevelCurve.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.time_level_curve = value;
+            renderLevelTimeChart();
             renderPreview();
         }
     });
@@ -2091,6 +2111,95 @@ $(function () {
         ctx.closePath();
         ctx.fillStyle = "rgba(192, 132, 252, 0.12)";
         ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#f8fafc";
+        points.forEach((p) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.val - yMin) * yScale;
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    function renderLevelTimeChart() {
+        if (!$levelTimeChart.length) return;
+        const canvas = $levelTimeChart[0];
+        const ctx = canvas.getContext("2d");
+        const width = canvas.clientWidth || 600;
+        const height = canvas.height || 240;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+
+        const lvlMax = Math.max(1, parseInt(state.levels, 10) || 1);
+        const lvlCount = Math.max(2, lvlMax);
+        const timeMin = Number(state.time_level_min ?? 60);
+        const timeMax = Number(state.time_level_max ?? 7200);
+        const power = Number(state.time_level_curve ?? 1);
+
+        const points = [];
+        let totalTime = 0;
+        for (let lvl = 1; lvl <= lvlCount; lvl += 1) {
+            const t = Math.min(1, Math.max(0, (lvl - 1) / Math.max(1, lvlCount - 1)));
+            const val = timeMin + (timeMax - timeMin) * Math.pow(t, power);
+            points.push({ lvl, val });
+            totalTime += val;
+        }
+
+        // Update total time display in hours
+        if ($totalTimeMeta.length) {
+            const totalHours = (totalTime / 3600).toFixed(1);
+            $totalTimeMeta.text(totalHours);
+        }
+
+        if (points.length === 0) return;
+
+        const yMin = 0;
+        const yMax = Math.max(...points.map((p) => p.val)) * 1.1;
+
+        const pad = 40;
+        const xScale = (width - 2 * pad) / Math.max(1, lvlCount - 1);
+        const yScale = (height - 2 * pad) / Math.max(1, yMax - yMin);
+
+        ctx.strokeStyle = "#334155";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, pad);
+        ctx.lineTo(pad, height - pad);
+        ctx.lineTo(width - pad, height - pad);
+        ctx.stroke();
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        for (let lvl = 1; lvl <= lvlCount; lvl += Math.max(1, Math.floor(lvlCount / 10))) {
+            const x = pad + (lvl - 1) * xScale;
+            ctx.fillText(`${lvl}`, x, height - pad + 14);
+        }
+
+        ctx.textAlign = "right";
+        const formatTimeValue = (seconds) => {
+            if (seconds >= 3600) return `${(seconds / 3600).toFixed(1)}h`;
+            if (seconds >= 60) return `${(seconds / 60).toFixed(0)}m`;
+            return `${seconds.toFixed(0)}s`;
+        };
+        for (let i = 0; i <= 5; i += 1) {
+            const val = yMin + (yMax - yMin) * (i / 5);
+            const y = height - pad - (val - yMin) * yScale;
+            ctx.fillText(formatTimeValue(val), pad - 5, y + 4);
+        }
+
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.val - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
         ctx.stroke();
 
         ctx.fillStyle = "#f8fafc";

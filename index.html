@@ -337,44 +337,58 @@
           </details>
         </details>
         <details class="form-section" style="background-color: #1f3c4e;" data-chart-group="future" open>
-          <summary class="section-title">Level Time & Loot Distribution</summary>
+          <summary class="section-title">Level Time</summary>
           <div class="field-grid">
-            <div class="field-grid inline-four">
-              <div class="field">
-                <label for="median-time-per-level"
-                  title="Average seconds to gain a level before modifiers. Drives number of loots per level.">Median
-                  time
-                  per level (s)</label>
-                <input type="number" id="median-time-per-level" name="median_time_per_level" min="1" step="1">
-              </div>
-              <div class="field">
-                <label for="median-time-per-loot"
-                  title="Average seconds to obtain one loot; lower = more drops per level.">Median time per loot
-                  (s)</label>
-                <input type="number" id="median-time-per-loot" name="median_time_per_loot" min="1" step="1">
-              </div>
-              <div class="field">
-                <label for="level-time-multiplier"
-                  title="Exponential growth factor of time per level. Higher = slower higher levels.">Level time
-                  multiplier</label>
-                <input type="number" id="level-time-multiplier" name="level_time_multiplier" min="0" step="0.1">
-              </div>
-              <div class="field">
-                <label for="additional-loot-factor" title="Multiplier on the number of loots rolled per level.">Loot
-                  augmentation per level</label>
-                <input type="number" id="additional-loot-factor" name="additional_loot_factor" min="0" step="0.01">
+            <div class="field full-span chart-field">
+              <canvas id="level-time-chart" height="240"></canvas>
+            </div>
+
+            <div class="field range-field">
+              <div class="range-pair">
+                <span>(s) level time from</span>
+                <input type="number" id="time-level-min" name="time_level_min" min="1" step="1"
+                  class="range-limit no-fader">
+                <span>to</span>
+                <input type="number" id="time-level-max" name="time_level_max" min="1" step="1"
+                  class="range-limit no-fader">
               </div>
             </div>
 
-            <div class="field-grid">
-              <div class="field-separator"></div>
+            <div class="field">
+              <label for="time-level-curve" title="Curve exponent; 1 = linear.">Time Level Curve</label>
+              <input type="number" id="time-level-curve" name="time_level_curve" min="0" step="0.1">
+            </div>
 
-              <div class="field">
-                <label for="affix-rarity-scale" title="Scales affix min/max with rarity (0 = none).">Affix rarity
-                  scale</label>
-                <input type="number" id="affix-rarity-scale" name="affix_rarity_scale" min="0" step="0.01">
+            <div class="field">
+              <div>
+                Total time to max level: <span id="total-time-meta" class="red"></span> h
               </div>
+            </div>
+          </div>
+        </details>
+        <details class="form-section" style="background-color: #2a2b57;" data-chart-group="future" open>
+          <summary class="section-title">Loot & Affixes</summary>
+          <div class="field-grid">
+            <div class="field">
+              <label for="median-time-per-loot"
+                title="Average seconds to obtain one loot; lower = more drops per level.">Median time per loot
+                (s)</label>
+              <input type="number" id="median-time-per-loot" name="median_time_per_loot" min="1" step="1">
+            </div>
 
+            <div class="field">
+              <label for="additional-loot-factor" title="Multiplier on the number of loots rolled per level.">Loot
+                augmentation per level</label>
+              <input type="number" id="additional-loot-factor" name="additional_loot_factor" min="0" step="0.01">
+            </div>
+
+            <div class="field">
+              <label for="affix-rarity-scale" title="Scales affix min/max with rarity (0 = none).">Affix rarity
+                scale</label>
+              <input type="number" id="affix-rarity-scale" name="affix_rarity_scale" min="0" step="0.01">
+            </div>
+
+            <div class="field">
               <label for="rarity-weight-growth"
                 title="Adds weight to higher rarities per level; affects loot distribution.">Rarity weight
                 growth</label>
@@ -385,14 +399,6 @@
               <label for="attr-per-level-factor"
                 title="Extra affix count scaling with level for each category.">Attributes per level factor</label>
               <input type="number" id="attr-per-level-factor" name="attr_per_level_factor" min="0" step="0.001">
-            </div>
-          </div>
-        </details>
-        <details class="form-section" style="background-color: #2a2b57;" data-chart-group="future" open>
-          <summary class="section-title">Damage Sources</summary>
-          <div class="field-grid">
-            <div class="field">
-              <div class="notice">Empty slot for future UI content.</div>
             </div>
           </div>
         </details>

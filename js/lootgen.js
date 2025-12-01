@@ -23,10 +23,16 @@ function compute() {
         }
         return bonus;
     };
-    const baseLevelTime = state.median_time_per_level || 0;
     const lootTime = state.median_time_per_loot || 1;
-    const timeMult = state.level_time_multiplier || 0;
     const additionalLootFactor = state.additional_loot_factor || 1;
+    const computeTimeLevelForLevel = (lvl) => {
+        const timeMin = Number(state.time_level_min ?? 60);
+        const timeMax = Number(state.time_level_max ?? 7200);
+        const power = Number(state.time_level_curve ?? 1);
+        const denom = Math.max(1, (state.levels || levels) - 1);
+        const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
+        return timeMin + (timeMax - timeMin) * Math.pow(t, power);
+    };
     const generatePercent = Math.max(0, Math.min(100, state.generate_percent ?? 100));
     const attributes = state.attributes || {};
     const attrNames = Object.keys(attributes);
@@ -196,14 +202,16 @@ function compute() {
         return available[idx];
     };
 
+    let totalTimeCumulated = 0;
     for (let lvl = 1; lvl <= levels; lvl += 1) {
         applyStatGain(lvl);
-        const growth = Math.pow(1 + 0.05 * timeMult, Math.max(0, lvl - 1));
-        const levelTime = baseLevelTime * growth;
+        const levelTime = computeTimeLevelForLevel(lvl);
+        totalTimeCumulated += levelTime;
         const lootCountRaw = Math.max(1, Math.floor(levelTime / lootTime));
         const lootCount = Math.max(1, Math.round(lootCountRaw * additionalLootFactor));
         const rolledLootCount = Math.max(0, Math.floor(lootCount * generatePercent / 100));
         const readable = formatTime(levelTime);
+        const readableTotal = formatTime(totalTimeCumulated);
         const weights = categories.map((cat) => {
             const unlock = cat.unlock_level || 1;
             if (lvl < unlock) return 0;
@@ -396,7 +404,7 @@ function compute() {
             ? Object.entries(baseResists).map(([k, v]) => `${k}: ${v}`).join(" | ")
             : "none";
 
-        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span>`;
+        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">Total: ${readableTotal}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span>`;
 
     results.push(`
 <details class="compute-card" ${lvl === levels ? "open" : ""}>
