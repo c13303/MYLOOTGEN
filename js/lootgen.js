@@ -933,7 +933,7 @@ function compute() {
     if (container) {
         const levelDetails = results.join("");
         const wrapped = `<details class="compute-levels" open><summary class="section-title">Level per level details</summary>${levelDetails}</details>`;
-        container.innerHTML = ['<div class="result-title">BUILD SIMPLIFIED</div>', wrapped].join("") + `<div class="compute-actions"><button type="button" class="compute-json-btn" id="recompute-btn">Compute again</button><button type="button" class="compute-json-btn" id="copy-headers">Copy Leveling Headers</button><button type="button" class="compute-json-btn" id="copy-loot">Copy Loot Progression</button></div>`;
+        container.innerHTML = ['<div class="result-title">BUILD SIMPLIFIED</div>', wrapped].join("") + `<div class="compute-actions"><button type="button" class="compute-json-btn" id="recompute-btn">Compute again</button><button type="button" class="compute-json-btn" id="copy-build">Copy Build Progression</button><button type="button" class="compute-json-btn" id="copy-loot">Copy Loot Progression</button></div>`;
 
         const copyText = (text) => {
             try {
@@ -953,23 +953,55 @@ function compute() {
             document.body.removeChild(ta);
         };
 
-        const copyHeadersBtn = document.getElementById("copy-headers");
-        if (copyHeadersBtn) {
-            copyHeadersBtn.onclick = () => {
-                const headers = jsonData.map((entry) => `Lvl ${entry.level} | ${Math.round(entry.totals.dps_total)} DPS | ${entry.time_readable} | ${entry.loot_count} loot`).join("\n");
-                copyText(headers);
+        const copyBuildBtn = document.getElementById("copy-build");
+        if (copyBuildBtn) {
+            copyBuildBtn.onclick = () => {
+                const buildProgression = jsonData.map((entry) => {
+                    return {
+                        level: entry.level,
+                        time: entry.time_readable,
+                        dps: Math.round(entry.totals.dps_total),
+                        attack_speed: entry.totals.attack_speed.toFixed(2),
+                        stats: entry.stats,
+                        resistances: entry.totals.resists,
+                        score: Math.round(entry.totals.score),
+                        gear: (entry.gear || []).map((g) => ({
+                            slot: g.slot,
+                            name: g.name,
+                            category: g.category,
+                            itemLevel: g.itemLevel,
+                            bonuses: g.bonuses
+                        })),
+                        damage_breakdown: entry.totals.damage
+                    };
+                });
+                copyText(JSON.stringify(buildProgression, null, 2));
             };
         }
 
         const copyLootBtn = document.getElementById("copy-loot");
         if (copyLootBtn) {
             copyLootBtn.onclick = () => {
-                const lootText = jsonData.map((entry) => {
-                    const header = `Lvl ${entry.level} | ${entry.time_readable} | loot ~ ${entry.loot_count}`;
-                    const lootLines = (entry.all_loot || []).map((loot) => `  - ${loot.slot}: ${loot.name} [${loot.category}]`);
-                    return [header, ...lootLines].join("\n");
-                }).join("\n\n");
-                copyText(lootText);
+                const lootProgression = jsonData.map((entry) => {
+                    return {
+                        level: entry.level,
+                        time: entry.time_readable,
+                        loot_count: entry.loot_count,
+                        loot: (entry.all_loot || []).map((loot) => ({
+                            slot: loot.slot,
+                            name: loot.name,
+                            category: loot.category,
+                            itemLevel: loot.itemLevel,
+                            equipped: loot.equippedStatus === 'Equipped',
+                            bonuses: loot.bonuses,
+                            flat_damage: loot.baseAdds,
+                            damage_mods: loot.dmgMods,
+                            resistances: loot.resAdds,
+                            attack_speed_bonus: loot.atkBonus
+                        }))
+                    };
+                });
+                copyText(JSON.stringify(lootProgression, null, 2));
             };
         }
 
