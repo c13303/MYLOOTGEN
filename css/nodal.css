@@ -15,11 +15,6 @@
   --radius: 14px;
 }
 
-.build-table td {
-  border: 1px solid #cccccc1a;
-  padding: 10px;
-}
-
 .form-section-build-config .field {
   padding: 20px;
 }
@@ -36,6 +31,18 @@
 .resisttext {
   font-style: italic;
   opacity: 0.7;
+}
+
+.resist-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  margin-right: 4px;
 }
 
 .loot-table td {
@@ -628,24 +635,97 @@ canvas {
 
 .build-block {
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.85);
 }
 
 .build-heading {
   text-transform: uppercase;
   font-size: 0.75rem;
   color: var(--muted);
+  letter-spacing: 0.2em;
 }
 
 .build-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 0.85rem;
+}
+
+.build-line-label {
+  letter-spacing: 0.12em;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: #94a3b8;
+  flex: 0 0 auto;
+}
+
+.build-line-value {
   font-size: 0.9rem;
-  color: #e2e8f0;
+  color: #f8fafc;
+  text-align: right;
+  flex: 1 1 120px;
+  min-width: 120px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .build-subtitle {
   font-size: 0.75rem;
   color: #94a3b8;
   letter-spacing: 0.2px;
+}
+
+.build-table {
+  width: 100%;
+}
+
+.build-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(7, 11, 21, 0.8);
+}
+
+.build-table thead {
+  background: rgba(79, 70, 229, 0.15);
+}
+
+.build-table th,
+.build-table td {
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.build-table td {
+  border: none;
+}
+
+.build-damage-row {
+  border-left-width: 4px;
+  border-left-style: solid;
+  border-left-color: transparent;
+  transition: background 0.2s ease;
+}
+
+.build-damage-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.build-damage-type {
+  font-weight: 600;
 }
 
 .build-table.empty,

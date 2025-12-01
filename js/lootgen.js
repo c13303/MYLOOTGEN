@@ -13,6 +13,18 @@ function compute() {
         map[dt.name] = dt.color || "#e2e8f0";
         return map;
     }, {});
+    const colorForType = (type) => colorMap[type] || "#e2e8f0";
+    const toRgba = (hex, alpha = 0.2) => {
+        if (!hex) return `rgba(255, 255, 255, ${alpha})`;
+        let sanitized = hex.replace("#", "").trim();
+        if (sanitized.length === 3) sanitized = sanitized.split("").map((char) => `${char}${char}`).join("");
+        const parsed = parseInt(sanitized, 16);
+        if (Number.isNaN(parsed)) return `rgba(255, 255, 255, ${alpha})`;
+        const r = (parsed >> 16) & 255;
+        const g = (parsed >> 8) & 255;
+        const b = parsed & 255;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
     const colorizeBonus = (bonus) => {
         for (const dt of damageTypes) {
             const name = dt.name;
@@ -23,6 +35,8 @@ function compute() {
         }
         return bonus;
     };
+    const colorizeTypeLabel = (type, label = type) => `<span style="color:${colorForType(type)}">${label}</span>`;
+    const renderBuildLine = (label, value) => `<div class="build-line"><span class="build-line-label">${label}</span><span class="build-line-value">${value}</span></div>`;
     const lootTime = state.median_time_per_loot || 1;
     const additionalLootFactor = state.additional_loot_factor || 1;
     const computeTimeLevelForLevel = (lvl) => {
@@ -545,26 +559,41 @@ function compute() {
             };
         });
 
-        const breakdownHtml = Object.keys(damageBreakdown).length > 0 ?
-            `<div class="build-table">
+        const breakdownEntries = Object.entries(damageBreakdown)
+            .filter(([, data]) => Math.round(data.dps) > 0)
+            .sort(([, a], [, b]) => b.dps - a.dps);
+        const breakdownHtml = breakdownEntries.length > 0
+            ? `<div class="build-table">
                 <table>
                     <thead><tr><th>Type</th><th>Flat</th><th>Mod</th><th>DPS</th></tr></thead>
                     <tbody>
-                        ${Object.entries(damageBreakdown).map(([type, data]) => `
-                        <tr>
-                            <td><span style="color:${colorMap[type] || '#e2e8f0'}">${type}</span></td>
-                            <td>${Math.round(data.flat)}</td>
-                            <td>+${Math.round(data.mod)}%</td>
-                            <td>${Math.round(data.dps)}</td>
-                        </tr>`).join("")}
+                        ${breakdownEntries.map(([type, data]) => {
+                            const rowColor = colorForType(type);
+                            const modDisplay = `${data.mod >= 0 ? "+" : ""}${Math.round(data.mod)}%`;
+                            return `
+                        <tr class="build-damage-row" style="border-left: 4px solid ${rowColor};">
+                            <td><span class="build-damage-type" style="color:${rowColor}">${type}</span></td>
+                            <td style="color:${rowColor}">${Math.round(data.flat)}</td>
+                            <td style="color:${rowColor}">${modDisplay}</td>
+                            <td style="color:${rowColor}">${Math.round(data.dps)}</td>
+                        </tr>`;
+                        }).join("")}
                     </tbody>
                 </table>
-            </div>` :
-            '<div class="build-table empty">No damage</div>';
+            </div>`
+            : '<div class="build-table empty">No damage</div>';
         
         const totalDPS = Object.values(damageBreakdown).reduce((sum, data) => sum + data.dps, 0);
         const statsLinePretty = attrNames.length ? attrNames.map((a) => `${a}: ${currentStats[a] ?? 0}`).join(" | ") : "none";
-        const resLinePretty = Object.keys(finalTotals.resists).length ? Object.entries(finalTotals.resists).map(([k, v]) => `${k}: ${v}%`).join(" | ") : "none";
+        const resistEntries = Object.entries(finalTotals.resists);
+        const formatResistBadge = ([type, value]) => {
+            const color = colorForType(type);
+            const background = toRgba(color, 0.18);
+            return `<span class="resist-pill resisttext" style=" color:${color};">${type}: ${value}%</span>`;
+        };
+        const resLinePretty = resistEntries.length
+            ? resistEntries.map(formatResistBadge).join(" ")
+            : "none";
         const summaryText = `<span class="summary-col base">Lvl ${lvl} | ${Math.round(totalDPS)} DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">Total: ${readableTotal}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span>`;
 
     results.push(`
@@ -580,7 +609,7 @@ function compute() {
         <div>Gear:</div>
         ${gearTableHtml}
         <details>
-          <summary style="color:#cbd5e1; background-color: #27182d;">🧰 See all loot of this level (${lootList.length})</summary>
+          <summary style="color:#cbd5e1; background-color: #27182d;">🧰 See all loot generated in this level (${lootList.length})</summary>
           <div class="loot-table"><table>
               <thead>
                 <tr>
@@ -600,12 +629,12 @@ function compute() {
       <div class="level-col buildie">
         <div class="build-block">
           <div class="build-heading">Build snapshot</div>
-          <div class="build-line">Stats: ${statsLinePretty}</div>
-          <div class="build-line">Attack Speed: ${finalAPS.toFixed(2)}</div>
-          <div class="build-line">Resists: ${resLinePretty}</div>
+          ${renderBuildLine("Stats : ", statsLinePretty)}
+          ${renderBuildLine("Attack Speed : ", finalAPS.toFixed(2))}
+          ${renderBuildLine("Resists : ", resLinePretty)}
           <div class="build-subtitle">Damage breakdown</div>
           ${breakdownHtml}
-          <div class="build-line">DPS total: ${Math.round(totalDPS)}</div>
+          ${renderBuildLine("DPS total : ", Math.round(totalDPS))}
         </div>
       </div>
     </div>
