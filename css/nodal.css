@@ -45,6 +45,7 @@
   margin-right: 4px;
 }
 
+.gear-table td,
 .loot-table td {
   border-bottom: 1px solid #ffffff21;
 
@@ -606,6 +607,49 @@ canvas {
   letter-spacing: 0.3px;
 }
 
+.compute-card summary .summary-col.mix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.summary-mix-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.summary-dps-total {
+  font-weight: 700;
+  color: #facc15;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.summary-dps-chip {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.summary-gear-notice {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f87171;
+}
+
+.summary-gear-empty {
+  color: #facc15;
+}
+
 .compute-card .body {
   padding: 12px;
   display: grid;
@@ -745,6 +789,14 @@ canvas {
   border-radius: 10px;
   overflow: hidden;
   background: rgba(15, 23, 42, 0.7);
+}
+
+.found-indicator {
+  color: #f87171;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .loot-table th,

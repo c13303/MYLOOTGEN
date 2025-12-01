@@ -94,6 +94,7 @@ function compute() {
     const flatSlotDivider = Math.max(1, flatSlotsAllowed || state.flat_damage_equipement_slots_auto || 1);
     state.flat_damage_equipement_slots_auto = flatSlotsAllowed;
     const slotRules = new Map((state.equipment_slots || []).map((s) => [s.name, s]));
+    let persistedGear = {};
 
     const results = [];
     const jsonData = [];
@@ -363,7 +364,7 @@ function compute() {
                 }
             }
 
-            lootList.push({
+            const lootItem = {
                 slot,
                 category: cat?.name || "none",
                 name: item.name,
@@ -373,7 +374,9 @@ function compute() {
                 dmgMods,
                 resAdds,
                 atkBonus
-            });
+            };
+            lootItem.foundThisLevel = true;
+            lootList.push(lootItem);
         }
 
         const lootFlatValuesRaw = lootList.flatMap((l) => Object.values(l.baseAdds || {}));
@@ -411,7 +414,7 @@ function compute() {
 
             const finalAPS = baseAPS * (1 + totals.atkBonus / 100);
             const finalUnarmed = unarmedDamage * Math.pow(1 + unarmedGrowth, currentLvl - 1);
-            
+
             let totalDPS = 0;
 
             const allDmgTypes = new Set([...Object.keys(totals.flat), ...Object.keys(totals.mods), defaultDmgType]);
@@ -431,12 +434,15 @@ function compute() {
             return totalDPS;
         };
 
-        let bestGear = {};
-        let bestDPS = calculateDPS({}, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, state.unarmed_growth || 0, lvl);
-        
+        let bestGear = { ...persistedGear };
+        Object.values(bestGear).forEach((item) => {
+            if (item) item.foundThisLevel = false;
+        });
+        let bestDPS = calculateDPS(bestGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, state.unarmed_growth || 0, lvl);
+
         // Greedy algorithm to find best gear combination
         let changedInPass = true;
-        for(let pass = 0; pass < slots.length && changedInPass; pass++) {
+        for (let pass = 0; pass < slots.length && changedInPass; pass++) {
             changedInPass = false;
             let bestCandidate = null;
             let bestTempDPS = bestDPS;
@@ -449,7 +455,7 @@ function compute() {
                 let tempGear = { ...bestGear };
                 const oldItem = tempGear[item.slot];
                 tempGear[item.slot] = item;
-                
+
                 const itemDef = items.find(i => i.name === item.name);
                 if (itemDef?.two_handed) {
                     const offHandSlot = (state.equipment_slots || []).find(s => s.allow_off_hand);
@@ -473,9 +479,11 @@ function compute() {
                 changedInPass = true;
             }
         }
-        
-        const equippedItems = new Set(Object.values(bestGear).filter(Boolean));
-        lootList.forEach(l => {
+
+        const equippedGearList = Object.values(bestGear).filter(Boolean);
+        const equippedItems = new Set(equippedGearList);
+        const newItemsEquipped = equippedGearList.filter((item) => item.foundThisLevel).length;
+        lootList.forEach((l) => {
             l.equippedStatus = equippedItems.has(l) ? 'Equipped' : 'Not equipped';
         });
 
@@ -505,7 +513,7 @@ function compute() {
 
         const allLootHtml = lootList.length ? `<div class="loot-table"><table>...</table></div>` : '<div class="loot-table empty">No loot</div>'; // Simplified for brevity
 
-        const equippedGearRows = Object.values(bestGear).filter(Boolean).map(l => {
+        const equippedGearRows = equippedGearList.map((l) => {
             const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
             const sortedBonuses = (l.bonuses || []).slice().sort((a, b) => {
                 const getOrder = (bonus) => {
@@ -518,17 +526,19 @@ function compute() {
                 return getOrder(a) - getOrder(b);
             });
             const bonusText = (sortedBonuses && sortedBonuses.length) ? sortedBonuses.map((b) => colorizeBonus(b)).join("<br>") : "None";
+            const foundBadge = l.foundThisLevel ? `<span class="found-indicator">found in this level</span>` : '&mdash;';
             return `
                 <tr>
                     <td><span style="color:#facc15">${l.slot}</span></td>
                     <td><span style="color:${catColor}">${l.name}</span></td>
                     <td><span style="color:${catColor}">${l.category}</span></td>
                     <td>${bonusText}</td>
+                    <td>${foundBadge}</td>
                 </tr>`;
         }).join("");
 
         const gearTableHtml = equippedItems.size > 0 ?
-            `<div class="gear-table"><table><thead><tr><th>Slot</th><th>Item</th><th>Cat.</th><th>Bonuses</th></tr></thead><tbody>${equippedGearRows}</tbody></table></div>` :
+            `<div class="gear-table"><table><thead><tr><th>Slot</th><th>Item</th><th>Cat.</th><th>Bonuses</th><th>Found this lvl</th></tr></thead><tbody>${equippedGearRows}</tbody></table></div>` :
             '<div class="gear-table empty">No gear</div>';
 
         const finalTotals = { flat: {}, mods: {}, resists: { ...baseResists }, atkBonus: 0 };
@@ -568,35 +578,54 @@ function compute() {
                     <thead><tr><th>Type</th><th>Flat</th><th>Mod</th><th>DPS</th></tr></thead>
                     <tbody>
                         ${breakdownEntries.map(([type, data]) => {
-                            const rowColor = colorForType(type);
-                            const modDisplay = `${data.mod >= 0 ? "+" : ""}${Math.round(data.mod)}%`;
-                            return `
+                const rowColor = colorForType(type);
+                const modDisplay = `${data.mod >= 0 ? "+" : ""}${Math.round(data.mod)}%`;
+                return `
                         <tr class="build-damage-row" style="border-left: 4px solid ${rowColor};">
                             <td><span class="build-damage-type" style="color:${rowColor}">${type}</span></td>
                             <td style="color:${rowColor}">${Math.round(data.flat)}</td>
                             <td style="color:${rowColor}">${modDisplay}</td>
                             <td style="color:${rowColor}">${Math.round(data.dps)}</td>
                         </tr>`;
-                        }).join("")}
+            }).join("")}
                     </tbody>
                 </table>
             </div>`
             : '<div class="build-table empty">No damage</div>';
-        
+
         const totalDPS = Object.values(damageBreakdown).reduce((sum, data) => sum + data.dps, 0);
         const statsLinePretty = attrNames.length ? attrNames.map((a) => `${a}: ${currentStats[a] ?? 0}`).join(" | ") : "none";
         const resistEntries = Object.entries(finalTotals.resists);
         const formatResistBadge = ([type, value]) => {
             const color = colorForType(type);
             const background = toRgba(color, 0.18);
-            return `<span class="resist-pill resisttext" style=" color:${color};">${type}: ${value}%</span>`;
+            return `<span class="resist-pill" style="border-color:${color}; background:${background}; color:${color};">${type}: ${value}%</span>`;
         };
         const resLinePretty = resistEntries.length
             ? resistEntries.map(formatResistBadge).join(" ")
             : "none";
-        const summaryText = `<span class="summary-col base">Lvl ${lvl} | ${Math.round(totalDPS)} DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">Total: ${readableTotal}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span>`;
+        const totalDPSDisplay = Math.round(totalDPS);
+        const breakdownSummaryChips = breakdownEntries.map(([type, data]) => {
+            const percent = totalDPS ? Math.round((data.dps / totalDPS) * 100) : 0;
+            if (percent <= 0) return "";
+            const color = colorForType(type);
+            return `<span class="summary-dps-chip" style="border-color:${color}; background:${toRgba(color, 0.22)}; color:${color};">[${type} ${percent}%]</span>`;
+        }).filter(Boolean);
+        const equippedNotice = newItemsEquipped
+            ? `<span class="summary-gear-notice">${newItemsEquipped} item${newItemsEquipped === 1 ? "" : "s"} equipped </span>`
+            : `<span class="summary-gear-notice summary-gear-empty">no items equipped !</span>`;
+        const mixSegment = breakdownSummaryChips.length
+            ? `<span class="summary-mix-line"><span class="summary-dps-total">${totalDPSDisplay} DPS</span> ${breakdownSummaryChips.join(" ")} ${equippedNotice}</span>`
+            : `<span class="summary-mix-line">${equippedNotice}</span>`;
+        const baseSummaryParts = [
+            `Lvl ${lvl}`,
+            `<span class="dim-blue">${readable}</span>`,
+            `<span class="dim-blue">Total: ${readableTotal}</span>`,
+            `<span class="dim-blue">loot ~ ${lootList.length}</span>`
+        ];
+        const summaryText = `<span class="summary-col base">${baseSummaryParts.join(" | ")}</span><span class="summary-col mix">${mixSegment}</span>`;
 
-    results.push(`
+        results.push(`
 <details class="compute-card" ${lvl === levels ? "open" : ""}>
   <summary>${summaryText}</summary>
   <div class="body">
@@ -642,6 +671,8 @@ function compute() {
 </details>
         `);
 
+        persistedGear = { ...bestGear };
+
         jsonData.push({
             level: lvl,
             time_readable: readable,
@@ -672,7 +703,7 @@ function compute() {
         const copyText = (text) => {
             try {
                 if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-                    navigator.clipboard.writeText(text).catch(() => {});
+                    navigator.clipboard.writeText(text).catch(() => { });
                     return;
                 }
             } catch (_) { /* fall back */ }
@@ -683,7 +714,7 @@ function compute() {
             document.body.appendChild(ta);
             ta.focus();
             ta.select();
-            try { document.execCommand("copy"); } catch (_) {}
+            try { document.execCommand("copy"); } catch (_) { }
             document.body.removeChild(ta);
         };
 
