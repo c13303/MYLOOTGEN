@@ -43,12 +43,17 @@ $(function () {
       step,
       value: initial
     });
-    const $value = $('<div class="fader-value"></div>');
+    const $value = $('<input type="number" class="fader-value">').attr({
+      min: bounds.min,
+      max: bounds.max,
+      step,
+      value: initial
+    });
 
     const updateValue = (val) => {
       const clamped = clamp(val, bounds.min, bounds.max);
       $range.val(clamped);
-      $value.text(formatValue(clamped, step));
+      $value.val(clamped);
     };
 
     $input
@@ -70,10 +75,21 @@ $(function () {
       $input.trigger("input");
     });
 
-    $input.on("input.fader-sync", function () {
+    // Sync slider when input value changes (manual typing or programmatic)
+    $input.on("input change", function () {
       const val = parseFloat($(this).val());
       if (Number.isNaN(val)) return;
       updateValue(val);
+    });
+
+    // Sync when fader-value input is edited directly
+    $value.on("input change", function () {
+      const val = parseFloat($(this).val());
+      if (Number.isNaN(val)) return;
+      const clamped = clamp(val, bounds.min, bounds.max);
+      $input.val(clamped);
+      updateValue(clamped);
+      $input.trigger("input");
     });
   };
 

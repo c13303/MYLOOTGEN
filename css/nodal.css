@@ -218,13 +218,23 @@ button:focus {
 
 .fader-value {
   justify-self: end;
-  padding: 3px 8px;
+  padding: 6px 10px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--panel-border);
   color: #e5e7eb;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
+  width: 100px;
+  text-align: center;
+  cursor: text;
+}
+
+.fader-value:focus {
+  outline: 2px solid var(--panel-accent);
+  outline-offset: 1px;
+  background: rgba(79, 70, 229, 0.15);
 }
 
 .range-field .range-pair {

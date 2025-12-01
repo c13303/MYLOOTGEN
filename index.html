@@ -17,9 +17,15 @@
 <body>
   <main class="page">
     <h1>Secret Sauce LootGen</h1>
+    <p>ARPG progression generator by <a href="https://chien-games.itch.io/" target="_blank">Charles Torris</a>.</p>
     <div class="hero">
-      <p>ARPG progression generator by <a href="https://chien-games.itch.io/" target="_blank">Charles Torris</a>.
-        Press compute to generate loot and build simulation.</p>
+      <p>This tool:</p>
+      <ul>
+        <li>Generates configurable XP and DPS curves up to your maximum level</li>
+        <li>Generates all loot required for that progression</li>
+        <li>Generates monsters consistent with that progression</li>
+        <li>Simulates a level-by-level run in one click</li>
+      </ul>
       <div class="hero-actions">
         <button id="compute-btn-top" type="button" class="compute-btn">Compute all levels</button>
       </div>
@@ -86,7 +92,7 @@
                 <input type="number" id="levels" name="levels" min="1" max="200" step="1">
               </div>
 
-             
+
 
               <div class="field">
                 <label title="Starting min/max bounds for each attribute; impact starting stats and growth caps.">Base
@@ -283,7 +289,8 @@
                 <input type="number" id="mod-damage-slots-auto" name="mod_damage_slots_auto" readonly
                   class="hidden-input">
                 <div>
-                  Character can equip up to <span id="mod-damage-slots-meta" class="red"></span> items using dmg modifiers
+                  Character can equip up to <span id="mod-damage-slots-meta" class="red"></span> items using dmg
+                  modifiers
                 </div>
               </div>
             </div>
@@ -361,7 +368,7 @@
 
             <div class="field">
               <div>
-                Total time to max level: <span id="total-time-meta" class="red"></span> h
+                Time to endgame : <span id="total-time-meta" class="red"></span> h
               </div>
             </div>
           </div>
@@ -373,7 +380,7 @@
               <label for="median-time-per-loot"
                 title="Average seconds to obtain one loot; lower = more drops per level.">Median time per loot
                 (s)</label>
-              <input type="number" id="median-time-per-loot" name="median_time_per_loot" min="1" step="1">
+              <input type="number" id="median-time-per-loot" name="median_time_per_loot" min="1" max="60" step="1">
             </div>
 
             <div class="field">
