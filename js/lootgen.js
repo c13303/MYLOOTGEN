@@ -690,8 +690,8 @@ function compute() {
                 </tr>`;
         }).join("");
 
-        const gearScoreHtml = `<div class="gear-score">Score estimé : ${Math.round(finalScore)}</div>`;
-        const gearTableWithData = `<div class="gear-table"><table><thead><tr><th>Slot</th><th>Item</th><th>Cat.</th><th>Bonuses</th><th>Found this lvl</th></tr></thead><tbody>${equippedGearRows}</tbody></table></div>`;
+        const gearScoreHtml = `<div class="gear-score">Equiped Score : ${Math.round(finalScore)}</div>`;
+        const gearTableWithData = `<div class="gear-table"><table><thead><tr><th>Slot</th><th>Item</th><th>Cat.</th><th class="bonustd">Bonuses</th><th>Found this lvl</th></tr></thead><tbody>${equippedGearRows}</tbody></table></div>`;
         const gearTableHtml = equippedItems.size > 0
             ? `${gearScoreHtml}${gearTableWithData}`
             : `<div class="gear-table empty">${gearScoreHtml}<div>No gear</div></div>`;
@@ -772,8 +772,8 @@ function compute() {
             : `<span class="summary-gear-notice summary-gear-empty">no items equipped !</span>`;
         const scoreBadge = `<span class="summary-score-chip">Score ${Math.round(finalScore)}</span>`;
         const mixSegment = breakdownSummaryChips.length
-            ? `<span class="summary-mix-line"><span class="summary-dps-total">${totalDPSDisplay} DPS</span> ${breakdownSummaryChips.join(" ")} ${scoreBadge} ${equippedNotice}</span>`
-            : `<span class="summary-mix-line">${scoreBadge} ${equippedNotice}</span>`;
+            ? `<span class="summary-mix-line"><span class="summary-dps-total">${totalDPSDisplay} DPS</span> ${breakdownSummaryChips.join(" ")} ${equippedNotice}</span>`
+            : `<span class="summary-mix-line">${equippedNotice}</span>`;
         const baseSummaryParts = [
             `Lvl ${lvl}`,
             `<span class="dim-blue">${readable}</span>`,
@@ -792,7 +792,7 @@ function compute() {
     </div>
     <div class="level-grid">
       <div class="level-col lootlist">
-        <div>Gear:</div>
+       
         ${gearTableHtml}
         <details>
           <summary style="color:#cbd5e1; background-color: #27182d;">🧰 See all loot generated in this level (${lootList.length})</summary>

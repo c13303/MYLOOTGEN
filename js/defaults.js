@@ -45,16 +45,16 @@ const state = {
     flat_damage_min: 2, // floor to guarantee lvl 1 >= 2
     flat_damage_max: 500,
     flat_damage_formula_progression: "dmg = (flat_damage_min + (flat_damage_max - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression) / flat_damage_equipement_slots_auto",
-    flat_damage_jitter_pct: 0.2, // +/- jitter applied around median (0.2 = ±20%)
+    flat_damage_jitter_pct: 0.05, // +/- jitter applied around median (0.2 = ±20%)
     flat_damage_onehand_ratio: 0.75,
     flat_damage_equipement_slots_auto: 2,
     mod_damage_min: 10,
     mod_damage_max: 1000,
     mod_damage_power_progression: 1.2,
-    mod_damage_jitter_pct: 0.3,
+    mod_damage_jitter_pct: 0.1,
     mod_damage_slots_auto: 2,
     resistance_affix_min: 0.4,
-    resistance_affix_max: 0.8,
+    resistance_affix_max: 0.5,
     resistance_curve: 1.5,
     resistance_jitter: 0.77,
     resistance_cap: 75,
