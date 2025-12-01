@@ -52,6 +52,12 @@ const state = {
     mod_damage_power_progression: 1.2,
     mod_damage_jitter_pct: 0.05,
     mod_damage_slots_auto: 2,
+    resistance_affix_min: 0.4,
+    resistance_affix_max: 0.77,
+    resistance_curve: 1.5,
+    resistance_jitter: 0.77,
+    resistance_cap: 75,
+    resistance_slots_auto: 2,
     affix_growth_headroom: 5, // how many extra affixes unlock from lvl 1 to max
     rarity_weight_growth: 0.05,
     attr_per_level_factor: 0.04,

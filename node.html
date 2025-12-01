@@ -92,34 +92,35 @@
               <div class="field full-span">
                 <label title="Starting min/max bounds for each attribute; impact starting stats and growth caps.">Base
                   stats</label>
-                <div class="attr-table">
-                  <div class="attr-row header">
-                    <span>Type</span>
-                    <span>Min</span>
-                    <span>Max</span>
-                  </div>
-                  <div class="attr-row" data-attr="force">
-                    <span>Force</span>
-                    <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="force"
-                      data-kind="min" placeholder="Min">
-                    <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="force"
-                      data-kind="max" placeholder="Max">
-                  </div>
-                  <div class="attr-row" data-attr="intelligence">
-                    <span>Intelligence</span>
-                    <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="intelligence"
-                      data-kind="min" placeholder="Min">
-                    <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="intelligence"
-                      data-kind="max" placeholder="Max">
-                  </div>
-                  <div class="attr-row" data-attr="dexterity">
-                    <span>Dexterity</span>
-                    <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="dexterity"
-                      data-kind="min" placeholder="Min">
-                    <input type="number" min="10" max="200" step="1" class="attr-number" data-attr="dexterity"
-                      data-kind="max" placeholder="Max">
-                  </div>
-                </div>
+                <table class="attr-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Min</th>
+                      <th>Max</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr data-attr="force">
+                      <td>Force</td>
+                      <td><input type="number" min="10" max="200" step="1" data-attr="force" data-kind="min"></td>
+                      <td><input type="number" min="10" max="200" step="1" data-attr="force" data-kind="max"></td>
+                    </tr>
+                    <tr data-attr="intelligence">
+                      <td>Intelligence</td>
+                      <td><input type="number" min="10" max="200" step="1" data-attr="intelligence" data-kind="min">
+                      </td>
+                      <td><input type="number" min="10" max="200" step="1" data-attr="intelligence" data-kind="max">
+                      </td>
+                    </tr>
+                    <tr data-attr="dexterity">
+                      <td>Dexterity</td>
+                      <td><input type="number" min="10" max="200" step="1" data-attr="dexterity" data-kind="min"></td>
+                      <td><input type="number" min="10" max="200" step="1" data-attr="dexterity" data-kind="max"></td>
+                    </tr>
+                  </tbody>
+                </table>
+
               </div>
 
               <div class="field">
@@ -413,8 +414,44 @@
         <details class="form-section" style="background-color: #3b1f38;" data-chart-group="future" open>
           <summary class="section-title">Resist Balance</summary>
           <div class="field-grid">
+            <div class="field full-span chart-field">
+              <canvas id="resistance-chart" height="240"></canvas>
+            </div>
+
+            <div class="field range-field">
+              <div class="range-pair">
+                <span>Resist from</span>
+                <input type="number" id="resistance-affix-min" name="resistance_affix_min" min="0" max="1" step="0.01"
+                  class="range-limit no-fader">
+                <span>to</span>
+                <input type="number" id="resistance-affix-max" name="resistance_affix_max" min="0" max="1" step="0.01"
+                  class="range-limit no-fader">
+              </div>
+            </div>
+
             <div class="field">
-              <div class="notice">Empty slot for future UI content.</div>
+              <label for="resistance-curve" title="Curve exponent; 1 = linear.">Resistance curve</label>
+              <input type="number" id="resistance-curve" name="resistance_curve" min="0" step="0.1">
+            </div>
+
+            <div class="field">
+              <label for="resistance-jitter" title="Random jitter applied around the median resistance.">Resistance
+                jitter</label>
+              <input type="number" id="resistance-jitter" name="resistance_jitter" min="0" max="1" step="0.01">
+            </div>
+
+            <div class="field">
+              <label for="resistance-cap" title="Maximum resistance cap percentage.">Resistance CAP %</label>
+              <input type="number" id="resistance-cap" name="resistance_cap" min="0" max="100" step="1">
+            </div>
+
+            <div class="field">
+              <input type="number" id="resistance-slots-auto" name="resistance_slots_auto" readonly
+                class="hidden-input">
+              <div>
+                Character can equip up to <span id="resistance-slots-meta" class="red"></span> items with resistance
+                affixes
+              </div>
             </div>
           </div>
         </details>

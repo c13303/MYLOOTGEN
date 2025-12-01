@@ -1,0 +1,39 @@
+[33mac7cc50[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{0}: reset: moving to HEAD
+[33mac7cc50[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{1}: commit: time chage
+[33m2c5a452[m HEAD@{2}: commit: KKK
+[33m97a0ea6[m HEAD@{3}: commit: Refactor Time Before
+[33m65337bb[m[33m ([m[1;31morigin/main[m[33m)[m HEAD@{4}: commit: cleaning
+[33m676bdcc[m HEAD@{5}: commit: K
+[33m5f4a1af[m HEAD@{6}: commit: [OK]
+[33m7e20a3d[m HEAD@{7}: commit: DPS planning [OK]
+[33m904d56b[m HEAD@{8}: commit: AS [OK]
+[33m0a30b8c[m HEAD@{9}: commit: flat damage [SUPEROK]
+[33m665000f[m HEAD@{10}: commit: FLAT DAMAGE IS [OK]
+[33m2d5bce4[m HEAD@{11}: commit: flat dmg calcul
+[33mec91523[m HEAD@{12}: commit: flat dmg inputs
+[33m3b8a480[m HEAD@{13}: commit: flat damgage clean
+[33me1bbac9[m HEAD@{14}: commit: call it a night
+[33m354fff6[m HEAD@{15}: commit: New Clean Base
+[33m07afae6[m HEAD@{16}: commit: BDD
+[33md58c844[m HEAD@{17}: commit: base damage power 2 = bof en fait
+[33mb07c97c[m HEAD@{18}: commit: GOGOL
+[33m4c7b1fe[m HEAD@{19}: commit: [OK]
+[33m09c6973[m HEAD@{20}: commit: [OK]
+[33m335c68e[m HEAD@{21}: commit: [OK]
+[33mee8405f[m HEAD@{22}: commit: Stabilized [OK]
+[33m228549e[m HEAD@{23}: checkout: moving from 8800e675a09a74f58d59aca4c80d50ab7e4eb105 to main
+[33m8800e67[m HEAD@{24}: checkout: moving from main to 8800e675a09a74f58d59aca4c80d50ab7e4eb105
+[33m228549e[m HEAD@{25}: checkout: moving from v1 to main
+[33mc89240d[m[33m ([m[1;31morigin/v1[m[33m, [m[1;32mv1[m[33m)[m HEAD@{26}: checkout: moving from main to v1
+[33m228549e[m HEAD@{27}: commit: BROKEN BY GPT
+[33m9a0eaa0[m HEAD@{28}: commit: Save before clean
+[33m8800e67[m HEAD@{29}: commit: Vibe Cleaning
+[33m18b6ba6[m HEAD@{30}: commit: Optim
+[33mc89240d[m[33m ([m[1;31morigin/v1[m[33m, [m[1;32mv1[m[33m)[m HEAD@{31}: commit: Build Snapshot
+[33m354913e[m HEAD@{32}: commit: Affixes
+[33m3071ab1[m HEAD@{33}: commit: Affixes
+[33mc94f989[m HEAD@{34}: commit: save
+[33m95da876[m HEAD@{35}: commit: OKKK
+[33m249d162[m HEAD@{36}: commit: KKK
+[33m6a18db9[m HEAD@{37}: commit: FACE
+[33mf98d1b6[m HEAD@{38}: commit (initial): gen

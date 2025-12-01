@@ -50,6 +50,14 @@ $(function () {
     const $xpMultiplier = $("#xp-multiplier");
     const $xpCurve = $("#xp-curve");
     const $xpLevels = $("#xp-levels");
+    const $resistanceAffixMin = $("#resistance-affix-min");
+    const $resistanceAffixMax = $("#resistance-affix-max");
+    const $resistanceCurve = $("#resistance-curve");
+    const $resistanceJitter = $("#resistance-jitter");
+    const $resistanceCap = $("#resistance-cap");
+    const $resistanceSlotsAuto = $("#resistance-slots-auto");
+    const $resistanceSlotsMeta = $("#resistance-slots-meta");
+    const $resistanceChart = $("#resistance-chart");
     const $configAlert = $("#config-alert");
     const $preview = $("#config-preview");
     const attrNames = ["force", "intelligence", "dexterity"];
@@ -1395,6 +1403,8 @@ $(function () {
             renderAttackSpeedChart();
             updateModDamageSlotsAutoCount();
             renderModDamageChart();
+            updateResistanceSlotsAutoCount();
+            renderResistanceChart();
             renderDpsPlanningChart();
         }
     }
@@ -1527,12 +1537,28 @@ $(function () {
     $modDamagePower.val(state.mod_damage_power_progression);
     $modDamageJitter.val(state.mod_damage_jitter_pct);
     $modDamageSlotsAuto.val(state.mod_damage_slots_auto);
+    if (typeof state.resistance_affix_min === "undefined") state.resistance_affix_min = 0.4;
+    if (typeof state.resistance_affix_max === "undefined") state.resistance_affix_max = 0.77;
+    if (typeof state.resistance_curve === "undefined") state.resistance_curve = 1.5;
+    if (typeof state.resistance_jitter === "undefined") state.resistance_jitter = 0.77;
+    if (typeof state.resistance_cap === "undefined") state.resistance_cap = 75;
+    if (typeof state.resistance_slots_auto === "undefined") {
+        state.resistance_slots_auto = (state.equipment_slots || []).filter((slot) => slot.allow_resist !== false).length;
+    }
+    $resistanceAffixMin.val(state.resistance_affix_min);
+    $resistanceAffixMax.val(state.resistance_affix_max);
+    $resistanceCurve.val(state.resistance_curve);
+    $resistanceJitter.val(state.resistance_jitter);
+    $resistanceCap.val(state.resistance_cap);
+    $resistanceSlotsAuto.val(state.resistance_slots_auto);
     updateFlatDamageFormulaDisplay();
     renderFlatDamageChart();
     updateAttackSpeedFormulaDisplay();
     renderAttackSpeedChart();
     updateModDamageFormulaDisplay();
     renderModDamageChart();
+    updateResistanceSlotsAutoCount();
+    renderResistanceChart();
     renderDpsPlanningChart();
     renderXpCurve();
     $attrPerLevelFactor.val(state.attr_per_level_factor);
@@ -1968,6 +1994,111 @@ $(function () {
         updateModDamageFormulaDisplay();
     }
 
+    function updateResistanceSlotsAutoCount() {
+        const allowed = (state.equipment_slots || []).filter((slot) => slot.allow_resist !== false).length;
+        state.resistance_slots_auto = allowed;
+        if ($resistanceSlotsAuto.length) {
+            $resistanceSlotsAuto.val(allowed);
+        }
+        if ($resistanceSlotsMeta.length) {
+            $resistanceSlotsMeta.text(`${allowed}`);
+        }
+        renderResistanceChart();
+    }
+
+    function renderResistanceChart() {
+        if (!$resistanceChart.length) return;
+        const canvas = $resistanceChart[0];
+        const ctx = canvas.getContext("2d");
+        const width = canvas.clientWidth || 600;
+        const height = canvas.height || 240;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+
+        const lvlMax = Math.max(1, parseInt(state.levels, 10) || 1);
+        const lvlCount = Math.max(2, lvlMax);
+        const resistMin = Number(state.resistance_affix_min ?? 0);
+        const resistMax = Number(state.resistance_affix_max ?? resistMin);
+        const power = Number(state.resistance_curve ?? 1);
+        const jitter = Math.max(0, Number(state.resistance_jitter ?? 0));
+
+        const points = [];
+        const jitterPoints = [];
+        for (let lvl = 1; lvl <= lvlCount; lvl += 1) {
+            const t = Math.min(1, Math.max(0, (lvl - 1) / Math.max(1, lvlCount - 1)));
+            const val = resistMin + (resistMax - resistMin) * Math.pow(t, power);
+            points.push({ lvl, val });
+            const j = val * jitter;
+            jitterPoints.push({ lvl, valLow: val - j, valHigh: val + j });
+        }
+
+        const lows = jitterPoints.map((p) => p.valLow);
+        const highs = jitterPoints.map((p) => p.valHigh);
+        const yMinRaw = Math.min(...points.map((p) => p.val), ...lows);
+        const yMaxRaw = Math.max(...points.map((p) => p.val), ...highs);
+        const yPadding = Math.max(0.01, (yMaxRaw - yMinRaw) * 0.1);
+        const yMin = yMinRaw - yPadding;
+        const yMax = yMaxRaw + yPadding;
+
+        const pad = 36;
+        const xScale = (width - pad * 2) / Math.max(1, lvlCount - 1);
+        const yScale = (height - pad * 2) / Math.max(0.01, yMax - yMin);
+
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, pad / 2);
+        ctx.lineTo(pad, height - pad);
+        ctx.lineTo(width - pad / 2, height - pad);
+        ctx.stroke();
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("Resist", pad + 4, pad - 10);
+        ctx.fillText("Level", width - pad - 30, height - pad + 24);
+
+        ctx.strokeStyle = "#c084fc";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.val - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(192, 132, 252, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        jitterPoints.forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.valHigh - yMin) * yScale;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        jitterPoints.slice().reverse().forEach((p, idx) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.valLow - yMin) * yScale;
+            if (idx === 0) ctx.lineTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = "rgba(192, 132, 252, 0.12)";
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#f8fafc";
+        points.forEach((p) => {
+            const x = pad + (p.lvl - 1) * xScale;
+            const y = height - pad - (p.val - yMin) * yScale;
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
     function renderDpsPlanningChart() {
         if (!$dpsPlanningChart.length) return;
         const canvas = $dpsPlanningChart[0];
@@ -2310,6 +2441,50 @@ $(function () {
             state.mod_damage_jitter_pct = value;
             renderModDamageChart();
             renderDpsPlanningChart();
+            renderPreview();
+        }
+    });
+
+    $resistanceAffixMin.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.resistance_affix_min = value;
+            renderResistanceChart();
+            renderPreview();
+        }
+    });
+
+    $resistanceAffixMax.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.resistance_affix_max = value;
+            renderResistanceChart();
+            renderPreview();
+        }
+    });
+
+    $resistanceCurve.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.resistance_curve = value;
+            renderResistanceChart();
+            renderPreview();
+        }
+    });
+
+    $resistanceJitter.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.resistance_jitter = value;
+            renderResistanceChart();
+            renderPreview();
+        }
+    });
+
+    $resistanceCap.on("input", function () {
+        const value = parseFloat($(this).val());
+        if (!Number.isNaN(value)) {
+            state.resistance_cap = value;
             renderPreview();
         }
     });
