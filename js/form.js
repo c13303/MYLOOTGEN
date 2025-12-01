@@ -1157,7 +1157,8 @@ $(function () {
         });
 
         const $slot = $(`<p><strong>Slot:</strong> ${item.equipment_slot}</p>`).css({ margin: "0 0 8px" });
-        const $size = $(`<p><strong>Size:</strong> ${item.size}</p>`).css({ margin: "0 0 14px" });
+        const $size = $(`<p><strong>Size:</strong> ${item.size}</p>`).css({ margin: "0 0 8px" });
+        const $affixMaxDetail = $(`<p><strong>Affix max:</strong> ${typeof item.affix_max !== "undefined" ? item.affix_max : "-"}</p>`).css({ margin: "0 0 14px" });
         const $source = $(`<p><strong>Flat dmg sources:</strong> ${item.flat_damage_sources ?? 0}</p>`).css({ margin: "0 0 8px" });
         const $sourceMulti = $(`<p><strong>Multi-source chance:</strong> ${typeof item.flat_damage_sources_multi_chance !== "undefined" ? item.flat_damage_sources_multi_chance : "-"}</p>`).css({ margin: "0 0 8px" });
         const $sourceMaxSlice = $(`<p><strong>Max slice per source:</strong> ${typeof item.flat_damage_multiple_max_slice !== "undefined" ? item.flat_damage_multiple_max_slice : "-"}</p>`).css({ margin: "0 0 8px" });
@@ -1178,7 +1179,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $slot, $size, $source, $sourceMulti, $sourceMaxSlice, $twoHanded, $mod, $types, $close);
+        $modal.append($title, $slot, $size, $affixMaxDetail, $source, $sourceMulti, $sourceMaxSlice, $twoHanded, $mod, $types, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
