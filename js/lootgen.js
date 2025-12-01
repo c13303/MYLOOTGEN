@@ -420,10 +420,41 @@ function compute() {
         const resMin = resBonuses.length ? Math.min(...resBonuses) : 0;
         const resMax = resBonuses.length ? Math.max(...resBonuses) : 0;
 
-        const calculateDPS = (equippedGear, stats, baseAPS, unarmedDamage, currentLvl) => {
+        const safeResistanceCap = Math.max(0, Number(state.resistance_cap ?? 0));
+        const desiredResistanceTarget = Math.min(safeResistanceCap, Math.max(0, Number(state.desired_resistance ?? 0)));
+        const resistanceTypeNames = damageTypes.length ? [...new Set(damageTypes.map((dt) => dt.name))] : [defaultDmgType];
+
+        const clampResistMap = (resists) => {
+            const result = {};
+            Object.entries(resists || {}).forEach(([type, value]) => {
+                const numeric = Number.isFinite(Number(value)) ? Number(value) : 0;
+                result[type] = Math.max(0, Math.min(safeResistanceCap, numeric));
+            });
+            return result;
+        };
+
+        const evaluateResistanceProfile = (resists) => {
+            const shortages = resistanceTypeNames.map((type) => Math.max(0, desiredResistanceTarget - (resists[type] || 0)));
+            const deficiencyCount = shortages.filter((value) => value > 0).length;
+            const shortfallSum = shortages.reduce((sum, value) => sum + value, 0);
+            return { deficiencyCount, shortfallSum };
+        };
+
+        const compareResistanceProfiles = (candidateProfile, currentProfile) => {
+            if (candidateProfile.deficiencyCount !== currentProfile.deficiencyCount) {
+                return candidateProfile.deficiencyCount < currentProfile.deficiencyCount;
+            }
+            if (candidateProfile.shortfallSum !== currentProfile.shortfallSum) {
+                return candidateProfile.shortfallSum < currentProfile.shortfallSum;
+            }
+            return null;
+        };
+
+        const evaluateGear = (equippedGear, stats, baseAPS, unarmedDamage, currentLvl) => {
             const totals = {
                 flat: {},
                 mods: {},
+                resists: { ...baseResists },
                 atkBonus: 0,
             };
 
@@ -434,6 +465,9 @@ function compute() {
                 }
                 for (const type in item.dmgMods) {
                     totals.mods[type] = (totals.mods[type] || 0) + item.dmgMods[type];
+                }
+                for (const type in item.resAdds) {
+                    totals.resists[type] = (totals.resists[type] || 0) + item.resAdds[type];
                 }
                 totals.atkBonus += item.atkBonus || 0;
             });
@@ -462,7 +496,7 @@ function compute() {
                 totalDPS += flat * (1 + mod / 100) * finalAPS * attrMultiplier;
             });
 
-            return totalDPS;
+            return { dps: totalDPS, resists: clampResistMap(totals.resists) };
         };
 
         const summarizeItemImpact = (gearItem) => {
@@ -535,8 +569,8 @@ function compute() {
             }
 
             const dpsDelta = Math.round(newDPS - prevDPS);
-            const dpsLine = `<div class="swap-reason-detail">DPS${formatValue(dpsDelta)}</div>`;
-
+            const dpsLine = `<div class="swap-reason-detail">DPS ${formatValue(dpsDelta)}</div>`;
+            if (dpsDelta < 1) disLine = "";
             const resistEntries = Object.entries(resDeltas).filter(([, delta]) => delta !== 0);
             const formatResistDelta = (type, value) => `<span class="resisttext" style="color:${colorForType(type)}">${type} ${formatValue(value)}%</span>`;
             const resistLine = resistEntries.length
@@ -544,7 +578,7 @@ function compute() {
                 : "";
 
             return {
-                text: `<div class="swap-reason-main">${description}</div>${dpsLine}${resistLine}`,
+                text: `${dpsLine}${description}${resistLine}`,
                 param: best.name,
             };
         };
@@ -553,7 +587,9 @@ function compute() {
         Object.values(bestGear).forEach((item) => {
             if (item) item.foundThisLevel = false;
         });
-        let bestDPS = calculateDPS(bestGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, lvl);
+        let bestEvaluation = evaluateGear(bestGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, lvl);
+        let bestDPS = bestEvaluation.dps;
+        let bestResistanceProfile = evaluateResistanceProfile(bestEvaluation.resists);
 
         // Evaluate each drop by simulating the swap and keep it if DPS improves (empty slot always accepts)
         lootList.forEach((item) => {
@@ -565,8 +601,11 @@ function compute() {
                 tempGear[offHandSlotName] = undefined;
             }
 
-            const tempDPS = calculateDPS(tempGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, lvl);
-            const shouldEquip = !bestGear[slotName] || tempDPS > bestDPS;
+            const tempEvaluation = evaluateGear(tempGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, lvl);
+            const tempDPS = tempEvaluation.dps;
+            const tempResistanceProfile = evaluateResistanceProfile(tempEvaluation.resists);
+            const resComparison = compareResistanceProfiles(tempResistanceProfile, bestResistanceProfile);
+            const shouldEquip = !bestGear[slotName] || resComparison === true || (resComparison === null && tempDPS > bestDPS);
 
             if (shouldEquip) {
                 const prevItem = bestGear[slotName];
@@ -574,6 +613,8 @@ function compute() {
                 item.swapReason = describeSwapReason(prevItem, item, prevDPS, tempDPS);
                 bestGear = tempGear;
                 bestDPS = tempDPS;
+                bestEvaluation = tempEvaluation;
+                bestResistanceProfile = tempResistanceProfile;
             }
         });
 
@@ -648,6 +689,7 @@ function compute() {
             for (const type in item.resAdds) finalTotals.resists[type] = (finalTotals.resists[type] || 0) + item.resAdds[type];
             finalTotals.atkBonus += item.atkBonus || 0;
         });
+        finalTotals.resists = clampResistMap(finalTotals.resists);
 
         const finalAPS = baseAttackSpeed * (1 + finalTotals.atkBonus / 100);
         const finalUnarmed = (state.unarmed_physical_damage || 0);
