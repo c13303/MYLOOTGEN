@@ -2222,6 +2222,15 @@ $(function () {
         });
     }
 
+    function computeProjectionResistanceForLevel(lvl, lvlCount) {
+        const resistMin = Number(state.resistance_affix_min ?? 0);
+        const resistMax = Number(state.resistance_affix_max ?? resistMin);
+        const power = Number(state.resistance_curve ?? 1);
+        const denom = Math.max(1, lvlCount - 1);
+        const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
+        return resistMin + (resistMax - resistMin) * Math.pow(t, power);
+    }
+
     function renderDpsPlanningChart() {
         if (!$dpsPlanningChart.length) return;
         const canvas = $dpsPlanningChart[0];
@@ -2249,19 +2258,25 @@ $(function () {
         const jitterPoints = [];
         const flatJ = Math.max(0, Number(state.flat_damage_jitter_pct ?? 0));
         const modJ = Math.max(0, Number(state.mod_damage_jitter_pct ?? 0));
+        const resistSlots = Math.max(1, Number(state.resistance_slots_auto ?? 1));
+        const desiredResist = Math.max(0, Number(state.desired_resistance ?? 0));
+        const resistWeight = Number(state.resistance_score_weight ?? 0.1);
         for (let lvl = 1; lvl <= lvlCount; lvl += 1) {
             const t = Math.min(1, Math.max(0, (lvl - 1) / Math.max(1, lvlCount - 1)));
             const flatVal = fdMin + (fdMax - fdMin) * Math.pow(t, fdPow);
             const modVal = modMin + (modMax - modMin) * Math.pow(t, modPow);
             const asVal = asMin + (asMax - asMin) * Math.pow(t, asPow);
-            const dps = flatVal * (1 + modVal / 100) * Math.max(0, asVal);
+            const resistValue = computeProjectionResistanceForLevel(lvl, lvlCount) * resistSlots;
+            const resistGap = desiredResist > 0 ? Math.max(0, desiredResist - resistValue) : 0;
+            const resistFactor = Math.max(0, 1 - Math.min(0.5, resistGap / Math.max(1, desiredResist) * resistWeight * 2));
+            const dps = flatVal * (1 + modVal / 100) * Math.max(0, asVal) * resistFactor;
             points.push({ lvl, dps });
             const flatLow = flatVal * (1 - flatJ);
             const flatHigh = flatVal * (1 + flatJ);
             const modLow = modVal * (1 - modJ);
             const modHigh = modVal * (1 + modJ);
-            const dpsLow = flatLow * (1 + modLow / 100) * Math.max(0, asVal);
-            const dpsHigh = flatHigh * (1 + modHigh / 100) * Math.max(0, asVal);
+            const dpsLow = flatLow * (1 + modLow / 100) * Math.max(0, asVal) * resistFactor;
+            const dpsHigh = flatHigh * (1 + modHigh / 100) * Math.max(0, asVal) * resistFactor;
             jitterPoints.push({ lvl, dpsLow, dpsHigh });
         }
 

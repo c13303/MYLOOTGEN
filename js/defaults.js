@@ -31,7 +31,7 @@ const state = {
     base_physical_resistance: 0,
     attack_speed_min: 1,
     attack_speed_max: 3,
-    attack_speed_power_progression: 1.2,
+    attack_speed_power_progression: 0.6,
     attack_speed_slots_auto: 2,
     affix_rarity_scale: 0.08, // scales affix min/max with category rarity
     common_decay: 0.08, // exponential decay applied to categories unlocked at level 1
