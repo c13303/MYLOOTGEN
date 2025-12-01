@@ -115,6 +115,7 @@ function compute() {
     };
     let persistedGear = {};
     const offHandSlotName = (state.equipment_slots || []).find((slot) => slot.allow_off_hand)?.name;
+    const mainHandSlotName = (state.equipment_slots || []).find((slot) => slot.allow_two_handed)?.name;
 
     const results = [];
     const jsonData = [];
@@ -620,9 +621,20 @@ function compute() {
                 const slotName = item.slot;
                 if (!slotName || bestGear[slotName] === item) return;
                 const tempGear = { ...bestGear, [slotName]: item };
+
+                // If equipping a two-handed weapon, remove off-hand
                 if (item.two_handed && offHandSlotName && offHandSlotName !== slotName) {
                     tempGear[offHandSlotName] = undefined;
                 }
+
+                // If equipping an off-hand, remove two-handed weapon from main hand
+                if (slotName === offHandSlotName && mainHandSlotName) {
+                    const mainHandItem = tempGear[mainHandSlotName];
+                    if (mainHandItem?.two_handed) {
+                        tempGear[mainHandSlotName] = undefined;
+                    }
+                }
+
                 const tempEvaluation = evaluateGear(tempGear, currentStats, baseAttackSpeed, unarmedDamage, lvl);
                 const tempScore = computeBuildScore(tempEvaluation);
                 const delta = tempScore - bestScore;

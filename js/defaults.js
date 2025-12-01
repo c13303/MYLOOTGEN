@@ -42,8 +42,8 @@ const state = {
     // scaling knobs (exposed in UI)
     // Loot scaling knobs
     flat_damage_power_progression: 1.8, // exponent for flat dmg per level (lvl^power)
-    flat_damage_min: 2, // floor to guarantee lvl 1 >= 2
-    flat_damage_max: 500,
+    flat_damage_min: 10, // floor to guarantee lvl 1 >= 2
+    flat_damage_max: 750,
     flat_damage_formula_progression: "dmg = (flat_damage_min + (flat_damage_max - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression) / flat_damage_equipement_slots_auto",
     flat_damage_jitter_pct: 0.05, // +/- jitter applied around median (0.2 = ±20%)
     flat_damage_onehand_ratio: 0.75,
@@ -92,7 +92,7 @@ const state = {
         { name: "head", position: 1, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
         { name: "torso", position: 2, allow_flat_damage: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
         { name: "weapon_right", position: 3, allow_flat_damage: true, allow_two_handed: true, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
-        { name: "hand_left", position: 4, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: true, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
+        { name: "hand_left", position: 4, allow_flat_damage: true, allow_two_handed: false, allow_off_hand: true, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
         { name: "hands", position: 5, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
         { name: "belt", position: 6, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true },
         { name: "boots", position: 7, allow_flat_damage: false, allow_two_handed: false, allow_off_hand: false, allow_damage_mod: true, allow_attack_speed: true, allow_resist: true }
@@ -330,7 +330,7 @@ const state = {
         },
         {
             "name": "wooden shield",
-            "equipment_slot": "weapon_left",
+            "equipment_slot": "hand_left",
             "size": 2,
             "affix_max": 4,
             "flat_damage_sources": 0,
@@ -339,7 +339,7 @@ const state = {
         },
         {
             "name": "spell tome",
-            "equipment_slot": "weapon_left",
+            "equipment_slot": "hand_left",
             "size": 2,
             "affix_max": 4,
             "flat_damage_sources": 1,
