@@ -273,6 +273,7 @@ function compute() {
             let damageModType = null; // track single damage type for all damage mods on this item
 
             const usedDamageTypes = new Set();
+            const usedResistanceTypes = new Set(); // track resistance types to avoid duplicates
             const pickType = (seed) => typePoolFinal[Math.floor(pseudoRand(seed) * typePoolFinal.length) % typePoolFinal.length] || defaultDmgType;
 
             // flat damage sources (only if item allows)
@@ -309,31 +310,42 @@ function compute() {
                     if (atkBonus > 0) asBonuses.push(atkBonus);
                     bonuses.push(`+${atkBonus}% Attack Speed`);
                 } else if (item.damage_modifier !== false && roll > 0.35) {
-                    // All damage mods on an item must be the same type
+                    // All damage mods on an item must be the same type, and only ONE damage mod affix per item
                     if (!damageModType) {
                         damageModType = pickType((lvl + i + a * 23) * 1.3);
+                        const type = damageModType;
+                        const key = type;
+                        const baseMod = computeDamageModForLevel(lvl);
+                        const jittered = applyPctJitter(baseMod, Number(state.mod_damage_jitter_pct ?? 0), (lvl + i + a * 23) * 5.7);
+                        const rolledMod = Math.round(jittered);
+                        if (!dmgMods[key]) dmgMods[key] = 0;
+                        dmgMods[key] += rolledMod;
+                        if (rolledMod > 0) modBonuses.push(rolledMod);
+                        bonuses.push(`+${rolledMod}% ${type} dmg mod`);
                     }
-                    const type = damageModType;
-                    const key = type;
-                    const baseMod = computeDamageModForLevel(lvl);
-                    const jittered = applyPctJitter(baseMod, Number(state.mod_damage_jitter_pct ?? 0), (lvl + i + a * 23) * 5.7);
-                    const rolledMod = Math.round(jittered);
-                    if (!dmgMods[key]) dmgMods[key] = 0;
-                    dmgMods[key] += rolledMod;
-                    if (rolledMod > 0) modBonuses.push(rolledMod);
-                    bonuses.push(`+${rolledMod}% ${type} dmg mod`);
+                    // If damageModType already exists, skip this affix slot (no duplicate dmg mods)
                 } else {
-                    const type = pickType((lvl + i + a * 31) * 1.7);
-                    const key = type;
-                    const baseRes = computeResistanceForLevel(lvl);
-                    const jittered = applyPctJitter(baseRes, Number(state.resistance_jitter ?? 0), (lvl + i + a * 31) * 6.3);
-                    const resistCap = Number(state.resistance_cap ?? 100);
-                    const cappedRes = Math.min(jittered * 100, resistCap); // convert to percentage and apply cap
-                    const rolledRes = Math.round(cappedRes);
-                    if (!resAdds[key]) resAdds[key] = 0;
-                    resAdds[key] += rolledRes;
-                    if (rolledRes > 0) resBonuses.push(rolledRes);
-                    bonuses.push(`+${rolledRes}% ${type} res`);
+                    // Try to pick a resistance type that hasn't been used yet on this item
+                    let type = pickType((lvl + i + a * 31) * 1.7);
+                    let attempts = 0;
+                    while (usedResistanceTypes.has(type) && attempts < typePoolFinal.length) {
+                        type = pickType((lvl + i + a * 31 + attempts) * 1.7);
+                        attempts += 1;
+                    }
+                    // Only add resistance if this type hasn't been used yet
+                    if (!usedResistanceTypes.has(type)) {
+                        usedResistanceTypes.add(type);
+                        const key = type;
+                        const baseRes = computeResistanceForLevel(lvl);
+                        const jittered = applyPctJitter(baseRes, Number(state.resistance_jitter ?? 0), (lvl + i + a * 31) * 6.3);
+                        const resistCap = Number(state.resistance_cap ?? 100);
+                        const cappedRes = Math.min(jittered * 100, resistCap); // convert to percentage and apply cap
+                        const rolledRes = Math.round(cappedRes);
+                        if (!resAdds[key]) resAdds[key] = 0;
+                        resAdds[key] += rolledRes;
+                        if (rolledRes > 0) resBonuses.push(rolledRes);
+                        bonuses.push(`+${rolledRes}% ${type} res`);
+                    }
                 }
             }
 
@@ -367,8 +379,21 @@ function compute() {
 
         const lootRows = lootList.map((l) => {
             const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
-            const bonusText = (l.bonuses && l.bonuses.length)
-                ? l.bonuses.map((b) => colorizeBonus(b)).join(", ")
+
+            // Sort bonuses: flat dmg, dmg mods, resistances, AS
+            const sortedBonuses = (l.bonuses || []).slice().sort((a, b) => {
+                const getOrder = (bonus) => {
+                    if (bonus.includes("flat dmg")) return 0;
+                    if (bonus.includes("dmg mod")) return 1;
+                    if (bonus.includes("res")) return 2;
+                    if (bonus.includes("Attack Speed")) return 3;
+                    return 4;
+                };
+                return getOrder(a) - getOrder(b);
+            });
+
+            const bonusText = (sortedBonuses && sortedBonuses.length)
+                ? sortedBonuses.map((b) => colorizeBonus(b)).join("<br>")
                 : "None";
             return `
       <tr>
@@ -415,7 +440,7 @@ function compute() {
       <div class="loot-meta">Loot Values : Flat dmg: ${flatMinSource}-${flatMaxSource} (src) | ${flatMinWeapon}-${flatMaxWeapon} (weapon) | Dmg mod: +${modMin}% - +${modMax}% | Resists: +${resMin}% - +${resMax}% | AS: +${asMin}% - +${asMax}%</div>
     </div>
     <div class="level-grid">
-      <div class="level-col">
+      <div class="level-col lootlist">
         <div>Gear:</div>
         <div class="gear-table empty">No gear</div>
         <details>
@@ -423,7 +448,7 @@ function compute() {
           ${allLootHtml}
         </details>
       </div>
-      <div class="level-col">
+      <div class="level-col buildie">
         <div class="build-block">
           <div class="build-heading">Build snapshot</div>
           <div class="build-line">Stats: ${statsLinePretty}</div>

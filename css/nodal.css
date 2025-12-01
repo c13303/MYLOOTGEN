@@ -19,6 +19,24 @@
   padding: 20px;
 }
 
+.lootlist {
+  width: 720px;
+}
+
+.buildie {
+  width: 450px;
+  margin-left: 140px;
+}
+
+.resisttext {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.loot-table td {
+  border-bottom: 1px solid #ffffff21;
+
+}
 
 body {
   margin: 0;
