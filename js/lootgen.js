@@ -377,10 +377,96 @@ function compute() {
         const resMin = resBonuses.length ? Math.min(...resBonuses) : 0;
         const resMax = resBonuses.length ? Math.max(...resBonuses) : 0;
 
+        const calculateDPS = (equippedGear, stats, baseAPS, unarmedDamage, unarmedGrowth, currentLvl) => {
+            const totals = {
+                flat: {},
+                mods: {},
+                atkBonus: 0,
+            };
+
+            Object.values(equippedGear).forEach(item => {
+                if (!item) return;
+                for (const type in item.baseAdds) {
+                    totals.flat[type] = (totals.flat[type] || 0) + item.baseAdds[type];
+                }
+                for (const type in item.dmgMods) {
+                    totals.mods[type] = (totals.mods[type] || 0) + item.dmgMods[type];
+                }
+                totals.atkBonus += item.atkBonus || 0;
+            });
+
+            const finalAPS = baseAPS * (1 + totals.atkBonus / 100);
+            const finalUnarmed = unarmedDamage * Math.pow(1 + unarmedGrowth, currentLvl - 1);
+            
+            let totalDPS = 0;
+
+            const allDmgTypes = new Set([...Object.keys(totals.flat), ...Object.keys(totals.mods), defaultDmgType]);
+
+            if (Object.keys(totals.flat).length === 0) {
+                totals.flat[defaultDmgType] = finalUnarmed;
+            } else {
+                totals.flat[defaultDmgType] = (totals.flat[defaultDmgType] || 0) + finalUnarmed;
+            }
+
+            allDmgTypes.forEach(type => {
+                const flat = totals.flat[type] || 0;
+                const mod = totals.mods[type] || 0;
+                totalDPS += flat * (1 + mod / 100) * finalAPS;
+            });
+
+            return totalDPS;
+        };
+
+        let bestGear = {};
+        let bestDPS = calculateDPS({}, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, state.unarmed_growth || 0, lvl);
+        
+        // Greedy algorithm to find best gear combination
+        let changedInPass = true;
+        for(let pass = 0; pass < slots.length && changedInPass; pass++) {
+            changedInPass = false;
+            let bestCandidate = null;
+            let bestTempDPS = bestDPS;
+            let bestTempGear = {};
+
+            lootList.forEach(item => {
+                // Skip if already equipped
+                if (Object.values(bestGear).includes(item)) return;
+
+                let tempGear = { ...bestGear };
+                const oldItem = tempGear[item.slot];
+                tempGear[item.slot] = item;
+                
+                const itemDef = items.find(i => i.name === item.name);
+                if (itemDef?.two_handed) {
+                    const offHandSlot = (state.equipment_slots || []).find(s => s.allow_off_hand);
+                    if (offHandSlot) {
+                        tempGear[offHandSlot.name] = undefined;
+                    }
+                }
+
+                const tempDPS = calculateDPS(tempGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, state.unarmed_growth || 0, lvl);
+
+                if (tempDPS > bestTempDPS) {
+                    bestTempDPS = tempDPS;
+                    bestCandidate = item;
+                    bestTempGear = tempGear;
+                }
+            });
+
+            if (bestCandidate) {
+                bestGear = bestTempGear;
+                bestDPS = bestTempDPS;
+                changedInPass = true;
+            }
+        }
+        
+        const equippedItems = new Set(Object.values(bestGear).filter(Boolean));
+        lootList.forEach(l => {
+            l.equippedStatus = equippedItems.has(l) ? 'Equipped' : 'Not equipped';
+        });
+
         const lootRows = lootList.map((l) => {
             const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
-
-            // Sort bonuses: flat dmg, dmg mods, resistances, AS
             const sortedBonuses = (l.bonuses || []).slice().sort((a, b) => {
                 const getOrder = (bonus) => {
                     if (bonus.includes("flat dmg")) return 0;
@@ -391,45 +477,95 @@ function compute() {
                 };
                 return getOrder(a) - getOrder(b);
             });
-
-            const bonusText = (sortedBonuses && sortedBonuses.length)
-                ? sortedBonuses.map((b) => colorizeBonus(b)).join("<br>")
-                : "None";
+            const bonusText = (sortedBonuses && sortedBonuses.length) ? sortedBonuses.map((b) => colorizeBonus(b)).join("<br>") : "None";
+            const statusText = l.equippedStatus === 'Equipped' ? `<span class="equip-reason equipped">${l.equippedStatus}</span>` : `<span class="equip-reason muted">${l.equippedStatus}</span>`;
             return `
       <tr>
         <td><span style="color:#facc15">${l.slot}</span></td>
         <td><span style="color:${catColor}">${l.name}</span></td>
         <td><span style="color:${catColor}">${l.category}</span></td>
         <td>${bonusText}</td>
-        <td><span class="equip-reason muted">Not equipped</span></td>
+        <td>${statusText}</td>
       </tr>`;
         }).join("");
 
-        const allLootHtml = lootList.length
-            ? `<div class="loot-table"><table>
-      <thead>
-        <tr>
-          <th>Slot</th>
-          <th>Item</th>
-          <th>Cat.</th>
-          <th>Bonuses</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${lootRows}
-      </tbody>
-    </table></div>`
-            : '<div class="loot-table empty">No loot</div>';
+        const allLootHtml = lootList.length ? `<div class="loot-table"><table>...</table></div>` : '<div class="loot-table empty">No loot</div>'; // Simplified for brevity
 
-        const statsLinePretty = attrNames.length
-            ? attrNames.map((a) => `${a}: ${currentStats[a] ?? 0}`).join(" | ")
-            : "none";
-        const resLinePretty = Object.keys(baseResists).length
-            ? Object.entries(baseResists).map(([k, v]) => `${k}: ${v}`).join(" | ")
-            : "none";
+        const equippedGearRows = Object.values(bestGear).filter(Boolean).map(l => {
+            const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";
+            const sortedBonuses = (l.bonuses || []).slice().sort((a, b) => {
+                const getOrder = (bonus) => {
+                    if (bonus.includes("flat dmg")) return 0;
+                    if (bonus.includes("dmg mod")) return 1;
+                    if (bonus.includes("res")) return 2;
+                    if (bonus.includes("Attack Speed")) return 3;
+                    return 4;
+                };
+                return getOrder(a) - getOrder(b);
+            });
+            const bonusText = (sortedBonuses && sortedBonuses.length) ? sortedBonuses.map((b) => colorizeBonus(b)).join("<br>") : "None";
+            return `
+                <tr>
+                    <td><span style="color:#facc15">${l.slot}</span></td>
+                    <td><span style="color:${catColor}">${l.name}</span></td>
+                    <td><span style="color:${catColor}">${l.category}</span></td>
+                    <td>${bonusText}</td>
+                </tr>`;
+        }).join("");
 
-        const summaryText = `<span class="summary-col base">Lvl ${lvl} | 0 DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">Total: ${readableTotal}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span>`;
+        const gearTableHtml = equippedItems.size > 0 ?
+            `<div class="gear-table"><table><thead><tr><th>Slot</th><th>Item</th><th>Cat.</th><th>Bonuses</th></tr></thead><tbody>${equippedGearRows}</tbody></table></div>` :
+            '<div class="gear-table empty">No gear</div>';
+
+        const finalTotals = { flat: {}, mods: {}, resists: { ...baseResists }, atkBonus: 0 };
+        equippedItems.forEach(item => {
+            for (const type in item.baseAdds) finalTotals.flat[type] = (finalTotals.flat[type] || 0) + item.baseAdds[type];
+            for (const type in item.dmgMods) finalTotals.mods[type] = (finalTotals.mods[type] || 0) + item.dmgMods[type];
+            for (const type in item.resAdds) finalTotals.resists[type] = (finalTotals.resists[type] || 0) + item.resAdds[type];
+            finalTotals.atkBonus += item.atkBonus || 0;
+        });
+
+        const finalAPS = baseAttackSpeed * (1 + finalTotals.atkBonus / 100);
+        const finalUnarmed = (state.unarmed_physical_damage || 0) * Math.pow(1 + (state.unarmed_growth || 0), lvl - 1);
+        if (Object.keys(finalTotals.flat).length === 0) {
+            finalTotals.flat[defaultDmgType] = finalUnarmed;
+        } else {
+            finalTotals.flat[defaultDmgType] = (finalTotals.flat[defaultDmgType] || 0) + finalUnarmed;
+        }
+
+        const damageBreakdown = {};
+        const allFinalDmgTypes = new Set([...Object.keys(finalTotals.flat), ...Object.keys(finalTotals.mods), defaultDmgType]);
+        allFinalDmgTypes.forEach(type => {
+            const flat = finalTotals.flat[type] || 0;
+            const mod = finalTotals.mods[type] || 0;
+            damageBreakdown[type] = {
+                flat: flat,
+                mod: mod,
+                dps: flat * (1 + mod / 100) * finalAPS,
+            };
+        });
+
+        const breakdownHtml = Object.keys(damageBreakdown).length > 0 ?
+            `<div class="build-table">
+                <table>
+                    <thead><tr><th>Type</th><th>Flat</th><th>Mod</th><th>DPS</th></tr></thead>
+                    <tbody>
+                        ${Object.entries(damageBreakdown).map(([type, data]) => `
+                        <tr>
+                            <td><span style="color:${colorMap[type] || '#e2e8f0'}">${type}</span></td>
+                            <td>${Math.round(data.flat)}</td>
+                            <td>+${Math.round(data.mod)}%</td>
+                            <td>${Math.round(data.dps)}</td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>` :
+            '<div class="build-table empty">No damage</div>';
+        
+        const totalDPS = Object.values(damageBreakdown).reduce((sum, data) => sum + data.dps, 0);
+        const statsLinePretty = attrNames.length ? attrNames.map((a) => `${a}: ${currentStats[a] ?? 0}`).join(" | ") : "none";
+        const resLinePretty = Object.keys(finalTotals.resists).length ? Object.entries(finalTotals.resists).map(([k, v]) => `${k}: ${v}%`).join(" | ") : "none";
+        const summaryText = `<span class="summary-col base">Lvl ${lvl} | ${Math.round(totalDPS)} DPS | <span class="dim-blue">${readable}</span> | <span class="dim-blue">Total: ${readableTotal}</span> | <span class="dim-blue">loot ~ ${lootList.length}</span></span><span class="summary-col mix"><span style="opacity:0.7">No mix</span></span>`;
 
     results.push(`
 <details class="compute-card" ${lvl === levels ? "open" : ""}>
@@ -442,21 +578,34 @@ function compute() {
     <div class="level-grid">
       <div class="level-col lootlist">
         <div>Gear:</div>
-        <div class="gear-table empty">No gear</div>
+        ${gearTableHtml}
         <details>
           <summary style="color:#cbd5e1; background-color: #27182d;">🧰 See all loot of this level (${lootList.length})</summary>
-          ${allLootHtml}
+          <div class="loot-table"><table>
+              <thead>
+                <tr>
+                  <th>Slot</th>
+                  <th>Item</th>
+                  <th>Cat.</th>
+                  <th>Bonuses</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${lootRows}
+              </tbody>
+            </table></div>
         </details>
       </div>
       <div class="level-col buildie">
         <div class="build-block">
           <div class="build-heading">Build snapshot</div>
           <div class="build-line">Stats: ${statsLinePretty}</div>
-          <div class="build-line">Attack Speed: ${baseAttackSpeed}</div>
+          <div class="build-line">Attack Speed: ${finalAPS.toFixed(2)}</div>
           <div class="build-line">Resists: ${resLinePretty}</div>
           <div class="build-subtitle">Damage breakdown</div>
-          <div class="build-table empty">No damage</div>
-          <div class="build-line">DPS total: 0</div>
+          ${breakdownHtml}
+          <div class="build-line">DPS total: ${Math.round(totalDPS)}</div>
         </div>
       </div>
     </div>
@@ -474,14 +623,13 @@ function compute() {
             stats: { ...currentStats },
             attr_bounds: {},
             attr_range: "0-0",
-            gear: [],
+            gear: Object.values(bestGear).filter(Boolean),
             all_loot: lootList,
             totals: {
-                damage: {},
-                resists: baseResists,
-                attack_speed: baseAttackSpeed,
-                dps: [],
-                dps_total: 0
+                damage: damageBreakdown,
+                resists: finalTotals.resists,
+                attack_speed: finalAPS,
+                dps_total: totalDPS
             }
         });
     }
@@ -513,7 +661,7 @@ function compute() {
         const copyHeadersBtn = document.getElementById("copy-headers");
         if (copyHeadersBtn) {
             copyHeadersBtn.onclick = () => {
-                const headers = jsonData.map((entry) => `Lvl ${entry.level} | 0 DPS | ${entry.time_readable} | ${entry.loot_count} loot`).join("\n");
+                const headers = jsonData.map((entry) => `Lvl ${entry.level} | ${Math.round(entry.totals.dps_total)} DPS | ${entry.time_readable} | ${entry.loot_count} loot`).join("\n");
                 copyText(headers);
             };
         }

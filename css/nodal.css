@@ -15,6 +15,11 @@
   --radius: 14px;
 }
 
+.build-table td {
+  border: 1px solid #cccccc1a;
+  padding: 10px;
+}
+
 .form-section-build-config .field {
   padding: 20px;
 }
