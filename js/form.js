@@ -36,6 +36,7 @@ $(function () {
     const $modDamagePower = $("#mod-damage-power");
     const $modDamageJitter = $("#mod-damage-jitter");
     const $modDamageSlotsAuto = $("#mod-damage-slots-auto");
+    const $modDamageSlotsMetа = $("#mod-damage-slots-meta");
     const $modDamageFormulaDisplay = $("#mod-damage-formula-display");
     const $modDamageChart = $("#mod-damage-chart");
     const $dpsPlanningChart = $("#dps-planning-chart");
@@ -1498,7 +1499,7 @@ $(function () {
     $unarmedPhysicalDamage.val(state.unarmed_physical_damage);
     $basePhysicalResistance.val(state.base_physical_resistance);
     $generatePercent.val(state.generate_percent);
-    $attackSpeedBase.val(state.attack_speed_base);
+    $attackSpeedBase.val(state.unarmed_speed);
     if (typeof state.attack_speed_min === "undefined") state.attack_speed_min = 5;
     if (typeof state.attack_speed_max === "undefined") state.attack_speed_max = 20;
     if (typeof state.attack_speed_power_progression === "undefined") state.attack_speed_power_progression = 1.2;
@@ -1678,7 +1679,7 @@ $(function () {
     $attackSpeedBase.on("input", function () {
         const value = parseFloat($(this).val());
         if (!Number.isNaN(value)) {
-            state.attack_speed_base = value;
+            state.unarmed_speed = value;
             renderPreview();
         }
     });
@@ -1896,6 +1897,9 @@ $(function () {
         state.mod_damage_slots_auto = allowed;
         if ($modDamageSlotsAuto.length) {
             $modDamageSlotsAuto.val(allowed);
+        }
+        if ($modDamageSlotsMetа.length) {
+            $modDamageSlotsMetа.text(`${allowed}`);
         }
     }
 

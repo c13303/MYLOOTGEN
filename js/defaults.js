@@ -27,7 +27,7 @@ const state = {
     generate_percent: 15,
     unarmed_physical_damage: 1,
     base_physical_resistance: 0,
-    attack_speed_base: 1.6,
+    unarmed_speed: 1.6,
     attack_speed_min: 5,
     attack_speed_max: 20,
     attack_speed_power_progression: 1.2,

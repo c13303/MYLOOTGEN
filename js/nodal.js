@@ -88,8 +88,8 @@ $(function () {
       });
   }, 0);
 
-  // Clicking a chart summary toggles every detail in the same group.
-  $(document).on("click", ".chart-sections-row details.form-section summary", function (event) {
+  // Clicking a summary toggles every detail in the same group.
+  $(document).on("click", "details.form-section[data-chart-group] summary", function (event) {
     const $detail = $(this).parent();
     const group = $detail.data("chart-group");
     if (!group) return;
