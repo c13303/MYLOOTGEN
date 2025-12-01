@@ -95,6 +95,7 @@ function compute() {
     state.flat_damage_equipement_slots_auto = flatSlotsAllowed;
     const slotRules = new Map((state.equipment_slots || []).map((s) => [s.name, s]));
     let persistedGear = {};
+    const offHandSlotName = (state.equipment_slots || []).find((slot) => slot.allow_off_hand)?.name;
 
     const results = [];
     const jsonData = [];
@@ -212,7 +213,7 @@ function compute() {
 
     const pickItem = (slot, seed) => {
         const available = items.filter((it) => it.equipment_slot === slot);
-        if (!available.length) return { name: "None", equipment_slot: slot || "slot", category: "none" };
+        if (!available.length) return null;
         const idx = Math.floor(pseudoRand(seed) * available.length) % available.length;
         return available[idx];
     };
@@ -243,16 +244,17 @@ function compute() {
             return `${cat.name}: ${Math.round((percents[idx] || 0) * 10) / 10}%`;
         }).join(", ");
         const baseFlatDmg = computeFlatDamageForLevel(lvl);
+        const availableSlots = slots.filter((slotName) => items.some((it) => it.equipment_slot === slotName));
         const lootList = [];
         const asBonuses = [];
         const modBonuses = [];
         const resBonuses = [];
         for (let i = 0; i < rolledLootCount; i += 1) {
+            if (!availableSlots.length) break;
             const cat = pickCategory(lvl + i + 1, lvl);
-            const slot = slots.length
-                ? slots[Math.floor(pseudoRand(lvl + i + 7) * slots.length) % slots.length]
-                : "slot";
+            const slot = availableSlots[Math.floor(pseudoRand(lvl + i + 7) * availableSlots.length) % availableSlots.length];
             const item = pickItem(slot, lvl + i + 13);
+            if (!item) continue;
             const flatMin = state.flat_damage_types_per_item_min ?? 1;
             const flatMax = state.flat_damage_types_per_item_max ?? 2;
             const sourceSlots = Math.max(0, item.flat_damage_sources || 0);
@@ -375,7 +377,7 @@ function compute() {
                 resAdds,
                 atkBonus
             };
-            lootItem.foundThisLevel = true;
+            lootItem.foundThisLevel = false;
             lootList.push(lootItem);
         }
 
@@ -440,52 +442,33 @@ function compute() {
         });
         let bestDPS = calculateDPS(bestGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, state.unarmed_growth || 0, lvl);
 
-        // Greedy algorithm to find best gear combination
-        let changedInPass = true;
-        for (let pass = 0; pass < slots.length && changedInPass; pass++) {
-            changedInPass = false;
-            let bestCandidate = null;
-            let bestTempDPS = bestDPS;
-            let bestTempGear = {};
+        // Evaluate each drop by simulating the swap and keep it if DPS improves (empty slot always accepts)
+        lootList.forEach((item) => {
+            const slotName = item.slot;
+            if (!slotName) return;
 
-            lootList.forEach(item => {
-                // Skip if already equipped
-                if (Object.values(bestGear).includes(item)) return;
-
-                let tempGear = { ...bestGear };
-                const oldItem = tempGear[item.slot];
-                tempGear[item.slot] = item;
-
-                const itemDef = items.find(i => i.name === item.name);
-                if (itemDef?.two_handed) {
-                    const offHandSlot = (state.equipment_slots || []).find(s => s.allow_off_hand);
-                    if (offHandSlot) {
-                        tempGear[offHandSlot.name] = undefined;
-                    }
-                }
-
-                const tempDPS = calculateDPS(tempGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, state.unarmed_growth || 0, lvl);
-
-                if (tempDPS > bestTempDPS) {
-                    bestTempDPS = tempDPS;
-                    bestCandidate = item;
-                    bestTempGear = tempGear;
-                }
-            });
-
-            if (bestCandidate) {
-                bestGear = bestTempGear;
-                bestDPS = bestTempDPS;
-                changedInPass = true;
+            const tempGear = { ...bestGear, [slotName]: item };
+            if (item.two_handed && offHandSlotName && offHandSlotName !== slotName) {
+                tempGear[offHandSlotName] = undefined;
             }
-        }
+
+            const tempDPS = calculateDPS(tempGear, currentStats, baseAttackSpeed, state.unarmed_physical_damage || 0, state.unarmed_growth || 0, lvl);
+            const shouldEquip = !bestGear[slotName] || tempDPS > bestDPS;
+
+            if (shouldEquip) {
+                bestGear = tempGear;
+                bestDPS = tempDPS;
+            }
+        });
 
         const equippedGearList = Object.values(bestGear).filter(Boolean);
         const equippedItems = new Set(equippedGearList);
-        const newItemsEquipped = equippedGearList.filter((item) => item.foundThisLevel).length;
         lootList.forEach((l) => {
-            l.equippedStatus = equippedItems.has(l) ? 'Equipped' : 'Not equipped';
+            const isEquipped = equippedItems.has(l);
+            l.foundThisLevel = isEquipped;
+            l.equippedStatus = isEquipped ? 'Equipped' : 'Not equipped';
         });
+        const newItemsEquipped = equippedGearList.filter((item) => item.foundThisLevel).length;
 
         const lootRows = lootList.map((l) => {
             const catColor = (categories.find((c) => c.name === l.category)?.color) || "#e2e8f0";

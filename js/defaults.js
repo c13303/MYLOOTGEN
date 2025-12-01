@@ -396,6 +396,15 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+        },
+        {
+            "name": "shield",
+            "equipment_slot": "hand_left",
+            "size": 3,
+            "affix_max": 3,
+            "flat_damage_sources": 0,
+            "damage_modifier": true,
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
         }
 
     ],
