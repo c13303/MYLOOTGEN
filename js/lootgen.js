@@ -583,9 +583,9 @@ function compute() {
             const sortedBonuses = (l.bonuses || []).slice().sort((a, b) => {
                 const getOrder = (bonus) => {
                     if (bonus.includes("flat dmg")) return 0;
-                    if (bonus.includes("dmg mod")) return 1;
+                    if (bonus.includes("mod")) return 1;
                     if (bonus.includes("res")) return 2;
-                    if (bonus.includes("Attack Speed")) return 3;
+                    if (bonus.includes("AS")) return 3;
                     return 4;
                 };
                 return getOrder(a) - getOrder(b);
