@@ -63,6 +63,7 @@ const state = {
     rarity_weight_growth: 0.05,
     attribute_modifier_default: 0.02,
     additional_loot_factor: 1.8,
+    item_level_variance: 20,
     xp_base: 500,
     xp_growth: 1.15,
     xp_multiplier: 1,

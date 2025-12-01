@@ -213,6 +213,26 @@ function compute() {
         return `${Math.round(minutes)}m`;
     };
 
+    const computeItemLevel = (playerLevel, seed) => {
+        const variance = Math.max(0, Math.min(100, Number(state.item_level_variance ?? 0)));
+        if (variance === 0) return playerLevel;
+
+        // Calculate the range based on variance percentage
+        // variance% means items can be ±(variance% of max level) from player level
+        const maxLevel = state.levels || levels;
+        const rangeSize = Math.max(1, Math.round((variance / 100) * maxLevel));
+
+        // Calculate min and max item level with overlap
+        const minItemLevel = Math.max(1, playerLevel - Math.floor(rangeSize / 2));
+        const maxItemLevel = Math.min(maxLevel, playerLevel + Math.ceil(rangeSize / 2));
+
+        // Random roll within the range
+        const rand = pseudoRand(seed);
+        const itemLevel = Math.round(minItemLevel + rand * (maxItemLevel - minItemLevel));
+
+        return Math.max(1, Math.min(maxLevel, itemLevel));
+    };
+
     const pickCategory = (seed, currentLevel) => {
         const eligible = rarities.filter((cat) => (cat.unlock_level || 1) <= currentLevel);
         if (!eligible.length) return { name: "none" };
@@ -270,6 +290,7 @@ function compute() {
         const resBonuses = [];
         for (let i = 0; i < rolledLootCount; i += 1) {
             if (!availableSlots.length) break;
+            const itemLevel = computeItemLevel(lvl, lvl * 1000 + i * 37);
             const cat = pickCategory(lvl + i + 1, lvl);
             const slot = availableSlots[Math.floor(pseudoRand(lvl + i + 7) * availableSlots.length) % availableSlots.length];
             const item = pickItem(slot, lvl + i + 13);
@@ -318,7 +339,7 @@ function compute() {
                 const typePoolRemaining = typePoolFinal.filter((t) => !usedDamageTypes.has(t));
                 const availableTypes = typePoolRemaining.length || typePoolFinal.length;
                 const sourceCount = Math.max(1, Math.min(maxSources, availableTypes));
-                let totalBaseDmg = computeFlatDamageForLevel(lvl);
+                let totalBaseDmg = computeFlatDamageForLevel(itemLevel);
                 const isOneHand = (slot === "weapon_right" || slot === "hand_left") && !(item.two_handed);
                 if (isOneHand) {
                     const ratio = Math.max(0, Number(state.flat_damage_onehand_ratio ?? 1));
@@ -343,7 +364,7 @@ function compute() {
                 const roll = pseudoRand(lvl + i + a * 17);
                 // prioritize mod/res, add AS if allowed and rolled
                 if (cat?.allow_attack_speed_mod && roll > 0.85 && !bonuses.some((b) => b.includes("Attack Speed"))) {
-                    const baseAtk = Math.round(computeAttackSpeedBonusForLevel(lvl));
+                    const baseAtk = Math.round(computeAttackSpeedBonusForLevel(itemLevel));
                     const scaledAtk = baseAtk > 0 ? Math.max(1, Math.round(baseAtk * rarityFactor)) : 0;
                     atkBonus = scaledAtk;
                     if (atkBonus > 0) {
@@ -356,7 +377,7 @@ function compute() {
                         damageModType = pickType((lvl + i + a * 23) * 1.3);
                         const type = damageModType;
                         const key = type;
-                        const baseMod = computeDamageModForLevel(lvl);
+                        const baseMod = computeDamageModForLevel(itemLevel);
                         const jittered = applyPctJitter(baseMod, Number(state.mod_damage_jitter_pct ?? 0), (lvl + i + a * 23) * 5.7);
                         const rolledMod = Math.round(jittered * rarityFactor);
                         if (rolledMod > 0) {
@@ -379,7 +400,7 @@ function compute() {
                     if (!usedResistanceTypes.has(type)) {
                         usedResistanceTypes.add(type);
                         const key = type;
-                        const baseRes = computeResistanceForLevel(lvl);
+                        const baseRes = computeResistanceForLevel(itemLevel);
                         const jittered = applyPctJitter(baseRes, Number(state.resistance_jitter ?? 0), (lvl + i + a * 31) * 6.3);
                         const resistCap = Number(state.resistance_cap ?? 100);
                         const cappedRes = Math.min(jittered * rarityFactor * 100, resistCap); // convert to percentage and apply cap
@@ -398,6 +419,7 @@ function compute() {
                 slot,
                 category: cat?.name || "none",
                 name: item.name,
+                itemLevel: itemLevel,
                 bonuses,
                 dmgAdds,
                 baseAdds,
@@ -653,10 +675,11 @@ function compute() {
             });
             const bonusText = (sortedBonuses && sortedBonuses.length) ? sortedBonuses.map((b) => colorizeBonus(b)).join("<br>") : "None";
             const statusText = l.equippedStatus === 'Equipped' ? `<span class="equip-reason equipped">${l.equippedStatus}</span>` : `<span class="equip-reason muted">${l.equippedStatus}</span>`;
+            const itemLevelBadge = `<span style="color:#94a3b8">iLvl ${l.itemLevel || lvl}</span>`;
             return `
       <tr>
         <td><span style="color:#facc15">${l.slot}</span></td>
-        <td><span style="color:${catColor}">${l.name}</span></td>
+        <td><span style="color:${catColor}">${l.name}</span> ${itemLevelBadge}</td>
         <td><span style="color:${catColor}">${l.category}</span></td>
         <td>${bonusText}</td>
         <td>${statusText}</td>
@@ -680,10 +703,11 @@ function compute() {
             const bonusText = (sortedBonuses && sortedBonuses.length) ? sortedBonuses.map((b) => colorizeBonus(b)).join("<br>") : "None";
             /*             const foundBadge = l.foundThisLevel ? `<span class="found-indicator">found in this level</span>` : '&mdash;'; */
             const swapReasonHtml = (l.foundThisLevel && l.swapReason) ? `<div class="swap-reason">${l.swapReason.text}</div>` : "";
+            const itemLevelBadge = `<span style="color:#94a3b8">iLvl ${l.itemLevel || lvl}</span>`;
             return `
                 <tr>
                     <td><span style="color:#facc15">${l.slot}</span></td>
-                    <td><span style="color:${catColor}">${l.name}</span></td>
+                    <td><span style="color:${catColor}">${l.name}</span> ${itemLevelBadge}</td>
                     <td><span style="color:${catColor}">${l.category}</span></td>
                     <td>${bonusText}</td>
                     <td>${swapReasonHtml}</td>
