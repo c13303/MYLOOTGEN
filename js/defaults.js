@@ -228,11 +228,14 @@ const state = {
         {
             "name": "sword",
             "equipment_slot": "weapon_right",
-            "size": 3, // nb of grid boxes
+            "size": 3,
             "affix_max": 6,
             "flat_damage_sources": 1,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "flat_damage": { "Physical": 2 }  // +2 Physical flat (basic one-handed)
+            }
         },
         {
             "name": "iron helm",
@@ -242,6 +245,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 3 }  // +3% Physical resist implicit
+            }
         },
         {
             "name": "mage hood",
@@ -251,6 +257,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Fire": 2, "Ice": 2 }  // +2% Fire/Ice resist (mage defense)
+            }
         },
         {
             "name": "chainmail",
@@ -260,6 +269,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 6 }  // +6% Physical resist (heavy armor)
+            }
         },
         {
             "name": "leather armor",
@@ -269,6 +281,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 3 }  // +3% Physical resist (light armor)
+            }
         },
         {
             "name": "longsword",
@@ -280,6 +295,9 @@ const state = {
             "flat_damage_multiple_max_slice": 0.9,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "flat_damage": { "Physical": 4 }  // +4 Physical flat (longer reach = more damage)
+            }
         },
         {
             "name": "dagger",
@@ -291,6 +309,9 @@ const state = {
             "flat_damage_multiple_max_slice": 0.9,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "flat_damage": { "Physical": 1 }  // +1 Physical flat (small but fast)
+            }
         },
         {
             "name": "great hammer",
@@ -302,7 +323,10 @@ const state = {
             "flat_damage_multiple_max_slice": 0.9,
             "two_handed": true,
             "damage_modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "flat_damage": { "Physical": 10 }  // +10 Physical flat (massive two-handed)
+            }
         },
         {
             "name": "greatsword",
@@ -314,7 +338,10 @@ const state = {
             "flat_damage_multiple_max_slice": 0.9,
             "two_handed": true,
             "damage_modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "flat_damage": { "Physical": 8 }  // +8 Physical flat (large two-handed)
+            }
         },
         {
             "name": "great axe",
@@ -326,7 +353,10 @@ const state = {
             "flat_damage_multiple_max_slice": 0.9,
             "two_handed": true,
             "damage_modifier": true,
-            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"]
+            "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "flat_damage": { "Physical": 9 }  // +9 Physical flat (heavy two-handed)
+            }
         },
         {
             "name": "wooden shield",
@@ -336,6 +366,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 4 }  // +4% Physical resist (basic shield)
+            }
         },
         {
             "name": "spell tome",
@@ -347,6 +380,9 @@ const state = {
             "flat_damage_multiple_max_slice": 0.9,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "flat_damage": { "Physical": 2 }
+            }
         },
         {
             "name": "steel gauntlets",
@@ -356,6 +392,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 3 }
+            }
         },
         {
             "name": "leather gloves",
@@ -365,6 +404,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 2 }
+            }
         },
         {
             "name": "utility belt",
@@ -374,6 +416,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 4 }
+            }
         },
         {
             "name": "potion bandolier",
@@ -383,6 +428,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 4 }
+            }
         },
         {
             "name": "leather boots",
@@ -392,6 +440,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 2 }
+            }
         },
         {
             "name": "steel greaves",
@@ -401,6 +452,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 4 }  // +4% Physical resist (heavy boots)
+            }
         },
         {
             "name": "shield",
@@ -410,6 +464,9 @@ const state = {
             "flat_damage_sources": 0,
             "damage_modifier": true,
             "damage_types": ["Physical", "Fire", "Ice", "Shock", "Poison", "Fire Burn", "Chaos"],
+            "implicit": {
+                "resist": { "Physical": 8 }
+            }
         }
 
     ],

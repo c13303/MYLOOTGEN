@@ -35,14 +35,17 @@ function compute() {
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     };
     const colorizeBonus = (bonus) => {
+        const isImplicit = bonus.includes("(implicit)");
+        const implicitStyle = isImplicit ? ' style="opacity: 0.85; font-style: italic;"' : '';
+
         for (const dt of damageTypes) {
             const name = dt.name;
             if (bonus.includes(name)) {
                 const isRes = bonus.toLowerCase().includes("res");
-                return `<span style="color:${dt.color || "#e2e8f0"}" ${isRes ? 'class="resisttext"' : ""}>${bonus}</span>`;
+                return `<span style="color:${dt.color || "#e2e8f0"}" ${isRes ? 'class="resisttext"' : ""}${implicitStyle}>${bonus}</span>`;
             }
         }
-        return bonus;
+        return `<span${implicitStyle}>${bonus}</span>`;
     };
     const colorizeTypeLabel = (type, label = type) => `<span style="color:${colorForType(type)}">${label}</span>`;
     const renderBuildLine = (label, value) => `<div class="build-line"><span class="build-line-label">${label}</span><span class="build-line-value">${value}</span></div>`;
@@ -334,6 +337,36 @@ function compute() {
             const usedDamageTypes = new Set();
             const usedResistanceTypes = new Set(); // track resistance types to avoid duplicates
             const pickType = (seed) => typePoolFinal[Math.floor(pseudoRand(seed) * typePoolFinal.length) % typePoolFinal.length] || defaultDmgType;
+
+            // Apply implicit mods from item base
+            if (item.implicit) {
+                // Implicit flat damage
+                if (item.implicit.flat_damage) {
+                    for (const [type, value] of Object.entries(item.implicit.flat_damage)) {
+                        baseAdds[type] = (baseAdds[type] || 0) + value;
+                        bonuses.push(`${value} ${type} flat dmg (implicit)`);
+                    }
+                }
+                // Implicit damage modifiers
+                if (item.implicit.damage_modifier) {
+                    for (const [type, value] of Object.entries(item.implicit.damage_modifier)) {
+                        dmgMods[type] = (dmgMods[type] || 0) + value;
+                        bonuses.push(`+${value}% ${type} dmg mod (implicit)`);
+                    }
+                }
+                // Implicit attack speed
+                if (item.implicit.attack_speed_bonus) {
+                    atkBonus += item.implicit.attack_speed_bonus;
+                    bonuses.push(`+${item.implicit.attack_speed_bonus}% Attack Speed (implicit)`);
+                }
+                // Implicit resistances
+                if (item.implicit.resist) {
+                    for (const [type, value] of Object.entries(item.implicit.resist)) {
+                        resAdds[type] = (resAdds[type] || 0) + value;
+                        bonuses.push(`+${value}% ${type} res (implicit)`);
+                    }
+                }
+            }
 
             // flat damage sources (only if item allows)
             if (maxSources > 0) {
@@ -636,6 +669,10 @@ function compute() {
                 }
 
                 const tempEvaluation = evaluateGear(tempGear, currentStats, baseAttackSpeed, unarmedDamage, lvl);
+
+                // DPS monotonic constraint: never allow DPS to decrease
+                if (tempEvaluation.dps < bestEvaluation.dps) return;
+
                 const tempScore = computeBuildScore(tempEvaluation);
                 const delta = tempScore - bestScore;
                 if (!bestSwap || delta > bestSwap.delta) {
@@ -677,6 +714,8 @@ function compute() {
             const catColor = (rarities.find((c) => c.name === l.category)?.color) || "#e2e8f0";
             const sortedBonuses = (l.bonuses || []).slice().sort((a, b) => {
                 const getOrder = (bonus) => {
+                    // Implicits first (order -1)
+                    if (bonus.includes("(implicit)")) return -1;
                     if (bonus.includes("flat dmg")) return 0;
                     if (bonus.includes("dmg mod")) return 1;
                     if (bonus.includes("res")) return 2;
@@ -704,6 +743,8 @@ function compute() {
             const catColor = (rarities.find((c) => c.name === l.category)?.color) || "#e2e8f0";
             const sortedBonuses = (l.bonuses || []).slice().sort((a, b) => {
                 const getOrder = (bonus) => {
+                    // Implicits first (order -1)
+                    if (bonus.includes("(implicit)")) return -1;
                     if (bonus.includes("flat dmg")) return 0;
                     if (bonus.includes("mod")) return 1;
                     if (bonus.includes("res")) return 2;

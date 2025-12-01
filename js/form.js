@@ -1165,7 +1165,35 @@ $(function () {
         const $twoHanded = $(`<p><strong>Two-handed:</strong> ${item.two_handed ? "Yes" : "No"}</p>`).css({ margin: "0 0 8px" });
         const $mod = $(`<p><strong>Dmg mod:</strong> ${item.damage_modifier ? "Yes" : "No"}</p>`).css({ margin: "0 0 8px" });
         const typeList = (item.damage_types && item.damage_types.length) ? item.damage_types.join(", ") : "-";
-        const $types = $(`<p><strong>Damage types:</strong> ${typeList}</p>`).css({ margin: "0 0 14px" });
+        const $types = $(`<p><strong>Damage types:</strong> ${typeList}</p>`).css({ margin: "0 0 8px" });
+
+        // Implicit mods display
+        let implicitHtml = "";
+        if (item.implicit) {
+            const implicits = [];
+            if (item.implicit.flat_damage) {
+                Object.entries(item.implicit.flat_damage).forEach(([type, value]) => {
+                    implicits.push(`+${value} ${type} flat dmg`);
+                });
+            }
+            if (item.implicit.damage_modifier) {
+                Object.entries(item.implicit.damage_modifier).forEach(([type, value]) => {
+                    implicits.push(`+${value}% ${type} dmg mod`);
+                });
+            }
+            if (item.implicit.attack_speed_bonus) {
+                implicits.push(`+${item.implicit.attack_speed_bonus}% Attack Speed`);
+            }
+            if (item.implicit.resist) {
+                Object.entries(item.implicit.resist).forEach(([type, value]) => {
+                    implicits.push(`+${value}% ${type} resist`);
+                });
+            }
+            implicitHtml = implicits.length ? implicits.join("<br>") : "None";
+        } else {
+            implicitHtml = "None";
+        }
+        const $implicitMods = $(`<p><strong>Implicit mods:</strong><br><span style="font-style: italic; opacity: 0.85;">${implicitHtml}</span></p>`).css({ margin: "0 0 14px" });
 
         const $close = $('<button type="button">Close</button>').css({
             padding: "8px 12px",
@@ -1179,7 +1207,7 @@ $(function () {
 
         $close.on("click", () => $overlay.remove());
 
-        $modal.append($title, $slot, $size, $affixMaxDetail, $source, $sourceMulti, $sourceMaxSlice, $twoHanded, $mod, $types, $close);
+        $modal.append($title, $slot, $size, $affixMaxDetail, $source, $sourceMulti, $sourceMaxSlice, $twoHanded, $mod, $types, $implicitMods, $close);
         $overlay.append($modal);
         $("body").append($overlay);
     }
