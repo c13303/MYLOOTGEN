@@ -158,6 +158,51 @@ h1 {
 
 .hero-actions {
   margin-left: auto;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.preset-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.preset-panel-title {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.preset-item {
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.preset-item:hover {
+  border-color: var(--panel-accent);
+  background: rgba(79, 70, 229, 0.2);
 }
 
 .hero p {

@@ -1,0 +1,525 @@
+{
+  "attributes": {
+    "force": {
+      "min": 5,
+      "max": 140
+    },
+    "intelligence": {
+      "min": 5,
+      "max": 140
+    },
+    "dexterity": {
+      "min": 5,
+      "max": 140
+    }
+  },
+  "stats_progression_model": "favorite_dexterity",
+  "gain_per_level": 2.5,
+  "median_time_per_loot": 8,
+  "time_level_min": 500,
+  "time_level_max": 6800,
+  "time_level_curve": 1.4,
+  "rarity_growth_factor": 1,
+  "generate_percent": 18,
+  "desired_resistance": 35,
+  "unarmed_physical_damage": 2,
+  "base_physical_resistance": 0,
+  "attack_speed_min": 1,
+  "attack_speed_max": 3.2,
+  "attack_speed_power_progression": 0.8,
+  "attack_speed_slots_auto": 7,
+  "affix_rarity_scale": 0.08,
+  "common_decay": 0.08,
+  "flat_damage_types_per_item_min": 1,
+  "flat_damage_types_per_item_max": 2,
+  "damage_affix_types_limit": 1,
+  "damage_types_total_limit": 2,
+  "flat_damage_power_progression": 1.6,
+  "flat_damage_min": 12,
+  "flat_damage_max": 800,
+  "flat_damage_formula_progression": "dmg = (flat_damage_min + (flat_damage_max - flat_damage_min) * ((level - 1) / max(1, levels - 1))^flat_damage_power_progression) / flat_damage_equipement_slots_auto",
+  "flat_damage_jitter_pct": 0.05,
+  "flat_damage_onehand_ratio": 0.85,
+  "flat_damage_equipement_slots_auto": 2,
+  "mod_damage_min": 10,
+  "mod_damage_max": 1100,
+  "mod_damage_power_progression": 1.15,
+  "mod_damage_jitter_pct": 0.12,
+  "mod_damage_slots_auto": 7,
+  "resistance_affix_min": 0.5,
+  "resistance_affix_max": 0.65,
+  "resistance_curve": 1.3,
+  "resistance_jitter": 0.7,
+  "resistance_cap": 80,
+  "resistance_slots_auto": 7,
+  "affix_growth_headroom": 5,
+  "rarity_weight_growth": 0.06,
+  "attribute_modifier_default": 0.02,
+  "additional_loot_factor": 1.9,
+  "item_level_variance": 22,
+  "xp_base": 520,
+  "xp_growth": 1.13,
+  "xp_multiplier": 1,
+  "levels": 62,
+  "skill_slots": 5,
+  "rarity_base_weights": {
+    "common": 16,
+    "magic": 8,
+    "rare": 3,
+    "legendary": 1.2,
+    "unique": 0.7
+  },
+  "rarity_soft_caps": {
+    "unique": 3,
+    "legendary": 10,
+    "rare": 25,
+    "magic": 32
+  },
+  "rarity_pity_thresholds": {
+    "legendary": 14,
+    "unique": 30
+  },
+  "rarity_unlock_window": 10,
+  "rarity_sigmoid_k": 0.45,
+  "equipment_slots": [
+    {
+      "allow_flat_damage": false,
+      "allow_two_handed": false,
+      "allow_off_hand": false,
+      "allow_damage_mod": true,
+      "allow_attack_speed": true,
+      "allow_resist": true,
+      "name": "head",
+      "position": 1
+    },
+    {
+      "allow_flat_damage": false,
+      "allow_two_handed": false,
+      "allow_off_hand": false,
+      "allow_damage_mod": true,
+      "allow_attack_speed": true,
+      "allow_resist": true,
+      "name": "torso",
+      "position": 2
+    },
+    {
+      "allow_flat_damage": true,
+      "allow_two_handed": true,
+      "allow_off_hand": false,
+      "allow_damage_mod": true,
+      "allow_attack_speed": true,
+      "allow_resist": true,
+      "name": "weapon_right",
+      "position": 3
+    },
+    {
+      "allow_flat_damage": true,
+      "allow_two_handed": false,
+      "allow_off_hand": true,
+      "allow_damage_mod": true,
+      "allow_attack_speed": true,
+      "allow_resist": true,
+      "name": "hand_left",
+      "position": 4
+    },
+    {
+      "allow_flat_damage": false,
+      "allow_two_handed": false,
+      "allow_off_hand": false,
+      "allow_damage_mod": true,
+      "allow_attack_speed": true,
+      "allow_resist": true,
+      "name": "hands",
+      "position": 5
+    },
+    {
+      "allow_flat_damage": false,
+      "allow_two_handed": false,
+      "allow_off_hand": false,
+      "allow_damage_mod": true,
+      "allow_attack_speed": true,
+      "allow_resist": true,
+      "name": "belt",
+      "position": 6
+    },
+    {
+      "allow_flat_damage": false,
+      "allow_two_handed": false,
+      "allow_off_hand": false,
+      "allow_damage_mod": true,
+      "allow_attack_speed": true,
+      "allow_resist": true,
+      "name": "boots",
+      "position": 7
+    }
+  ],
+  "rarities": [
+    {
+      "name": "common",
+      "rarity": 1,
+      "rarity_power": 0.5,
+      "attributes": 1,
+      "attribute_types": [
+        "Fire"
+      ],
+      "allow_attack_speed_mod": false,
+      "unlock_level": 1,
+      "power_scale": 1,
+      "color": "#d97706"
+    },
+    {
+      "name": "rare",
+      "rarity": 0.6,
+      "rarity_power": 0.7,
+      "attributes": 3,
+      "attribute_types": [
+        "Water",
+        "Fire"
+      ],
+      "allow_attack_speed_mod": true,
+      "unlock_level": 2,
+      "power_scale": 2,
+      "color": "#38bdf8"
+    },
+    {
+      "name": "magic",
+      "rarity": 0.5,
+      "rarity_power": 0.85,
+      "attributes": 4,
+      "attribute_types": [
+        "Electric",
+        "Harmony",
+        "Water"
+      ],
+      "allow_attack_speed_mod": true,
+      "unlock_level": 8,
+      "power_scale": 3,
+      "color": "#a855f7"
+    },
+    {
+      "name": "legendary",
+      "rarity": 0.2,
+      "rarity_power": 0.95,
+      "attributes": 5,
+      "attribute_types": [
+        "Fire",
+        "Water",
+        "Electric",
+        "Harmony",
+        "Dissonance"
+      ],
+      "allow_attack_speed_mod": true,
+      "skill_mod": 1,
+      "unlock_level": 16,
+      "power_scale": 4,
+      "color": "#f59e0b"
+    },
+    {
+      "name": "unique",
+      "rarity": 0.1,
+      "rarity_power": 1,
+      "attributes": 6,
+      "attribute_types": [
+        "Fire",
+        "Water",
+        "Electric",
+        "Harmony",
+        "Dissonance"
+      ],
+      "allow_attack_speed_mod": true,
+      "skill_mod": 2,
+      "unlock_level": 32,
+      "power_scale": 4,
+      "color": "#f43f5e"
+    }
+  ],
+  "damage_types": [
+    {
+      "name": "Fire",
+      "default_damage_type": true,
+      "is_over_time": false,
+      "ranges": [
+        [
+          0,
+          100,
+          0.5
+        ]
+      ],
+      "color": "#fb923c",
+      "attribute": "intelligence",
+      "attribute_modifier": 0.025
+    },
+    {
+      "name": "Water",
+      "default_damage_type": false,
+      "is_over_time": false,
+      "ranges": [
+        [
+          0,
+          100,
+          0.5
+        ]
+      ],
+      "color": "#38bdf8",
+      "attribute": "intelligence",
+      "attribute_modifier": 0.02
+    },
+    {
+      "name": "Electric",
+      "default_damage_type": false,
+      "is_over_time": false,
+      "ranges": [
+        [
+          0,
+          100,
+          0.5
+        ]
+      ],
+      "color": "#a855f7",
+      "attribute": "dexterity",
+      "attribute_modifier": 0.018
+    },
+    {
+      "name": "Harmony",
+      "default_damage_type": false,
+      "is_over_time": true,
+      "ranges": [
+        [
+          0,
+          100,
+          0.5
+        ]
+      ],
+      "color": "#6ee7b7",
+      "attribute": "intelligence",
+      "attribute_modifier": 0.03
+    },
+    {
+      "name": "Dissonance",
+      "default_damage_type": false,
+      "is_over_time": true,
+      "ranges": [
+        [
+          0,
+          100,
+          0.5
+        ]
+      ],
+      "color": "#f472b6",
+      "attribute": "force",
+      "attribute_modifier": 0.03
+    }
+  ],
+  "categories": [],
+  "items": [
+    {
+      "name": "Talisman of Neon Cadence",
+      "equipment_slot": "hands",
+      "size": 2,
+      "affix_max": 4,
+      "flat_damage_sources": 0,
+      "damage_modifier": true,
+      "damage_types": [
+        "Fire",
+        "Harmony",
+        "Electric"
+      ],
+      "implicit": {
+        "resist": {
+          "Fire": 4,
+          "Water": 2
+        },
+        "flat_damage": {
+          "Harmony": 2
+        }
+      }
+    },
+    {
+      "name": "Gimmick of Pulse",
+      "equipment_slot": "belt",
+      "size": 2,
+      "affix_max": 4,
+      "flat_damage_sources": 0,
+      "damage_modifier": true,
+      "damage_types": [
+        "Electric",
+        "Harmony"
+      ],
+      "implicit": {
+        "flat_damage": {
+          "Electric": 3
+        }
+      }
+    },
+    {
+      "name": "Beatstep Boots",
+      "equipment_slot": "boots",
+      "size": 2,
+      "affix_max": 3,
+      "flat_damage_sources": 0,
+      "damage_modifier": true,
+      "damage_types": [
+        "Water",
+        "Harmony"
+      ],
+      "implicit": {
+        "resist": {
+          "Water": 3
+        }
+      }
+    },
+    {
+      "name": "Rhythmic Pulse Band",
+      "equipment_slot": "hand_left",
+      "size": 2,
+      "affix_max": 5,
+      "flat_damage_sources": 1,
+      "flat_damage_sources_multi_chance": 0.8,
+      "damage_modifier": true,
+      "damage_types": [
+        "Fire",
+        "Electric",
+        "Harmony"
+      ],
+      "implicit": {
+        "flat_damage": {
+          "Electric": 2
+        }
+      }
+    },
+    {
+      "name": "Talon of Dissonant Steps",
+      "equipment_slot": "weapon_right",
+      "size": 3,
+      "affix_max": 6,
+      "flat_damage_sources": 1,
+      "damage_modifier": true,
+      "damage_types": [
+        "Fire",
+        "Dissonance",
+        "Electric"
+      ],
+      "implicit": {
+        "flat_damage": {
+          "Fire": 4,
+          "Dissonance": 3
+        }
+      }
+    },
+    {
+      "name": "Parade Cowl",
+      "equipment_slot": "head",
+      "size": 2,
+      "affix_max": 4,
+      "flat_damage_sources": 0,
+      "damage_modifier": true,
+      "damage_types": [
+        "Harmony",
+        "Water"
+      ],
+      "implicit": {
+        "resist": {
+          "Water": 4,
+          "Harmony": 2
+        }
+      }
+    },
+    {
+      "name": "Harmony Conductor",
+      "equipment_slot": "torso",
+      "size": 3,
+      "affix_max": 6,
+      "flat_damage_sources": 0,
+      "damage_modifier": true,
+      "damage_types": [
+        "Harmony",
+        "Dissonance"
+      ],
+      "implicit": {
+        "resist": {
+          "Harmony": 5,
+          "Dissonance": 3
+        }
+      }
+    },
+    {
+      "name": "Electric Deck",
+      "equipment_slot": "hand_left",
+      "size": 2,
+      "affix_max": 5,
+      "flat_damage_sources": 1,
+      "flat_damage_sources_multi_chance": 0.7,
+      "damage_modifier": true,
+      "damage_types": [
+        "Electric",
+        "Fire",
+        "Water"
+      ],
+      "implicit": {
+        "flat_damage": {
+          "Electric": 3
+        }
+      }
+    },
+    {
+      "name": "Neon Talisman",
+      "equipment_slot": "hands",
+      "size": 2,
+      "affix_max": 4,
+      "flat_damage_sources": 0,
+      "damage_modifier": true,
+      "damage_types": [
+        "Harmony",
+        "Electric",
+        "Water"
+      ],
+      "implicit": {
+        "flat_damage": {
+          "Harmony": 2
+        }
+      }
+    }
+  ],
+  "skills": [
+    {
+      "name": "Sync Strike",
+      "cooldown": 4,
+      "energy_cost": 8,
+      "type": "damage",
+      "damage_type": "Electric",
+      "level_min": 1
+    },
+    {
+      "name": "Water Waltz",
+      "cooldown": 6,
+      "energy_cost": 10,
+      "type": "damage",
+      "damage_type": "Water",
+      "level_min": 3
+    },
+    {
+      "name": "Harmony Drop",
+      "cooldown": 8,
+      "energy_cost": 12,
+      "type": "buff",
+      "damage_type": "Harmony",
+      "level_min": 5
+    },
+    {
+      "name": "Dissonance Surge",
+      "cooldown": 10,
+      "energy_cost": 12,
+      "type": "damage",
+      "damage_type": "Dissonance",
+      "level_min": 12
+    },
+    {
+      "name": "Flare Break",
+      "cooldown": 12,
+      "energy_cost": 14,
+      "type": "damage",
+      "damage_type": "Fire",
+      "level_min": 20
+    }
+  ]
+}

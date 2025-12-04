@@ -1,6 +1,6 @@
 $(function () {
 
-    /// check structures in defaults.js
+    /// check structures in presets/lootgen_default.js
  
     const $levels = $("#levels");
     const $skillSlots = $("#skill-slots");
@@ -92,30 +92,19 @@ $(function () {
             const $elem = $(elem);
             const nameAttr = $elem.attr("name");
             if (!nameAttr) return;
-            const baseTitle = $elem.attr("title");
-            const tooltip = `defaults.js → state.${nameAttr}`;
-            if (baseTitle) {
-                $elem.attr("title", `${baseTitle} · ${tooltip}`);
-            } else {
-                $elem.attr("title", tooltip);
+            const storedBaseTitle = $elem.data("original-title");
+            const originalTitle = typeof storedBaseTitle === "string"
+                ? storedBaseTitle
+                : ($elem.attr("title") || "");
+            if (typeof storedBaseTitle === "undefined") {
+                $elem.data("original-title", originalTitle);
             }
+            const tooltip = `presets/lootgen_default.js → state.${nameAttr}`;
+            const newTitle = originalTitle ? `${originalTitle} · ${tooltip}` : tooltip;
+            $elem.attr("title", newTitle);
         });
     };
     annotateInputTooltips();
-
-    if (state.attributes?.physical && !state.attributes.force) {
-        state.attributes.force = state.attributes.physical;
-        delete state.attributes.physical;
-    }
-    if (state.attributes?.energy && !state.attributes.intelligence) {
-        state.attributes.intelligence = state.attributes.energy;
-        delete state.attributes.energy;
-    }
-    if (state.stats_progression_model === "favorite_physical") state.stats_progression_model = "favorite_force";
-    if (state.stats_progression_model === "favorite_energy") state.stats_progression_model = "favorite_intelligence";
-    if (typeof state.desired_resistance === "undefined") {
-        state.desired_resistance = 60;
-    }
 
     const migrateScalarKey = (oldKey, newKey) => {
         if (Object.prototype.hasOwnProperty.call(state, oldKey)) {
@@ -125,12 +114,6 @@ $(function () {
             delete state[oldKey];
         }
     };
-
-    migrateScalarKey("base_damage_power_progression", "flat_damage_power_progression");
-    migrateScalarKey("base_damage_min", "flat_damage_min");
-    migrateScalarKey("base_damage_jitter_pct", "flat_damage_jitter_pct");
-    migrateScalarKey("base_damage_types_per_item_min", "flat_damage_types_per_item_min");
-    migrateScalarKey("base_damage_types_per_item_max", "flat_damage_types_per_item_max");
 
     const migrateDamageValue = (entry) => {
         if (!entry || typeof entry !== "object") return entry;
@@ -144,56 +127,80 @@ $(function () {
         return updated;
     };
 
-    if (Array.isArray(state.damage_types)) {
-        state.damage_types = state.damage_types.map(migrateDamageValue);
-    }
-    if (Array.isArray(state.items)) {
-        state.items = state.items.map(migrateDamageValue);
-        state.items = state.items.map((item) => {
-            const updated = { ...item };
-            if (Object.prototype.hasOwnProperty.call(updated, "source_damage_slots") && typeof updated.flat_damage_sources === "undefined") {
-                updated.flat_damage_sources = updated.source_damage_slots;
-            }
-            delete updated.source_damage_slots;
-            if (Object.prototype.hasOwnProperty.call(updated, "modifier") && typeof updated.damage_modifier === "undefined") {
-                updated.damage_modifier = updated.modifier;
-            }
-            delete updated.modifier;
-            delete updated.flat_damage;
-            delete updated.resist_affix_min_chance;
-            delete updated.default_damage_resistance_factor;
-            const sourcesCount = updated.flat_damage_sources || 0;
-            if (typeof updated.flat_damage_sources_multi_chance === "undefined" && sourcesCount > 1) {
-                updated.flat_damage_sources_multi_chance = 0.9;
-            }
-            if (typeof updated.flat_damage_multiple_max_slice === "undefined" && sourcesCount > 1) {
-                updated.flat_damage_multiple_max_slice = 0.9;
-            }
-            return updated;
-        });
+    function normalizeStateStructure() {
+        if (state.attributes?.physical && !state.attributes.force) {
+            state.attributes.force = state.attributes.physical;
+            delete state.attributes.physical;
+        }
+        if (state.attributes?.energy && !state.attributes.intelligence) {
+            state.attributes.intelligence = state.attributes.energy;
+            delete state.attributes.energy;
+        }
+        if (state.stats_progression_model === "favorite_physical") state.stats_progression_model = "favorite_force";
+        if (state.stats_progression_model === "favorite_energy") state.stats_progression_model = "favorite_intelligence";
+        if (typeof state.desired_resistance === "undefined") {
+            state.desired_resistance = 60;
+        }
+
+        migrateScalarKey("base_damage_power_progression", "flat_damage_power_progression");
+        migrateScalarKey("base_damage_min", "flat_damage_min");
+        migrateScalarKey("base_damage_jitter_pct", "flat_damage_jitter_pct");
+        migrateScalarKey("base_damage_types_per_item_min", "flat_damage_types_per_item_min");
+        migrateScalarKey("base_damage_types_per_item_max", "flat_damage_types_per_item_max");
+
+        if (Array.isArray(state.damage_types)) {
+            state.damage_types = state.damage_types.map(migrateDamageValue);
+        }
+        if (Array.isArray(state.items)) {
+            state.items = state.items.map(migrateDamageValue);
+            state.items = state.items.map((item) => {
+                const updated = { ...item };
+                if (Object.prototype.hasOwnProperty.call(updated, "source_damage_slots") && typeof updated.flat_damage_sources === "undefined") {
+                    updated.flat_damage_sources = updated.source_damage_slots;
+                }
+                delete updated.source_damage_slots;
+                if (Object.prototype.hasOwnProperty.call(updated, "modifier") && typeof updated.damage_modifier === "undefined") {
+                    updated.damage_modifier = updated.modifier;
+                }
+                delete updated.modifier;
+                delete updated.flat_damage;
+                delete updated.resist_affix_min_chance;
+                delete updated.default_damage_resistance_factor;
+                const sourcesCount = updated.flat_damage_sources || 0;
+                if (typeof updated.flat_damage_sources_multi_chance === "undefined" && sourcesCount > 1) {
+                    updated.flat_damage_sources_multi_chance = 0.9;
+                }
+                if (typeof updated.flat_damage_multiple_max_slice === "undefined" && sourcesCount > 1) {
+                    updated.flat_damage_multiple_max_slice = 0.9;
+                }
+                return updated;
+            });
+        }
+
+        if (Array.isArray(state.equipment_slots)) {
+            state.equipment_slots = state.equipment_slots.map((slot) => {
+                const name = slot?.name || "";
+                const defaultFlat = typeof slot.allow_flat_damage !== "undefined"
+                    ? slot.allow_flat_damage
+                    : name.toLowerCase().includes("weapon");
+                const defaultOffHand = typeof slot.allow_off_hand !== "undefined"
+                    ? slot.allow_off_hand
+                    : name.toLowerCase().includes("hand_left");
+                return {
+                    allow_flat_damage: defaultFlat,
+                    allow_two_handed: typeof slot.allow_two_handed === "undefined" ? false : slot.allow_two_handed,
+                    allow_off_hand: defaultOffHand,
+                    allow_damage_mod: typeof slot.allow_damage_mod === "undefined" ? true : slot.allow_damage_mod,
+                    allow_attack_speed: typeof slot.allow_attack_speed === "undefined" ? true : slot.allow_attack_speed,
+                    allow_resist: typeof slot.allow_resist === "undefined" ? true : slot.allow_resist,
+                    ...slot
+                };
+            });
+        }
+        updateFlatDamageSlotsAutoCount();
     }
 
-    if (Array.isArray(state.equipment_slots)) {
-        state.equipment_slots = state.equipment_slots.map((slot) => {
-            const name = slot?.name || "";
-            const defaultFlat = typeof slot.allow_flat_damage !== "undefined"
-                ? slot.allow_flat_damage
-                : name.toLowerCase().includes("weapon");
-            const defaultOffHand = typeof slot.allow_off_hand !== "undefined"
-                ? slot.allow_off_hand
-                : name.toLowerCase().includes("hand_left");
-            return {
-                allow_flat_damage: defaultFlat,
-                allow_two_handed: typeof slot.allow_two_handed === "undefined" ? false : slot.allow_two_handed,
-                allow_off_hand: defaultOffHand,
-                allow_damage_mod: typeof slot.allow_damage_mod === "undefined" ? true : slot.allow_damage_mod,
-                allow_attack_speed: typeof slot.allow_attack_speed === "undefined" ? true : slot.allow_attack_speed,
-                allow_resist: typeof slot.allow_resist === "undefined" ? true : slot.allow_resist,
-                ...slot
-            };
-        });
-    }
-    updateFlatDamageSlotsAutoCount();
+    normalizeStateStructure();
 
     function openDamageForm() {
         const $overlay = $('<div class="modal-overlay"></div>').css({
@@ -1559,60 +1566,65 @@ $(function () {
         }
     }
 
-    $levels.val(state.levels);
-    $skillSlots.val(state.skill_slots);
-    initAttributes();
-    $gainPerLevel.val(state.gain_per_level);
-    $statsProgressionModel.val(state.stats_progression_model || "balanced");
-    $medianTimePerLoot.val(state.median_time_per_loot);
-    $timeLevelMin.val(state.time_level_min);
-    $timeLevelMax.val(state.time_level_max);
-    $timeLevelCurve.val(state.time_level_curve);
-    $rarityGrowthFactor.val(state.rarity_growth_factor);
-    $unarmedPhysicalDamage.val(state.unarmed_physical_damage);
-    $basePhysicalResistance.val(state.base_physical_resistance);
-    $generatePercent.val(state.generate_percent);
-    $desiredResistance.val(state.desired_resistance);
-    $desiredResistance.attr({ min: 0, max: state.resistance_cap ?? 0 });
-    $attackSpeedMin.val(state.attack_speed_min);
-    $attackSpeedMax.val(state.attack_speed_max);
-    $attackSpeedPower.val(state.attack_speed_power_progression);
-    $attackSpeedSlotsAuto.val(state.attack_speed_slots_auto);
-    $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
-    $flatDamagePower.val(state.flat_damage_power_progression);
-    $flatDamageMin.val(state.flat_damage_min ?? 2);
-    $flatDamageMedian.val(state.flat_damage_max);
-    $flatDamageJitter.val(state.flat_damage_jitter_pct ?? 0.2);
-    $flatDamageSlotsAuto.val(state.flat_damage_equipement_slots_auto ?? 0);
-    $flatDamageOneHandRatio.val(state.flat_damage_onehand_ratio ?? 0.75);
-    $modDamageMin.val(state.mod_damage_min);
-    $modDamageMax.val(state.mod_damage_max);
-    $modDamagePower.val(state.mod_damage_power_progression);
-    $modDamageJitter.val(state.mod_damage_jitter_pct);
-    $modDamageSlotsAuto.val(state.mod_damage_slots_auto);
-    $resistanceAffixMin.val(state.resistance_affix_min);
-    $resistanceAffixMax.val(state.resistance_affix_max);
-    $resistanceCurve.val(state.resistance_curve);
-    $resistanceJitter.val(state.resistance_jitter);
-    $resistanceCap.val(state.resistance_cap);
-    $resistanceSlotsAuto.val(state.resistance_slots_auto);
-    updateFlatDamageFormulaDisplay();
-    renderFlatDamageChart();
-    updateAttackSpeedFormulaDisplay();
-    renderAttackSpeedChart();
-    updateModDamageFormulaDisplay();
-    renderModDamageChart();
-    updateResistanceSlotsAutoCount();
-    renderResistanceChart();
-    renderLevelTimeChart();
-    renderDpsPlanningChart();
-    renderXpCurve();
-    $rarityWeightGrowth.val(state.rarity_weight_growth);
-    $additionalLootFactor.val(state.additional_loot_factor);
-    $xpBase.val(state.xp_base);
-    $xpGrowth.val(state.xp_growth);
-    $xpMultiplier.val(state.xp_multiplier);
-    renderTags("equipment_slots");
+    function syncFormFromState() {
+        $levels.val(state.levels);
+        $skillSlots.val(state.skill_slots);
+        initAttributes();
+        $gainPerLevel.val(state.gain_per_level);
+        $statsProgressionModel.val(state.stats_progression_model || "balanced");
+        $medianTimePerLoot.val(state.median_time_per_loot);
+        $timeLevelMin.val(state.time_level_min);
+        $timeLevelMax.val(state.time_level_max);
+        $timeLevelCurve.val(state.time_level_curve);
+        $rarityGrowthFactor.val(state.rarity_growth_factor);
+        $unarmedPhysicalDamage.val(state.unarmed_physical_damage);
+        $basePhysicalResistance.val(state.base_physical_resistance);
+        $generatePercent.val(state.generate_percent);
+        const resistanceCapValue = Math.max(0, Number(state.resistance_cap ?? 0));
+        state.resistance_cap = resistanceCapValue;
+        const desiredValue = clampDesiredResistanceValue(state.desired_resistance ?? 0, resistanceCapValue);
+        state.desired_resistance = desiredValue;
+        $desiredResistance.val(desiredValue);
+        $desiredResistance.attr({ min: 0, max: resistanceCapValue });
+        $attackSpeedMin.val(state.attack_speed_min);
+        $attackSpeedMax.val(state.attack_speed_max);
+        $attackSpeedPower.val(state.attack_speed_power_progression);
+        $attackSpeedSlotsAuto.val(state.attack_speed_slots_auto);
+        $affixRarityScale.val(state.affix_rarity_scale ?? 0.1);
+        $flatDamagePower.val(state.flat_damage_power_progression);
+        $flatDamageMin.val(state.flat_damage_min ?? 2);
+        $flatDamageMedian.val(state.flat_damage_max);
+        $flatDamageJitter.val(state.flat_damage_jitter_pct ?? 0.2);
+        $flatDamageSlotsAuto.val(state.flat_damage_equipement_slots_auto ?? 0);
+        $flatDamageOneHandRatio.val(state.flat_damage_onehand_ratio ?? 0.75);
+        $modDamageMin.val(state.mod_damage_min);
+        $modDamageMax.val(state.mod_damage_max);
+        $modDamagePower.val(state.mod_damage_power_progression);
+        $modDamageJitter.val(state.mod_damage_jitter_pct);
+        $modDamageSlotsAuto.val(state.mod_damage_slots_auto);
+        $resistanceAffixMin.val(state.resistance_affix_min);
+        $resistanceAffixMax.val(state.resistance_affix_max);
+        $resistanceCurve.val(state.resistance_curve);
+        $resistanceJitter.val(state.resistance_jitter);
+        $resistanceCap.val(state.resistance_cap);
+        $resistanceSlotsAuto.val(state.resistance_slots_auto);
+        updateFlatDamageFormulaDisplay();
+        renderFlatDamageChart();
+        updateAttackSpeedFormulaDisplay();
+        renderAttackSpeedChart();
+        updateModDamageFormulaDisplay();
+        renderModDamageChart();
+        updateResistanceSlotsAutoCount();
+        renderResistanceChart();
+        renderLevelTimeChart();
+        renderDpsPlanningChart();
+        renderXpCurve();
+        $rarityWeightGrowth.val(state.rarity_weight_growth);
+        $additionalLootFactor.val(state.additional_loot_factor);
+        $xpBase.val(state.xp_base);
+        $xpGrowth.val(state.xp_growth);
+        $xpMultiplier.val(state.xp_multiplier);
+        renderTags("equipment_slots");
         renderTags("damage_types");
         renderTags("rarities");
         renderTags("items");
@@ -1622,6 +1634,23 @@ $(function () {
         renderAttackSpeedChart();
         validateConfig();
         renderPreview();
+        updateDesiredResistanceBounds();
+    }
+
+    syncFormFromState();
+
+    function replaceStateWith(newState) {
+        if (!newState || typeof newState !== "object") {
+            return false;
+        }
+        Object.keys(state).forEach((key) => delete state[key]);
+        Object.entries(newState).forEach(([key, value]) => {
+            state[key] = value;
+        });
+        normalizeStateStructure();
+        syncFormFromState();
+        return true;
+    }
 
     $levels.on("input", function () {
         const value = parseInt($(this).val(), 10);
@@ -2711,6 +2740,11 @@ $(function () {
         if (typeof compute === "function") {
             compute();
         }
+    });
+
+    $(document).on("lootgen:presetLoaded", (event) => {
+        const detail = event.originalEvent?.detail ?? event.detail;
+        replaceStateWith(detail);
     });
 
     // auto-compute on initial page load once all scripts are ready

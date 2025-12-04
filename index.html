@@ -8,7 +8,8 @@
   <link rel="stylesheet" href="css/nodal.css">
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"
     integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
-  <script src="js/defaults.js"></script>
+  <script src="presets/lootgen_default.js"></script>
+  <script src="presets/preset-manifest.js"></script>
   <script src="js/form.js"></script>
   <script src="js/lootgen.js"></script>
   <script src="js/nodal.js"></script>
@@ -28,6 +29,12 @@
       </ul>
       <div class="hero-actions">
         <button id="compute-btn-top" type="button" class="compute-btn">Compute all levels</button>
+        <div class="preset-panel">
+          <p class="preset-panel-title">Presets</p>
+          <div id="preset-list" class="preset-list">Loading presets…</div>
+          <button id="load-preset-btn" type="button" class="compute-btn load-preset-btn">Load preset JSON file</button>
+          <input type="file" id="load-preset-input" accept=".json,application/json" style="display:none" aria-hidden="true">
+        </div>
       </div>
     </div>
 
@@ -542,7 +549,7 @@
             </div>
           </div>
         </div>
-        <p>Translate these steps into your engine of choice by feeding the same <code>state</code> values (from <code>js/defaults.js</code>) into matching curve evaluators and slot filters.</p>
+        <p>Translate these steps into your engine of choice by feeding the same <code>state</code> values (from <code>presets/lootgen_default.js</code>) into matching curve evaluators and slot filters.</p>
         <div class="formula-actions">
           <button type="button" id="download-config-btn" class="compute-json-btn">Download configuration</button>
         </div>
@@ -573,9 +580,143 @@
         URL.revokeObjectURL(url);
       };
 
-      const button = document.getElementById("download-config-btn");
-      if (button) {
-        button.addEventListener("click", downloadStateConfig);
+      const downloadButton = document.getElementById("download-config-btn");
+      if (downloadButton) {
+        downloadButton.addEventListener("click", downloadStateConfig);
+      }
+
+      const loadPresetButton = document.getElementById("load-preset-btn");
+      const loadPresetInput = document.getElementById("load-preset-input");
+
+      const dispatchPresetLoaded = (payload) => {
+        const event = new CustomEvent("lootgen:presetLoaded", { detail: payload });
+        document.dispatchEvent(event);
+      };
+
+      const loadPresetFromUrl = (url, label = "") => {
+        if (!url) return;
+        fetch(url)
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`Failed to fetch preset (${response.status} ${response.statusText})`);
+            }
+            return response.json();
+          })
+          .then((payload) => {
+            if (!payload || typeof payload !== "object") {
+              throw new Error("Preset file did not return an object");
+            }
+            dispatchPresetLoaded(payload);
+          })
+          .catch((error) => {
+            console.error("Failed to load preset", label || url, error);
+            if (typeof window !== "undefined" && window.alert) {
+              window.alert(`Unable to load preset ${label || ""}`.trim());
+            }
+          });
+      };
+
+      const loadPresetEntry = (entry) => {
+        if (!entry) return;
+        if (entry.payload && typeof entry.payload === "object") {
+          dispatchPresetLoaded(entry.payload);
+          return;
+        }
+        const path = resolvePresetPath(entry);
+        if (!path) return;
+        loadPresetFromUrl(path, entry.label || entry.file || entry.name);
+      };
+
+      const presetListElement = document.getElementById("preset-list");
+      const presetManifestPath = "presets/preset-manifest.json";
+      const builtinPresetManifest = Array.isArray(window.builtinPresetManifest) ? window.builtinPresetManifest : null;
+
+      const resolvePresetPath = (entry) => {
+        if (!entry) return null;
+        if (entry.path) return entry.path;
+        const file = entry.file || entry.name;
+        if (!file) return null;
+        if (file.startsWith("http://") || file.startsWith("https://") || file.startsWith("presets/")) {
+          return file;
+        }
+        return `presets/${file}`;
+      };
+
+      const renderPresetList = (entries = []) => {
+        if (!presetListElement) return;
+        presetListElement.innerHTML = "";
+        if (!entries.length) {
+          presetListElement.textContent = "No presets available.";
+          return;
+        }
+          entries.forEach((entry) => {
+            const path = resolvePresetPath(entry);
+            if (!path && !entry.payload) return;
+            const label = entry.label || entry.name || entry.file || "Unnamed preset";
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "preset-item";
+            button.textContent = label;
+            button.addEventListener("click", () => loadPresetEntry(entry));
+            presetListElement.appendChild(button);
+          });
+      };
+
+      const renderBuiltinPresetList = () => {
+        if (!builtinPresetManifest) return false;
+        renderPresetList(builtinPresetManifest);
+        return true;
+      };
+
+      if (presetListElement) {
+        presetListElement.textContent = "Loading presets…";
+        fetch(presetManifestPath)
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`Unable to open ${presetManifestPath} (${response.status})`);
+            }
+            return response.json();
+          })
+          .then((manifest) => {
+            if (!Array.isArray(manifest)) {
+              throw new Error("Preset manifest must be an array");
+            }
+            renderPresetList(manifest);
+          })
+          .catch((error) => {
+            console.error("Failed to load preset manifest", error);
+            if (!renderBuiltinPresetList()) {
+              presetListElement.textContent = "Unable to list presets.";
+            }
+          });
+      }
+
+      const handlePresetFile = () => {
+        if (!loadPresetInput || !loadPresetInput.files || !loadPresetInput.files[0]) return;
+        const file = loadPresetInput.files[0];
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const parsed = JSON.parse(reader.result);
+            if (!parsed || typeof parsed !== "object") {
+              throw new Error("Preset does not contain an object");
+            }
+            dispatchPresetLoaded(parsed);
+          } catch (error) {
+            console.error("Failed to load preset", error);
+            if (typeof window !== "undefined" && window.alert) {
+              window.alert("Unable to parse the preset file. Please verify it is valid JSON.");
+            }
+          } finally {
+            loadPresetInput.value = "";
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      if (loadPresetButton && loadPresetInput) {
+        loadPresetButton.addEventListener("click", () => loadPresetInput.click());
+        loadPresetInput.addEventListener("change", handlePresetFile);
       }
     })();
   </script>
