@@ -124,16 +124,12 @@ function compute() {
     const jsonData = [];
 
     const runSeed = Math.random() * 1000000;
-    const pseudoRand = (seed) => {
-        const x = Math.sin(seed + runSeed) * 10000;
-        return x - Math.floor(x);
-    };
-    const applyPctJitter = (value, pct, seed) => {
-        const spread = Math.max(0, pct);
-        if (spread === 0) return value;
-        const offset = (pseudoRand(seed) * 2 - 1) * spread;
-        return Math.max(0, value * (1 + offset));
-    };
+    const pseudoRand = LootGenMethods.createPseudoRand(runSeed);
+    const applyPctJitter = (value, pct, seed) => LootGenMethods.applyPctJitter(value, pct, seed, pseudoRand);
+    const buildSlices = (count, maxSlice, seedBase) => LootGenMethods.buildSlices(count, maxSlice, seedBase, pseudoRand);
+    const computeItemLevel = (playerLevel, seed) => LootGenMethods.computeItemLevel(state, levels, playerLevel, seed, pseudoRand);
+    const pickCategory = (seed, currentLevel) => LootGenMethods.pickCategory(state, currentLevel, seed, pseudoRand);
+    const pickItem = (slot, seed) => LootGenMethods.pickItem(state, slot, seed, pseudoRand);
     const computeAttackSpeedBonusForLevel = (lvl) => {
         const asMin = Number(state.attack_speed_min ?? 0);
         const asMax = Number(state.attack_speed_max ?? asMin);
@@ -156,15 +152,7 @@ function compute() {
         const total = modMin + (modMax - modMin) * Math.pow(t, power);
         return total / modSlotDivider;
     };
-    const computeFlatDamageForLevel = (lvl) => {
-        const min = Number(state.flat_damage_min ?? 0);
-        const median = Number(state.flat_damage_max ?? min);
-        const power = Number(state.flat_damage_power_progression ?? 1);
-        const denom = Math.max(1, (state.levels || levels) - 1);
-        const t = Math.min(1, Math.max(0, (lvl - 1) / denom));
-        const total = min + (median - min) * Math.pow(t, power);
-        return total / flatSlotDivider;
-    };
+    const computeFlatDamageForLevel = (lvl) => LootGenMethods.computeFlatDamageForLevel(state, levels, lvl);
     const resistSlotsAllowed = (state.equipment_slots || []).filter((slot) => slot.allow_resist !== false).length;
     state.resistance_slots_auto = resistSlotsAllowed;
     const computeResistanceForLevel = (lvl) => {
@@ -182,83 +170,12 @@ function compute() {
         const offset = (pseudoRand(seed) * 2 - 1) * pct;
         return Math.max(0, value * (1 + offset));
     };
-    const buildSlices = (count, maxSlice, seedBase) => {
-        if (count <= 1) return [1];
-        const cap = Math.min(1, Math.max(0, maxSlice));
-        let weights = Array.from({ length: count }, (_, idx) => Math.max(1e-6, pseudoRand(seedBase + idx + 1)));
-        let sum = weights.reduce((a, b) => a + b, 0) || 1;
-        weights = weights.map((w) => w / sum);
-        let safety = 0;
-        while (safety < 10) {
-            let idxMax = 0;
-            for (let i = 1; i < weights.length; i += 1) {
-                if (weights[i] > weights[idxMax]) idxMax = i;
-            }
-            if (weights[idxMax] <= cap) break;
-            const excess = weights[idxMax] - cap;
-            weights[idxMax] = cap;
-            const othersTotal = weights.reduce((s, w, i) => (i === idxMax ? s : s + w), 0);
-            if (othersTotal <= 0) {
-                const even = (1 - cap) / Math.max(1, (count - 1));
-                weights = weights.map((_, i) => (i === idxMax ? cap : even));
-                break;
-            }
-            weights = weights.map((w, i) => (i === idxMax ? w : w + (w / othersTotal) * excess));
-            safety += 1;
-        }
-        const sum2 = weights.reduce((a, b) => a + b, 0) || 1;
-        return weights.map((w) => w / sum2);
-    };
     const formatTime = (sec) => {
         const minutes = sec / 60;
         const hours = Math.floor(minutes / 60);
         const mins = Math.round(minutes % 60);
         if (hours > 0) return `${hours}h ${mins}m`;
         return `${Math.round(minutes)}m`;
-    };
-
-    const computeItemLevel = (playerLevel, seed) => {
-        const variance = Math.max(0, Math.min(100, Number(state.item_level_variance ?? 0)));
-        if (variance === 0) return playerLevel;
-
-        // Calculate the range based on variance percentage
-        // variance% means items can be ±(variance% of max level) from player level
-        const maxLevel = state.levels || levels;
-        const rangeSize = Math.max(1, Math.round((variance / 100) * maxLevel));
-
-        // Calculate min and max item level with overlap
-        const minItemLevel = Math.max(1, playerLevel - Math.floor(rangeSize / 2));
-        const maxItemLevel = Math.min(maxLevel, playerLevel + Math.ceil(rangeSize / 2));
-
-        // Random roll within the range
-        const rand = pseudoRand(seed);
-        const itemLevel = Math.round(minItemLevel + rand * (maxItemLevel - minItemLevel));
-
-        return Math.max(1, Math.min(maxLevel, itemLevel));
-    };
-
-    const pickCategory = (seed, currentLevel) => {
-        const eligible = rarities.filter((cat) => (cat.unlock_level || 1) <= currentLevel);
-        if (!eligible.length) return { name: "none" };
-        const weights = eligible.map((cat) => {
-            const baseWeight = rarityBaseWeights[cat.name] ?? cat.rarity ?? 0;
-            return Math.max(0, baseWeight + rarityWeightGrowth * (currentLevel - 1));
-        });
-        const weightSum = weights.reduce((sum, w) => sum + w, 0);
-        const rand = pseudoRand(seed) * (weightSum || 1);
-        let acc = 0;
-        for (let i = 0; i < eligible.length; i += 1) {
-            acc += weights[i];
-            if (rand <= acc) return eligible[i];
-        }
-        return eligible[eligible.length - 1];
-    };
-
-    const pickItem = (slot, seed) => {
-        const available = items.filter((it) => it.equipment_slot === slot);
-        if (!available.length) return null;
-        const idx = Math.floor(pseudoRand(seed) * available.length) % available.length;
-        return available[idx];
     };
 
     let totalTimeCumulated = 0;

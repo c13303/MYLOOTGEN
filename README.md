@@ -12,6 +12,7 @@ Purpose: keep this repository description lean and structured so future AI assis
 ## Key folders
 - `presets/lootgen_default.js`: canonical state fixture (attributes, slots, damage types, rarities). All “default values” should live here; the form reads from it.  
 - `js/form.js`: UI glue and helper logic for the configuration form (syncs input, renders charts, manages tags, updates auto counts).  
+- `js/methods.js`: shared helpers used by `js/lootgen.js` (randomization utilities, loot generators) plus the public `LootGenMethods.generateLootPiece` API.  
 - `js/lootgen.js`: simulation engine (loot generation, DPS calculation, swap evaluation, UI rendering).  
 - `css/nodal.css`, `index.html`, `js/nodal.js`: supporting styles and glue for the SPA layout.
 - `presets/preset-manifest.json`: manifest that the UI reads to list built-in presets and their labels above the load button.
@@ -23,6 +24,7 @@ Purpose: keep this repository description lean and structured so future AI assis
 - **Rarity power**: each rarity/category carries a `rarity_power` multiplier (0.5…1) applied to every affix/value so commons naturally stay near the floor while uniques can tap the full curve.
 - **Damage types** now include attribute modifiers (`attribute_modifier`) and map to stats (force/intelligence) when computing DPS.
 - **Swap reason**: when a loot roll is equipped, the engine records the dominant stat change (flat/mod/AS) and shows the DPS delta to explain the swap.
+- **LootGenMethods**: `js/methods.js` exposes helpers such as `generateLootPiece(state, level, options)` and the deterministic PRNG builders used by `compute()`, so you can share the loot/rarity picking logic outside of the UI build.
  
 ## Tips for AI helpers
 1. **Refer to `state` values** before suggesting defaults because this is the single source of truth.  
